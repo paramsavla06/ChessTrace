@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from app.config.settings import DATABASE_URL
+from app.core.config import DATABASE_URL
 from app.database.base import Base
 
 # this is the Alembic Config object, which provides
