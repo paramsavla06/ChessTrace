@@ -17,6 +17,7 @@ venv/
 # Environment Variables
 # ==========================
 .env
+backend/.env
 
 # ==========================
 # VS Code
@@ -79,3 +80,8 @@ engines/
 # PostgreSQL
 # ==========================
 *.db
+
+# ==========================
+# Alembic Cache
+# ==========================
+backend/alembic/__pycache__
