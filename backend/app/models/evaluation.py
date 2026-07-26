@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from app.models.move import Move
 
-from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint, CheckConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
@@ -18,8 +18,17 @@ class Evaluation(Base, TimestampMixin):
         UniqueConstraint(
             "move_id",
             "depth",
+            "multipv",
             "engine_version",
-            name="uq_move_depth_engine",
+            name="uq_move_depth_multipv_engine",
+        ),
+        CheckConstraint(
+            "depth > 0",
+            name="ck_depth_positive",
+        ),
+        CheckConstraint(
+            "multipv >= 1",
+            name="ck_multipv_positive",
         ),
     )
 
@@ -30,7 +39,11 @@ class Evaluation(Base, TimestampMixin):
     )
 
     move_id: Mapped[int] = mapped_column(
-        ForeignKey("moves.id", ondelete="CASCADE"),
+        ForeignKey(
+            "moves.id",
+            ondelete="CASCADE",
+            name="fk_evaluations_move",
+        ),
         nullable=False,
         index=True,
     )
@@ -39,6 +52,13 @@ class Evaluation(Base, TimestampMixin):
         Integer,
         nullable=False,
         index=True,
+    )
+    
+    multipv: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=1,
+        server_default="1",
     )
 
     score_cp: Mapped[int | None] = mapped_column(
@@ -76,7 +96,7 @@ class Evaluation(Base, TimestampMixin):
         nullable=True,
     )
 
-    engine_version: Mapped[str | None] = mapped_column(
+    engine_version: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
     )

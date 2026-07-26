@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from app.models.game import Game
 
-from sqlalchemy import String, Integer
+from sqlalchemy import String, Integer, Index
 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -20,8 +20,13 @@ class Player(Base, TimestampMixin):
         autoincrement=True,
     )
 
-    name: Mapped[str] = mapped_column(
-        String(100),
+    display_name: Mapped[str] = mapped_column(
+        String(150),
+        nullable=False,
+    )
+    
+    normalized_name: Mapped[str] = mapped_column(
+        String(150),
         nullable=False,
         index=True,
     )
@@ -60,4 +65,4 @@ class Player(Base, TimestampMixin):
     )
 
     def __repr__(self) -> str:
-        return f"<Player(id={self.id}, name='{self.name}')>"
+        return f"<Player(id={self.id}, display_name='{self.display_name}')>"

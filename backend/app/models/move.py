@@ -12,6 +12,8 @@ from sqlalchemy import (
     String,
     Text,
     Enum,
+    Index,
+    UniqueConstraint
 )
 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -27,6 +29,19 @@ class MoveColor(enum.Enum):
 
 class Move(Base, TimestampMixin):
     __tablename__ = "moves"
+    
+    __table_args__ = (
+        Index(
+            "ix_moves_game_ply",
+            "game_id",
+            "ply",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "ply",
+            name="uq_game_ply",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(
         Integer,
@@ -35,7 +50,11 @@ class Move(Base, TimestampMixin):
     )
 
     game_id: Mapped[int] = mapped_column(
-        ForeignKey("games.id", ondelete="CASCADE"),
+        ForeignKey(
+            "games.id",
+            ondelete="CASCADE",
+            name="fk_moves_game",
+        ),
         nullable=False,
         index=True,
     )
@@ -57,7 +76,7 @@ class Move(Base, TimestampMixin):
     )
 
     san: Mapped[str] = mapped_column(
-        String(30),
+        String(40),
         nullable=False,
     )
 

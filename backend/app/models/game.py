@@ -7,7 +7,7 @@ if TYPE_CHECKING:
 from datetime import date
 import enum
 
-from sqlalchemy import Boolean, CheckConstraint, Date, Enum, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, CheckConstraint, Date, Enum, ForeignKey, Integer, String, Text, true
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
@@ -39,6 +39,7 @@ class Game(Base, TimestampMixin):
     __table_args__ = (
         CheckConstraint("white_elo >= 0", name="ck_white_elo_positive"),
         CheckConstraint("black_elo >= 0", name="ck_black_elo_positive"),
+        CheckConstraint("white_player_id <> black_player_id", name="ck_players_different"),
     )
     
     id: Mapped[int] = mapped_column(
@@ -49,6 +50,12 @@ class Game(Base, TimestampMixin):
     
     site: Mapped[str | None] = mapped_column(
         String(255),
+        nullable=True,
+        index=True,
+    )
+    
+    source: Mapped[str | None] = mapped_column(
+        String(100),
         nullable=True,
         index=True,
     )
@@ -70,13 +77,13 @@ class Game(Base, TimestampMixin):
     )
 
     white_player_id: Mapped[int] = mapped_column(
-        ForeignKey("players.id"),
+        ForeignKey("players.id", name="fk_games_white_player"),
         nullable=False,
         index=True,
     )
 
     black_player_id: Mapped[int] = mapped_column(
-        ForeignKey("players.id"),
+        ForeignKey("players.id", name="fk_games_black_player"),
         nullable=False,
         index=True,
     )
@@ -113,6 +120,11 @@ class Game(Base, TimestampMixin):
         String(255),
         nullable=True,
     )
+    
+    annotator: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
 
     time_control: Mapped[str | None] = mapped_column(
         String(30),
@@ -130,13 +142,14 @@ class Game(Base, TimestampMixin):
         nullable=False,
         index=True,
         default=True,
-        server_default="true",
+        server_default=true(),
     )
 
     variant: Mapped[Variant] = mapped_column(
         Enum(Variant, name="variant_enum"),
         nullable=False,
         default=Variant.STANDARD,
+        server_default=Variant.STANDARD.name,
         index=True,
     )
 
