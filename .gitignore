@@ -72,6 +72,12 @@ data/cache/
 !data/cache/.gitkeep
 
 # ==========================
+# Test PGNs
+# ==========================
+sample*.pgn
+*.pgn.zst
+
+# ==========================
 # Stockfish
 # ==========================
 engines/
