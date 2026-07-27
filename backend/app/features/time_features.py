@@ -70,8 +70,16 @@ def extract_time_features(
     TimeFeatures
         Extracted time features DTO.
     """
-    think_time = float(move.time_spent or 0.0)
-    time_remaining = float(move.clock_after or 0.0)
+    think_time = (
+        float(move.time_spent) / 1000.0
+        if move.time_spent is not None
+        else 0.0
+    )
+    time_remaining = (
+        float(move.clock_after) / 1000.0
+        if move.clock_after is not None
+        else 0.0
+    )
 
     is_120s = time_remaining < 120.0 and time_remaining > 0.0
     is_60s = time_remaining < 60.0 and time_remaining > 0.0
@@ -80,7 +88,7 @@ def extract_time_features(
     time_usage_ratio = think_time / max(time_remaining, 1.0)
 
     prior_think_times = [
-        float(m.time_spent)
+        float(m.time_spent) / 1000.0
         for m in previous_moves_same_color
         if m.time_spent is not None
     ]
