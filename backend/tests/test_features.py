@@ -27,8 +27,8 @@ def test_time_features_extraction():
         san="Nf3",
         uci="g1f3",
         fen="rnbqkb1r/pppp1ppp/5n2/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3",
-        time_spent=12,
-        clock_after=85,
+        time_spent=12000,
+        clock_after=85000,
     )
 
     prev_move = Move(
@@ -39,8 +39,8 @@ def test_time_features_extraction():
         san="e4",
         uci="e2e4",
         fen="rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
-        time_spent=8,
-        clock_after=97,
+        time_spent=8000,
+        clock_after=97000,
     )
 
     features = extract_time_features(
