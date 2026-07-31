@@ -59,7 +59,8 @@ def fetch_lichess_games(
         service = LichessService(db)
         return service.import_user_games(username, max_games=max_games)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        status_code = 429 if "rate limit" in str(exc).lower() else 404
+        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(
             status_code=400, detail=f"Failed fetching games for Lichess user '{username}': {exc}"

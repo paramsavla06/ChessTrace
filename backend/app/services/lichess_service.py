@@ -48,6 +48,7 @@ class LichessService:
         ImportSummary
             Summary of import operation.
         """
+        import os
         import httpx
         url = f"https://lichess.org/api/games/user/{username}"
         params = {
@@ -61,6 +62,10 @@ class LichessService:
             "Accept": "application/x-chess-pgn",
         }
 
+        api_token = os.getenv("LICHESS_API_TOKEN")
+        if api_token:
+            headers["Authorization"] = f"Bearer {api_token}"
+
         summary = ImportSummary()
 
         logger.info("Fetching up to %d Lichess games for user '%s'", max_games, username)
@@ -70,6 +75,9 @@ class LichessService:
                 response = client.get(url, params=params, headers=headers, follow_redirects=True)
                 if response.status_code == 404:
                     raise ValueError(f"Lichess user '{username}' not found or has no public games.")
+                if response.status_code == 429:
+                    retry_sec = response.headers.get("Retry-After", "60")
+                    raise ValueError(f"Lichess rate limit exceeded (HTTP 429). Please wait {retry_sec} seconds before trying again.")
                 response.raise_for_status()
                 pgn_text = response.text
 
