@@ -56,7 +56,10 @@ class LichessService:
             "evals": "false",
             "opening": "true",
         }
-        headers = {"Accept": "application/x-ndjson"}
+        headers = {
+            "User-Agent": "ChessTrace/1.0 (https://github.com/paramsavla06/ChessTrace)",
+            "Accept": "application/x-chess-pgn",
+        }
 
         summary = ImportSummary()
 
@@ -64,9 +67,14 @@ class LichessService:
 
         try:
             with httpx.Client(timeout=30.0) as client:
-                response = client.get(url, params=params, headers=headers)
+                response = client.get(url, params=params, headers=headers, follow_redirects=True)
+                if response.status_code == 404:
+                    raise ValueError(f"Lichess user '{username}' not found or has no public games.")
                 response.raise_for_status()
                 pgn_text = response.text
+
+            if not pgn_text.strip():
+                return summary
 
             # Stream games from pgn_text
             import io
