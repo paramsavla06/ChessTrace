@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 import chess
@@ -16,8 +17,12 @@ import chess
 from app.core.constants import ELO_BUCKETS
 from app.features.position_features import PositionFeatures
 from app.features.time_features import TimeFeatures
+from app.ml.collapse_model import WinCollapsePredictor
 
 logger = logging.getLogger(__name__)
+
+BASE_PROJECT_DIR = Path(__file__).resolve().parents[3]
+WEIGHTS_DIR = BASE_PROJECT_DIR / "backend/app/ml/weights"
 
 
 @dataclass
@@ -44,6 +49,24 @@ class EloSimulatorManager:
 
     def __init__(self) -> None:
         self.elo_buckets = ELO_BUCKETS
+        self.elo_models: dict[str, WinCollapsePredictor] = {}
+        self._load_elo_models()
+
+    def _load_elo_models(self) -> None:
+        """Load trained XGBoost weights for each ELO bucket if available."""
+        if not WEIGHTS_DIR.exists():
+            return
+
+        for bucket in self.elo_buckets:
+            safe_bucket_name = bucket.replace("<", "under_").replace("+", "_plus").replace("-", "_to_")
+            weights_file = WEIGHTS_DIR / f"elo_xgboost_{safe_bucket_name}.json"
+            if weights_file.exists():
+                try:
+                    predictor = WinCollapsePredictor.load(weights_file)
+                    self.elo_models[bucket] = predictor
+                    logger.info("Loaded trained ELO model artifact for bucket '%s'", bucket)
+                except Exception as exc:
+                    logger.warning("Could not load ELO model for %s: %s", bucket, exc)
 
     def predict_for_elo(
         self,
@@ -62,18 +85,12 @@ class EloSimulatorManager:
                 fen=board.fen(),
             )
 
-        # Baseline engine / candidate move probability heuristics
         candidates: list[CandidateMovePrediction] = []
-
-        # Sort moves deterministically
         legal_moves_sorted = sorted(legal_moves, key=lambda m: m.uci())
-        move_count = len(legal_moves_sorted)
 
-        # Higher ELO brackets concentrate probability on top tactical moves
         elo_idx = self.elo_buckets.index(target_elo_bucket) if target_elo_bucket in self.elo_buckets else 3
         sharpness_factor = 0.5 + (elo_idx * 0.1)
 
-        # Base expected think time per move
         base_think = 3.0 + (time_feats.time_remaining / 30.0)
         if time_feats.is_time_pressure_30s:
             base_think = max(0.5, base_think * 0.3)

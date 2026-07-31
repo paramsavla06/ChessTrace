@@ -165,8 +165,9 @@ class WinCollapsePredictor:
         path.parent.mkdir(parents=True, exist_ok=True)
         self.model.save_model(str(path))
 
-    def load(self, path: Path) -> None:
-        """Load model artifact from disk."""
+    @classmethod
+    def load(cls, path: Path) -> WinCollapsePredictor:
+        """Load model artifact from disk and return new predictor instance."""
         model = xgb.XGBRegressor()
         model.load_model(str(path))
-        self.model = model
+        return cls(model=model)

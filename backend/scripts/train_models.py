@@ -2,8 +2,8 @@
 Model Training Script for ChessTrace.
 
 Loads processed feature Parquet datasets from data/processed/, fits the
-WinCollapsePredictor XGBoost model, evaluates performance metrics, and saves the
-model artifact to app/ml/weights/collapse_xgboost.json.
+WinCollapsePredictor general XGBoost model, fits 7 rating-bracket XGBoost models for
+the ELO simulation matrix, and saves all model artifacts to app/ml/weights/.
 
 Usage:
     python scripts/train_models.py
@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from app.core.constants import ELO_BUCKETS
 from app.ml.collapse_model import WinCollapsePredictor
 
 logging.basicConfig(
@@ -26,7 +27,8 @@ logger = logging.getLogger("train_models")
 
 BASE_PROJECT_DIR = Path(__file__).resolve().parents[2]
 PROCESSED_DIR = BASE_PROJECT_DIR / "data/processed"
-MODEL_OUTPUT_PATH = BASE_PROJECT_DIR / "backend/app/ml/weights/collapse_xgboost.json"
+WEIGHTS_DIR = BASE_PROJECT_DIR / "backend/app/ml/weights"
+MODEL_OUTPUT_PATH = WEIGHTS_DIR / "collapse_xgboost.json"
 
 
 def train():
@@ -43,17 +45,32 @@ def train():
     dataset = pd.concat(dfs, ignore_index=True)
 
     logger.info("Dataset loaded successfully! Total move samples (plies): %d", len(dataset))
-    logger.info("Dataset columns: %s", list(dataset.columns))
+    WEIGHTS_DIR.mkdir(parents=True, exist_ok=True)
 
-    logger.info("Initializing and training WinCollapsePredictor (XGBoost)...")
-    predictor = WinCollapsePredictor()
-    metrics = predictor.train_on_dataframe(dataset)
+    # 1. Train General Win/Collapse XGBoost Model
+    logger.info("Initializing and training General WinCollapsePredictor (XGBoost)...")
+    general_predictor = WinCollapsePredictor()
+    general_metrics = general_predictor.train_on_dataframe(dataset)
+    general_predictor.save(MODEL_OUTPUT_PATH)
+    logger.info("Saved general trained model artifact to %s (RMSE: %.4f)", MODEL_OUTPUT_PATH.name, general_metrics.get("rmse", 0))
 
-    logger.info("Training finished! Metrics: %s", metrics)
+    # 2. Train 7 ELO Bracket Models for ELO Simulation Matrix
+    if "elo_bucket" in dataset.columns:
+        logger.info("Training ELO-Bracket Segmented XGBoost Models...")
+        for bucket in ELO_BUCKETS:
+            elo_df = dataset[dataset["elo_bucket"] == bucket]
+            if len(elo_df) < 100:
+                logger.warning("Not enough samples for ELO bucket %s (count: %d), skipping.", bucket, len(elo_df))
+                continue
 
-    MODEL_OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    predictor.save(MODEL_OUTPUT_PATH)
-    logger.info("Saved trained model artifact to %s", MODEL_OUTPUT_PATH.absolute())
+            logger.info("Training XGBoost model for ELO bucket '%s' (%d samples)...", bucket, len(elo_df))
+            elo_predictor = WinCollapsePredictor()
+            elo_metrics = elo_predictor.train_on_dataframe(elo_df)
+
+            safe_bucket_name = bucket.replace("<", "under_").replace("+", "_plus").replace("-", "_to_")
+            elo_weights_path = WEIGHTS_DIR / f"elo_xgboost_{safe_bucket_name}.json"
+            elo_predictor.save(elo_weights_path)
+            logger.info("Saved ELO model artifact '%s' (RMSE: %.4f)", elo_weights_path.name, elo_metrics.get("rmse", 0))
 
 
 if __name__ == "__main__":
