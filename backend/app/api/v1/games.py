@@ -163,3 +163,42 @@ def list_players(
         }
         for p in players
     ]
+
+
+@router.get("/players/{username}", summary="Get player details")
+def get_player(username: str, db: Session = Depends(get_db)) -> dict[str, Any]:
+    """Get single player profile by username with total games count."""
+    from app.repositories.player_repository import PlayerRepository
+    from app.repositories.game_repository import GameRepository
+
+    player_repo = PlayerRepository(db)
+    player = player_repo.get_by_name(username)
+    if not player:
+        raise HTTPException(status_code=404, detail=f"Player '{username}' not found")
+
+    game_repo = GameRepository(db)
+    games = game_repo.list_games(username=username, limit=1000)
+
+    return {
+        "id": player.id,
+        "name": player.name,
+        "normalized_name": player.normalized_name,
+        "fide_id": player.fide_id,
+        "title": player.title,
+        "country": player.country,
+        "total_games_stored": len(games),
+    }
+
+
+@router.delete("/games/{game_id}", summary="Delete game by ID")
+def delete_game(game_id: int, db: Session = Depends(get_db)) -> dict[str, str]:
+    """Delete a stored game and its associated moves and evaluations by ID."""
+    repo = GameRepository(db)
+    game = repo.get_by_id(game_id)
+    if not game:
+        raise HTTPException(status_code=404, detail=f"Game ID {game_id} not found")
+
+    db.delete(game)
+    db.commit()
+
+    return {"message": f"Successfully deleted game ID {game_id}"}
