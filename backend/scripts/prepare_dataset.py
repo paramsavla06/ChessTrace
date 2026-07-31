@@ -33,8 +33,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger("prepare_dataset")
 
-DEFAULT_PGN_PATH = Path("data/raw/lichess_db_standard_rated_2017-11.pgn")
-OUTPUT_DIR = Path("data/processed")
+BASE_PROJECT_DIR = Path(__file__).resolve().parents[2]
+DEFAULT_PGN_PATH = BASE_PROJECT_DIR / "data/raw/lichess_db_standard_rated_2017-11.pgn"
+OUTPUT_DIR = BASE_PROJECT_DIR / "data/processed"
 CHUNK_SIZE = 10000  # Number of games per Parquet chunk file
 
 

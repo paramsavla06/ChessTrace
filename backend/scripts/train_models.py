@@ -24,8 +24,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger("train_models")
 
-PROCESSED_DIR = Path("data/processed")
-MODEL_OUTPUT_PATH = Path("backend/app/ml/weights/collapse_xgboost.json")
+BASE_PROJECT_DIR = Path(__file__).resolve().parents[2]
+PROCESSED_DIR = BASE_PROJECT_DIR / "data/processed"
+MODEL_OUTPUT_PATH = BASE_PROJECT_DIR / "backend/app/ml/weights/collapse_xgboost.json"
 
 
 def train():
