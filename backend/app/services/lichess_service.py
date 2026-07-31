@@ -11,6 +11,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.core.config import LICHESS_API_TOKEN
 from app.schemas.import_summary import ImportSummary
 from app.services.import_services import ImportService
 from app.utils.chess_utils import compute_pgn_hash
@@ -62,7 +63,7 @@ class LichessService:
             "Accept": "application/x-chess-pgn",
         }
 
-        api_token = os.getenv("LICHESS_API_TOKEN")
+        api_token = LICHESS_API_TOKEN or os.getenv("LICHESS_API_TOKEN")
         if api_token:
             headers["Authorization"] = f"Bearer {api_token}"
 
