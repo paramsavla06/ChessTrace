@@ -81,6 +81,7 @@ sample*.pgn
 # Stockfish
 # ==========================
 engines/
+*.exe
 
 # ==========================
 # PostgreSQL
