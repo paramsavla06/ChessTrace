@@ -206,7 +206,11 @@ def extract_game_rows(game: chess.pgn.Game) -> list[dict[str, Any]]:
     return rows
 
 
-def process_pgn_file(pgn_path: Path, max_games: int | None = None) -> None:
+def process_pgn_file(
+    pgn_path: Path,
+    max_games: int | None = None,
+    stratified_target: int = 0,
+) -> None:
     """Stream PGN file and export extracted feature tables to Parquet."""
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -223,6 +227,16 @@ def process_pgn_file(pgn_path: Path, max_games: int | None = None) -> None:
     chunk_index = 1
     current_chunk_rows: list[dict[str, Any]] = []
 
+    elo_counts = {
+        "<1000": 0,
+        "1000-1200": 0,
+        "1200-1400": 0,
+        "1400-1600": 0,
+        "1600-1800": 0,
+        "1800-2000": 0,
+        "2000+": 0,
+    }
+
     buffered_lines: list[str] = []
 
     with pgn_path.open("r", encoding="utf-8", errors="replace") as file_stream:
@@ -235,6 +249,21 @@ def process_pgn_file(pgn_path: Path, max_games: int | None = None) -> None:
             if game is None:
                 continue
 
+            if stratified_target > 0:
+                w_elo = parse_int(game.headers.get("WhiteElo"))
+                b_elo = parse_int(game.headers.get("BlackElo"))
+                w_bucket = get_elo_bucket(w_elo)
+                b_bucket = get_elo_bucket(b_elo)
+
+                if (
+                    elo_counts[w_bucket] >= stratified_target
+                    and elo_counts[b_bucket] >= stratified_target
+                ):
+                    continue
+
+                elo_counts[w_bucket] += 1
+                elo_counts[b_bucket] += 1
+
             game_rows = extract_game_rows(game)
             if not game_rows:
                 continue
@@ -244,7 +273,12 @@ def process_pgn_file(pgn_path: Path, max_games: int | None = None) -> None:
             total_plies += len(game_rows)
 
             if games_count % 1000 == 0:
-                logger.info("Processed %d games (%d plies)...", games_count, total_plies)
+                logger.info(
+                    "Processed %d games (%d plies) | Elo counts: %s",
+                    games_count,
+                    total_plies,
+                    elo_counts if stratified_target > 0 else "N/A",
+                )
 
             if games_count % CHUNK_SIZE == 0:
                 chunk_file = OUTPUT_DIR / f"features_chunk_{chunk_index:03d}.parquet"
@@ -255,6 +289,10 @@ def process_pgn_file(pgn_path: Path, max_games: int | None = None) -> None:
                 current_chunk_rows = []
 
             if max_games and games_count >= max_games:
+                break
+
+            if stratified_target > 0 and all(c >= stratified_target for c in elo_counts.values()):
+                logger.info("All ELO brackets reached target count of %d games!", stratified_target)
                 break
 
     # Save remaining rows
@@ -295,4 +333,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     max_g = None if args.max_games <= 0 else args.max_games
-    process_pgn_file(args.pgn, max_games=max_g)
+    process_pgn_file(args.pgn, max_games=max_g, stratified_target=args.stratified_target)
