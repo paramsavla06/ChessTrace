@@ -286,6 +286,12 @@ if __name__ == "__main__":
         default=10000,
         help="Maximum games to process (default: 10000, set to 0 for unlimited)",
     )
+    parser.add_argument(
+        "--stratified-target",
+        type=int,
+        default=0,
+        help="Target games per ELO bracket for stratified sampling (e.g. 2000)",
+    )
     args = parser.parse_args()
 
     max_g = None if args.max_games <= 0 else args.max_games
