@@ -138,3 +138,28 @@ def get_game_timeline(
             prev_black.append(move)
 
     return timeline
+
+
+@router.get("/players", summary="List stored players")
+def list_players(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+) -> list[dict[str, Any]]:
+    """List players stored in the database with optional pagination."""
+    from app.repositories.player_repository import PlayerRepository
+
+    repo = PlayerRepository(db)
+    players = repo.list_players(skip=skip, limit=limit)
+
+    return [
+        {
+            "id": p.id,
+            "name": p.name,
+            "normalized_name": p.normalized_name,
+            "fide_id": p.fide_id,
+            "title": p.title,
+            "country": p.country,
+        }
+        for p in players
+    ]
