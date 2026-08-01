@@ -163,9 +163,13 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
     e.preventDefault();
     if (!currentMove || !altMoveInput.trim()) return;
 
+    const prevFen = currentIndex > 0
+      ? timeline[currentIndex - 1].fen
+      : 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+
     try {
       const res = await api.post<WhatIfResponse>('/analysis/what-if', {
-        fen: currentMove.fen,
+        fen: prevFen,
         played_move_uci: currentMove.uci,
         alternative_move_uci: altMoveInput.trim(),
         think_time_sec: currentMove.think_time_sec,
