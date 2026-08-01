@@ -85,7 +85,7 @@ class EloSimulatorManager:
                 fen=board.fen(),
             )
 
-        # Evaluate legal moves using Stockfish 18 at depth=16
+        # Evaluate legal moves using Stockfish 18 at fast depth=12 (150ms)
         from app.core.config import STOCKFISH_PATH
         best_move_uci = None
         if STOCKFISH_PATH and Path(STOCKFISH_PATH).exists():
@@ -93,7 +93,7 @@ class EloSimulatorManager:
                 from app.engine.stockfish import StockfishEngine
 
                 engine = StockfishEngine(Path(STOCKFISH_PATH))
-                info = engine.analyse(board, depth=16)
+                info = engine.analyse(board, depth=12)
                 if info.get("pv"):
                     best_move_uci = info["pv"][0].uci()
                 engine.quit()
@@ -116,10 +116,20 @@ class EloSimulatorManager:
             # Piece development (Knights & Bishops)
             piece = board.piece_at(m.from_square)
             if piece and piece.piece_type in (chess.KNIGHT, chess.BISHOP):
-                score += 20.0
+                score += 25.0
+                # Reward pinning bishop move (Bg4 / Bg5)
+                if piece.piece_type == chess.BISHOP and m.to_square in (chess.G4, chess.G5, chess.B4, chess.B5):
+                    score += 30.0
 
+            # Captures: only reward safe captures, penalize hanging piece captures (like Nxe5 into defended pawn)
             if board.is_capture(m):
-                score += 15.0
+                board.push(m)
+                is_defender_present = any(board.is_capture(op) and op.to_square == m.to_square for op in board.legal_moves)
+                board.pop()
+                if is_defender_present and piece and piece.piece_type in (chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN):
+                    score -= 80.0
+                else:
+                    score += 15.0
 
             # Penalize queen checks that hang pieces
             if board.gives_check(m):

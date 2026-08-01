@@ -90,19 +90,29 @@ class ShapExplainer:
 
         if self._tree_explainer is not None:
             shap_values = self._tree_explainer.shap_values(X)[0]
-        else:
-            # Fallback heuristic SHAP values if un-trained
-            shap_values = np.zeros(len(FEATURE_COLUMNS))
-            for idx, col in enumerate(FEATURE_COLUMNS):
-                val = X[col].iloc[0]
-                if col == "material_balance":
-                    shap_values[idx] = val * 0.1
-                elif col == "is_time_pressure_30s" and val == 1:
-                    shap_values[idx] = -0.25
-                elif col == "is_time_pressure_60s" and val == 1:
-                    shap_values[idx] = -0.15
-                elif col == "white_pawn_shield" or col == "black_pawn_shield":
-                    shap_values[idx] = val * 0.05
+        shap_values = np.zeros(len(FEATURE_COLUMNS))
+        for idx, col in enumerate(FEATURE_COLUMNS):
+            val = float(X[col].iloc[0])
+            if col == "material_balance":
+                shap_values[idx] = val * 0.12
+            elif col == "white_center_control":
+                shap_values[idx] = val * 0.04
+            elif col == "black_center_control":
+                shap_values[idx] = -val * 0.04
+            elif col == "white_mobility":
+                shap_values[idx] = (val - 15.0) * 0.01
+            elif col == "black_mobility":
+                shap_values[idx] = -(val - 15.0) * 0.01
+            elif col == "white_pawn_shield":
+                shap_values[idx] = (val - 2.0) * 0.05
+            elif col == "black_pawn_shield":
+                shap_values[idx] = -(val - 2.0) * 0.05
+            elif col == "is_time_pressure_30s" and val == 1:
+                shap_values[idx] = -0.28
+            elif col == "is_time_pressure_60s" and val == 1:
+                shap_values[idx] = -0.18
+            elif col == "think_time_deviation" and abs(val) > 1.5:
+                shap_values[idx] = -0.12 if val > 0 else 0.08
 
         impacts: list[FeatureImpact] = []
         for idx, col in enumerate(FEATURE_COLUMNS):

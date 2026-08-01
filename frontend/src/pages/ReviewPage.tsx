@@ -242,29 +242,39 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
         <div className="lg:col-span-5 space-y-6">
           <div className="flex items-center justify-center gap-3">
             {/* Vertical Evaluation Bar */}
-            <div className="w-6 h-[440px] bg-slate-950 rounded-xl overflow-hidden border border-slate-800 flex flex-col justify-between relative shadow-2xl">
-              {/* Black Advantage (Top) */}
-              <div
-                className="bg-slate-900 w-full transition-all duration-500 ease-out"
-                style={{ height: `${100 - Math.max(8, Math.min(92, 50 + ((prediction ? (prediction.win_probability * 2 - 1) * 3.5 : 0.21) * 10)))}%` }}
-              />
-              {/* White Advantage (Bottom) */}
-              <div
-                className="bg-slate-100 w-full transition-all duration-500 ease-out"
-                style={{ height: `${Math.max(8, Math.min(92, 50 + ((prediction ? (prediction.win_probability * 2 - 1) * 3.5 : 0.21) * 10)))}%` }}
-              />
-              {/* Centered Eval Score Badge */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <span className={`text-[10px] font-extrabold font-mono px-1 py-0.5 rounded shadow ${
-                  (prediction ? (prediction.win_probability * 2 - 1) * 3.5 : 0.21) >= 0
-                    ? 'bg-slate-900 text-white border border-slate-700'
-                    : 'bg-white text-slate-900 border border-slate-300'
-                }`}>
-                  {(prediction ? (prediction.win_probability * 2 - 1) * 3.5 : 0.21) >= 0 ? '+' : ''}
-                  {(prediction ? (prediction.win_probability * 2 - 1) * 3.5 : 0.21).toFixed(2)}
-                </span>
-              </div>
-            </div>
+            {(() => {
+              const rawEval = prediction ? (prediction.win_probability * 2 - 1) * 3.5 : 0.25;
+              const evalScore = (currentMove as any)?.eval_cp !== undefined && (currentMove as any)?.eval_cp !== null
+                ? ((currentMove as any).eval_cp / 100.0)
+                : rawEval;
+              const whitePct = Math.max(8, Math.min(92, 50 + (evalScore * 10)));
+              const evalDisplay = `${evalScore >= 0 ? '+' : ''}${evalScore.toFixed(2)}`;
+
+              return (
+                <div className="w-6 h-[440px] bg-slate-950 rounded-xl overflow-hidden border border-slate-800 flex flex-col justify-between relative shadow-2xl">
+                  {/* Black Advantage (Top) */}
+                  <div
+                    className="bg-slate-900 w-full transition-all duration-300 ease-out"
+                    style={{ height: `${100 - whitePct}%` }}
+                  />
+                  {/* White Advantage (Bottom) */}
+                  <div
+                    className="bg-slate-100 w-full transition-all duration-300 ease-out"
+                    style={{ height: `${whitePct}%` }}
+                  />
+                  {/* Centered Eval Score Badge */}
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <span className={`text-[10px] font-extrabold font-mono px-1 py-0.5 rounded shadow ${
+                      evalScore >= 0
+                        ? 'bg-slate-900 text-white border border-slate-700'
+                        : 'bg-white text-slate-900 border border-slate-300'
+                    }`}>
+                      {evalDisplay}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Interactive Chessboard */}
             <div className="glass-panel p-4 rounded-2xl w-full max-w-[440px] aspect-square flex items-center justify-center glow-indigo">
