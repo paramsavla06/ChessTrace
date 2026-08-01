@@ -18,7 +18,7 @@ PROJECT_NAME: str = "ChessTrace"
 API_V1_STR: str = "/api/v1"
 
 DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./chesstrace.db")
-STOCKFISH_PATH: str = os.getenv("STOCKFISH_PATH", "stockfish")
+STOCKFISH_PATH: str = os.getenv("STOCKFISH_PATH", "./stockfish_bin")
 LICHESS_API_TOKEN: str = os.getenv("LICHESS_API_TOKEN", "")
 
 BACKEND_CORS_ORIGINS: list[str] = [
