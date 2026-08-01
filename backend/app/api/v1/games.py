@@ -4,11 +4,13 @@ Game retrieval endpoints.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 import chess
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.core.config import STOCKFISH_PATH
 from app.database.dependencies import get_db
 from app.features.position_features import extract_position_features
 from app.features.time_features import extract_time_features
