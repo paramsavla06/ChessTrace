@@ -191,77 +191,154 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid FEN string.")
 
-    predictor = WinCollapsePredictor()
-    explainer = ShapExplainer(predictor)
-
-    # Played move state
-    board_played = board.copy()
+    # --- Parse PLAYED move ---
+    played_move = None
     try:
-        board_played.push_uci(req.played_move_uci)
-    except ValueError:
-        raise HTTPException(status_code=400, detail=f"Invalid played move UCI '{req.played_move_uci}'")
+        played_move = board.parse_uci(req.played_move_uci)
+    except Exception:
+        try:
+            played_move = board.parse_san(req.played_move_uci)
+        except Exception:
+            raise HTTPException(status_code=400, detail=f"Invalid played move '{req.played_move_uci}'")
 
-    pos_played = extract_position_features(board_played)
+    if played_move not in board.legal_moves:
+        raise HTTPException(status_code=400, detail=f"Played move '{req.played_move_uci}' is not legal in this position.")
+
+    played_san = board.san(played_move)
+
+    # --- Parse ALTERNATIVE move (supports SAN like 'Ke2', 'g4' or UCI like 'e1e2', 'g3g4') ---
+    alt_move = None
+    # Try SAN first (most natural for users)
+    try:
+        alt_move = board.parse_san(req.alternative_move_uci)
+    except Exception:
+        pass
+    # Then try UCI
+    if alt_move is None:
+        try:
+            alt_move = board.parse_uci(req.alternative_move_uci)
+        except Exception:
+            pass
+
+    if alt_move is None or alt_move not in board.legal_moves:
+        # Build a helpful error listing some legal moves
+        legal_sans = [board.san(m) for m in list(board.legal_moves)[:8]]
+        raise HTTPException(
+            status_code=400,
+            detail=f"'{req.alternative_move_uci}' is not a legal move. Try SAN (e.g. {', '.join(legal_sans[:4])}) or UCI (e.g. {list(board.legal_moves)[0].uci()})."
+        )
+
+    alt_san = board.san(alt_move)
+
+    # --- Evaluate BOTH resulting positions with Stockfish ---
+    evaluator = None
+    try:
+        engine = StockfishEngine(STOCKFISH_PATH)
+        evaluator = Evaluator(engine)
+    except Exception:
+        pass
+
+    # Played move position
+    board_played = board.copy()
+    board_played.push(played_move)
+    played_eval_cp = None
+    if evaluator:
+        try:
+            ev = evaluator.evaluate(board_played, depth=10)
+            raw = ev.cp_score
+            if raw is not None:
+                # Normalize to side-that-just-moved perspective
+                played_eval_cp = raw if board_played.turn == chess.BLACK else -raw
+                if board.turn == chess.BLACK:
+                    played_eval_cp = -played_eval_cp
+        except Exception:
+            pass
+
+    # Alternative move position
+    board_alt = board.copy()
+    board_alt.push(alt_move)
+    alt_eval_cp = None
+    if evaluator:
+        try:
+            ev = evaluator.evaluate(board_alt, depth=10)
+            raw = ev.cp_score
+            if raw is not None:
+                alt_eval_cp = raw if board_alt.turn == chess.BLACK else -raw
+                if board.turn == chess.BLACK:
+                    alt_eval_cp = -alt_eval_cp
+        except Exception:
+            pass
+
+    # Cleanup engine
+    if evaluator and hasattr(evaluator, "_engine") and evaluator._engine:
+        try:
+            evaluator._engine.quit()
+        except Exception:
+            pass
+
+    # --- Run predictor for both ---
+    predictor = WinCollapsePredictor()
 
     from app.models.move import Move, MoveColor
+    color = MoveColor.WHITE if board.turn == chess.WHITE else MoveColor.BLACK
+
+    pos_played = extract_position_features(board_played)
     move_played_obj = Move(
-        move_number=1,
-        ply=1,
-        color=MoveColor.WHITE if board.turn == chess.WHITE else MoveColor.BLACK,
-        san="played",
-        uci=req.played_move_uci,
-        fen=board_played.fen(),
-        time_spent=int(req.think_time_sec * 1000),
+        move_number=1, ply=1, color=color, san=played_san, uci=played_move.uci(),
+        fen=board_played.fen(), time_spent=int(req.think_time_sec * 1000),
         clock_after=int(req.time_remaining_sec * 1000),
     )
     time_played = extract_time_features(move_played_obj, previous_moves_same_color=[])
-    pred_played = predictor.predict(pos_played, time_played, eval_cp=req.eval_cp)
-
-    # Alternative move state
-    board_alt = board.copy()
-    try:
-        board_alt.push_uci(req.alternative_move_uci)
-    except ValueError:
-        raise HTTPException(
-            status_code=400, detail=f"Invalid alternative move UCI '{req.alternative_move_uci}'"
-        )
+    pred_played = predictor.predict(pos_played, time_played, eval_cp=played_eval_cp or req.eval_cp)
 
     pos_alt = extract_position_features(board_alt)
     move_alt_obj = Move(
-        move_number=1,
-        ply=1,
-        color=MoveColor.WHITE if board.turn == chess.WHITE else MoveColor.BLACK,
-        san="alt",
-        uci=req.alternative_move_uci,
-        fen=board_alt.fen(),
-        time_spent=int(req.think_time_sec * 1000),
+        move_number=1, ply=1, color=color, san=alt_san, uci=alt_move.uci(),
+        fen=board_alt.fen(), time_spent=int(req.think_time_sec * 1000),
         clock_after=int(req.time_remaining_sec * 1000),
     )
     time_alt = extract_time_features(move_alt_obj, previous_moves_same_color=[])
-    pred_alt = predictor.predict(pos_alt, time_alt, eval_cp=req.eval_cp)
+    pred_alt = predictor.predict(pos_alt, time_alt, eval_cp=alt_eval_cp)
 
     win_diff = pred_alt.win_probability - pred_played.win_probability
     collapse_diff = pred_alt.collapse_probability - pred_played.collapse_probability
 
+    # --- Build rich recommendation ---
+    played_wp = round(pred_played.win_probability * 100, 1)
+    alt_wp = round(pred_alt.win_probability * 100, 1)
+    played_eval_str = f"{played_eval_cp / 100:+.2f}" if played_eval_cp is not None else "N/A"
+    alt_eval_str = f"{alt_eval_cp / 100:+.2f}" if alt_eval_cp is not None else "N/A"
+
+    if win_diff > 0.08:
+        rec = f"🟢 {alt_san} is significantly better! ({alt_eval_str} vs {played_eval_str})"
+    elif win_diff > 0.03:
+        rec = f"🟡 {alt_san} is slightly better ({alt_eval_str} vs {played_eval_str})"
+    elif win_diff > -0.03:
+        rec = f"⚖️ Both moves are roughly equal ({played_san}: {played_eval_str}, {alt_san}: {alt_eval_str})"
+    elif win_diff > -0.08:
+        rec = f"🟡 {played_san} was slightly better than {alt_san} ({played_eval_str} vs {alt_eval_str})"
+    else:
+        rec = f"🔴 {played_san} was significantly better than {alt_san} ({played_eval_str} vs {alt_eval_str})"
+
     return {
         "played_move": {
-            "uci": req.played_move_uci,
+            "uci": played_move.uci(),
+            "san": played_san,
+            "eval_cp": played_eval_cp,
             "win_probability": round(pred_played.win_probability, 4),
             "collapse_probability": round(pred_played.collapse_probability, 4),
         },
         "alternative_move": {
-            "uci": req.alternative_move_uci,
+            "uci": alt_move.uci(),
+            "san": alt_san,
+            "eval_cp": alt_eval_cp,
             "win_probability": round(pred_alt.win_probability, 4),
             "collapse_probability": round(pred_alt.collapse_probability, 4),
         },
         "probability_divergence": {
             "win_probability_delta": round(win_diff, 4),
             "collapse_probability_delta": round(collapse_diff, 4),
-            "recommendation": (
-                "Alternative move significantly improves win probability!"
-                if win_diff > 0.05
-                else "Played move was optimal or equivalent."
-            ),
+            "recommendation": rec,
         },
     }
 

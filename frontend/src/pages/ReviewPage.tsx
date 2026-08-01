@@ -105,11 +105,14 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
     loadGameData();
   }, [activeGameId, gameId]);
 
-  // Keyboard Arrow Navigation
+  // Keyboard Arrow Navigation (ignore when typing in input/select fields)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (document.activeElement as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
       if (e.key === 'ArrowLeft') {
-        setCurrentIndex((prev) => Math.max(0, prev - 1));
+        setCurrentIndex((prev) => Math.max(-1, prev - 1));
       } else if (e.key === 'ArrowRight') {
         setCurrentIndex((prev) => Math.min(timeline.length - 1, prev + 1));
       }
@@ -533,7 +536,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
             <form onSubmit={handleWhatIfSubmit} className="flex gap-3">
               <input
                 type="text"
-                placeholder="Enter alternative UCI move (e.g. g1f3)..."
+                placeholder="Enter alternative move (e.g. g4 or g3g4)..."
                 value={altMoveInput}
                 onChange={(e) => setAltMoveInput(e.target.value)}
                 className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
@@ -547,12 +550,32 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
             </form>
 
             {whatIfResult && (
-              <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-2 text-xs">
-                <div className="flex justify-between text-slate-300 font-semibold">
-                  <span>Played ({whatIfResult.played_move.uci}): {(whatIfResult.played_move.win_probability * 100).toFixed(1)}% win</span>
-                  <span>Alternative ({whatIfResult.alternative_move.uci}): {(whatIfResult.alternative_move.win_probability * 100).toFixed(1)}% win</span>
+              <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-3 text-xs">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-800/50 p-3 rounded-lg">
+                    <div className="text-[10px] text-slate-500 uppercase font-semibold">Played Move</div>
+                    <div className="text-sm font-bold text-white mt-1">{(whatIfResult.played_move as any).san || whatIfResult.played_move.uci}</div>
+                    <div className="text-slate-300 font-mono mt-0.5">
+                      {(whatIfResult.played_move as any).eval_cp != null
+                        ? `${((whatIfResult.played_move as any).eval_cp / 100).toFixed(2)} eval`
+                        : ''} · {(whatIfResult.played_move.win_probability * 100).toFixed(1)}% win
+                    </div>
+                  </div>
+                  <div className="bg-slate-800/50 p-3 rounded-lg">
+                    <div className="text-[10px] text-slate-500 uppercase font-semibold">Alternative Move</div>
+                    <div className="text-sm font-bold text-white mt-1">{(whatIfResult.alternative_move as any).san || whatIfResult.alternative_move.uci}</div>
+                    <div className="text-slate-300 font-mono mt-0.5">
+                      {(whatIfResult.alternative_move as any).eval_cp != null
+                        ? `${((whatIfResult.alternative_move as any).eval_cp / 100).toFixed(2)} eval`
+                        : ''} · {(whatIfResult.alternative_move.win_probability * 100).toFixed(1)}% win
+                    </div>
+                  </div>
                 </div>
-                <p className="text-emerald-400 font-semibold mt-1">
+                <p className={`font-semibold text-sm mt-1 ${
+                  whatIfResult.probability_divergence.win_probability_delta > 0.03 ? 'text-emerald-400' :
+                  whatIfResult.probability_divergence.win_probability_delta < -0.03 ? 'text-rose-400' :
+                  'text-slate-300'
+                }`}>
                   {whatIfResult.probability_divergence.recommendation}
                 </p>
               </div>
