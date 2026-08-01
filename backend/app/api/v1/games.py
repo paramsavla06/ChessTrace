@@ -104,22 +104,18 @@ def get_game_timeline(
         raise HTTPException(status_code=404, detail=f"Game ID {game_id} not found")
 
     # Ensure Stockfish evaluator is available for timeline enrichment
-    engine = None
+    from contextlib import ExitStack
     evaluator = None
+    stack = ExitStack()
+    
     if STOCKFISH_PATH and Path(STOCKFISH_PATH).exists():
         try:
             from app.engine.stockfish import StockfishEngine
             from app.engine.evaluator import Evaluator
-            engine = StockfishEngine(STOCKFISH_PATH)
+            engine = stack.enter_context(StockfishEngine(STOCKFISH_PATH))
             evaluator = Evaluator(engine)
         except Exception:
-            if engine:
-                try:
-                    engine.quit()
-                except Exception:
-                    pass
-            engine = None
-            evaluator = None
+            pass
 
     timeline: list[dict[str, Any]] = []
     prev_white: list[Any] = []
@@ -357,11 +353,10 @@ def get_game_timeline(
             else:
                 prev_black.append(move)
     finally:
-        if engine:
-            try:
-                engine.quit()
-            except Exception:
-                pass
+        try:
+            stack.close()
+        except Exception:
+            pass
 
     return timeline
 
