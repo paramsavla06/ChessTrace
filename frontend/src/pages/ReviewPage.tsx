@@ -217,6 +217,13 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
     return counts;
   };
 
+  // Compute accuracy % (best+excellent+good / total moves)
+  const computeAccuracy = (counts: Record<string, number>): number => {
+    const total = Object.values(counts).reduce((a, b) => a + b, 0) || 1;
+    const goodMoves = (counts['brilliant'] || 0) + (counts['great'] || 0) + (counts['best'] || 0) + (counts['excellent'] || 0) + (counts['good'] || 0);
+    return parseFloat(((goodMoves / total) * 100).toFixed(1));
+  };
+
   // Estimate ChessTrace rating from move quality distribution
   const estimateRating = (counts: Record<string, number>): number => {
     const total = Object.values(counts).reduce((a, b) => a + b, 0) || 1;
@@ -229,6 +236,10 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
   const blackCounts = getMoveTypeCounts('black');
   const whiteRating = estimateRating(whiteCounts);
   const blackRating = estimateRating(blackCounts);
+  const whiteAccuracy = computeAccuracy(whiteCounts);
+  const blackAccuracy = computeAccuracy(blackCounts);
+  const whiteTotalMoves = timeline.filter(m => m.color === 'white').length || 1;
+  const blackTotalMoves = timeline.filter(m => m.color === 'black').length || 1;
 
   // Current move classification metadata helper
   const getMoveTypeMeta = (cls: string) => MOVE_TYPES.find(t => t.key === cls) || MOVE_TYPES[4];
@@ -528,54 +539,134 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
         </div>
       </div>
 
-      {/* Game Review Summary Panel (Chess.com Style) */}
-      <div className="glass-panel p-6 rounded-2xl space-y-5">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-white flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-indigo-400" />
+      {/* Game Review Summary Panel — Chess.com Layout */}
+      <div className="glass-panel rounded-2xl overflow-hidden">
+        {/* Header */}
+        <div className="px-6 pt-5 pb-4 border-b border-slate-800 flex items-center justify-between">
+          <h3 className="text-base font-bold text-white flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-indigo-400" />
             <span>Game Review</span>
           </h3>
-          <div className="flex items-center gap-6">
-            <div className="text-center">
-              <div className="text-xs text-slate-400 font-mono mb-1">{gameMeta?.white_player || 'White'}</div>
-              <div className="text-2xl font-extrabold text-white font-mono">{whiteRating}</div>
-              <div className="text-[10px] text-indigo-400 font-mono">ChessTrace Est.</div>
-            </div>
-            <div className="w-px h-10 bg-slate-700" />
-            <div className="text-center">
-              <div className="text-xs text-slate-400 font-mono mb-1">{gameMeta?.black_player || 'Black'}</div>
-              <div className="text-2xl font-extrabold text-white font-mono">{blackRating}</div>
-              <div className="text-[10px] text-indigo-400 font-mono">ChessTrace Est.</div>
-            </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500 font-mono">ChessTrace estimated rating</span>
           </div>
         </div>
 
-        <div className="space-y-2">
-          {MOVE_TYPES.map((mt) => (
-            <div key={mt.key} className="flex items-center gap-3">
-              <div className="w-24 text-xs font-semibold text-slate-300">{mt.label}</div>
-              <div className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-black ${mt.bgColor} ${mt.textColor} border ${mt.borderColor} flex-shrink-0`}>
-                {mt.icon}
-              </div>
-              <div className={`w-10 text-center text-sm font-extrabold font-mono ${mt.textColor}`}>
-                {whiteCounts[mt.key] || 0}
-              </div>
-              <div className="flex-1 flex gap-1 h-2 items-center">
-                <div
-                  className="h-2 rounded-full transition-all"
-                  style={{ width: `${Math.max(2, ((whiteCounts[mt.key] || 0) / (timeline.filter(m => m.color === 'white').length || 1)) * 100)}%`, backgroundColor: mt.color + '60' }}
-                />
-              </div>
-              <div className={`w-10 text-center text-sm font-extrabold font-mono ${mt.textColor}`}>
-                {blackCounts[mt.key] || 0}
-              </div>
-            </div>
-          ))}
+        {/* Column Headers: White | — | Black */}
+        <div className="px-6 pt-4 pb-2 grid grid-cols-[1fr_auto_auto_auto_1fr] items-center gap-2">
+          {/* White player header */}
+          <div className="text-right">
+            <div className="text-xs font-bold text-slate-300 font-mono truncate">{gameMeta?.white_player || 'White'}</div>
+            <div className="text-2xl font-extrabold text-white font-mono leading-none">{whiteRating}</div>
+            <div className="text-[10px] text-indigo-400 font-mono">Est.</div>
+          </div>
+
+          {/* Accuracy label col */}
+          <div className="w-[72px] text-center">
+            <div className="text-[10px] text-slate-500 uppercase font-semibold tracking-wider">Accuracy</div>
+          </div>
+
+          {/* Accuracy icon spacer */}
+          <div className="w-8" />
+
+          {/* Accuracy value right */}
+          <div className="w-[72px] text-center">
+            <div className="text-[10px] text-slate-500 uppercase font-semibold tracking-wider">Accuracy</div>
+          </div>
+
+          {/* Black player header */}
+          <div className="text-left">
+            <div className="text-xs font-bold text-slate-300 font-mono truncate">{gameMeta?.black_player || 'Black'}</div>
+            <div className="text-2xl font-extrabold text-white font-mono leading-none">{blackRating}</div>
+            <div className="text-[10px] text-indigo-400 font-mono">Est.</div>
+          </div>
         </div>
 
-        <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-xs text-slate-400 font-mono">
-          <span>{gameMeta?.white_player || 'White'} (White) ← counts → {gameMeta?.black_player || 'Black'} (Black)</span>
+        {/* Accuracy Row */}
+        <div className="px-6 py-2 grid grid-cols-[1fr_auto_auto_auto_1fr] items-center gap-2">
+          {/* White accuracy bar + number */}
+          <div className="flex items-center justify-end gap-2">
+            <span className="text-sm font-extrabold text-white font-mono w-10 text-right">{whiteAccuracy}</span>
+            <div className="flex-1 max-w-[120px] bg-slate-800 h-2 rounded-full overflow-hidden">
+              <div className="bg-blue-400 h-full rounded-full transition-all" style={{ width: `${whiteAccuracy}%` }} />
+            </div>
+          </div>
+          <div className="w-[72px]" />
+          <div className="w-8" />
+          <div className="w-[72px]" />
+          {/* Black accuracy bar + number */}
+          <div className="flex items-center justify-start gap-2">
+            <div className="flex-1 max-w-[120px] bg-slate-800 h-2 rounded-full overflow-hidden">
+              <div className="bg-emerald-400 h-full rounded-full transition-all" style={{ width: `${blackAccuracy}%` }} />
+            </div>
+            <span className="text-sm font-extrabold text-white font-mono w-10">{blackAccuracy}</span>
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div className="mx-6 border-t border-slate-800/60" />
+
+        {/* Move Type Rows */}
+        <div className="px-6 py-3 space-y-1">
+          {MOVE_TYPES.map((mt) => {
+            const wCount = whiteCounts[mt.key] || 0;
+            const bCount = blackCounts[mt.key] || 0;
+            const wPct = (wCount / whiteTotalMoves) * 100;
+            const bPct = (bCount / blackTotalMoves) * 100;
+            return (
+              <div key={mt.key} className="grid grid-cols-[1fr_auto_auto_auto_1fr] items-center gap-2 py-1">
+                {/* White side: bar + count (right-aligned) */}
+                <div className="flex items-center justify-end gap-2">
+                  {wCount > 0 && (
+                    <span className={`text-sm font-extrabold font-mono ${mt.textColor}`}>{wCount}</span>
+                  )}
+                  <div className="flex-1 max-w-[140px] h-2 rounded-full overflow-hidden bg-slate-800/40">
+                    {wCount > 0 && (
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${Math.max(4, wPct * 2.5)}%`, backgroundColor: mt.color }}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* Label */}
+                <div className="w-[72px] text-center">
+                  <span className="text-xs font-semibold text-slate-400">{mt.label}</span>
+                </div>
+
+                {/* Icon — center */}
+                <div className={`w-8 h-8 flex items-center justify-center rounded-full text-xs font-black flex-shrink-0 ${mt.bgColor} ${mt.textColor} border ${mt.borderColor}`}>
+                  {mt.icon}
+                </div>
+
+                {/* Label right (empty, label is center) */}
+                <div className="w-[72px] text-center" />
+
+                {/* Black side: bar + count (left-aligned) */}
+                <div className="flex items-center justify-start gap-2">
+                  <div className="flex-1 max-w-[140px] h-2 rounded-full overflow-hidden bg-slate-800/40">
+                    {bCount > 0 && (
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${Math.max(4, bPct * 2.5)}%`, backgroundColor: mt.color }}
+                      />
+                    )}
+                  </div>
+                  {bCount > 0 && (
+                    <span className={`text-sm font-extrabold font-mono ${mt.textColor}`}>{bCount}</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-3 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-500 font-mono">
+          <span>{gameMeta?.white_player || 'White'} (White) · {whiteTotalMoves} moves</span>
           <span>{timeline.length} total moves analyzed</span>
+          <span>{gameMeta?.black_player || 'Black'} (Black) · {blackTotalMoves} moves</span>
         </div>
       </div>
 
