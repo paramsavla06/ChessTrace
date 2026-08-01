@@ -186,15 +186,13 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
     );
   }
 
-  const chartData = timeline
-    .filter((m) => m.think_time_sec != null && m.think_time_sec > 0)
-    .map((m) => ({
-      ply: m.ply,
-      move: `${m.move_number}.${m.color === 'white' ? 'w' : 'b'}`,
-      thinkTime: parseFloat((m.think_time_sec ?? 0).toFixed(1)),
-      clock: m.time_remaining_sec,
-      isPressure: m.is_time_pressure_30s,
-    }));
+  const chartData = timeline.map((m) => ({
+    ply: m.ply,
+    move: `${m.move_number}.${m.color === 'white' ? 'w' : 'b'}`,
+    thinkTime: parseFloat((m.think_time_sec ?? 0).toFixed(1)),
+    clock: m.time_remaining_sec,
+    isPressure: m.is_time_pressure_30s,
+  }));
 
   // Chess.com move classification metadata (order matches Chess.com Game Review)
   const MOVE_TYPES = [
