@@ -42,6 +42,10 @@ class EloSimulationResult:
     engine_recommendation: str = ""
 
 
+_GLOBAL_ELO_MODELS: dict[str, WinCollapsePredictor] = {}
+_MODELS_LOADED: bool = False
+
+
 class EloSimulatorManager:
     """
     Manager for rating-bucket segmented human move prediction.
@@ -49,12 +53,17 @@ class EloSimulatorManager:
 
     def __init__(self) -> None:
         self.elo_buckets = ELO_BUCKETS
-        self.elo_models: dict[str, WinCollapsePredictor] = {}
+        self.elo_models: dict[str, WinCollapsePredictor] = _GLOBAL_ELO_MODELS
         self._load_elo_models()
 
     def _load_elo_models(self) -> None:
-        """Load trained XGBoost weights for each ELO bucket if available."""
+        """Load trained XGBoost weights for each ELO bucket globally."""
+        global _MODELS_LOADED, _GLOBAL_ELO_MODELS
+        if _MODELS_LOADED:
+            return
+            
         if not WEIGHTS_DIR.exists():
+            _MODELS_LOADED = True
             return
 
         for bucket in self.elo_buckets:
@@ -63,10 +72,12 @@ class EloSimulatorManager:
             if weights_file.exists():
                 try:
                     predictor = WinCollapsePredictor.load(weights_file)
-                    self.elo_models[bucket] = predictor
+                    _GLOBAL_ELO_MODELS[bucket] = predictor
                     logger.info("Loaded trained ELO model artifact for bucket '%s'", bucket)
                 except Exception as exc:
                     logger.warning("Could not load ELO model for %s: %s", bucket, exc)
+                    
+        _MODELS_LOADED = True
 
     def predict_for_elo(
         self,
