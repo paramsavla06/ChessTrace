@@ -58,6 +58,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
   // -1 = starting position (before any moves), 0..n-1 = timeline moves
   const [currentIndex, setCurrentIndex] = useState<number>(-1);
   const [loading, setLoading] = useState<boolean>(true);
+  const [whatIfLoading, setWhatIfLoading] = useState<boolean>(false);
   const [gameMeta, setGameMeta] = useState<any>(null);
 
   // Advanced Analysis State
@@ -167,12 +168,13 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
 
   const handleWhatIfSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentMove || !altMoveInput.trim()) return;
+    if (!currentMove || !altMoveInput.trim() || whatIfLoading) return;
 
     const prevFen = currentIndex > 0
       ? timeline[currentIndex - 1].fen
       : 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
+    setWhatIfLoading(true);
     try {
       const res = await api.post<WhatIfResponse>('/analysis/what-if', {
         fen: prevFen,
@@ -185,6 +187,8 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
       setWhatIfResult(res.data);
     } catch (err: any) {
       alert(err.response?.data?.detail || 'Invalid alternative UCI move!');
+    } finally {
+      setWhatIfLoading(false);
     }
   };
 
@@ -596,9 +600,14 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
               />
               <button
                 type="submit"
-                className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-semibold transition-all"
+                disabled={whatIfLoading}
+                className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+                  whatIfLoading 
+                    ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                    : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                }`}
               >
-                Evaluate Divergence
+                {whatIfLoading ? 'Evaluating...' : 'Evaluate Divergence'}
               </button>
             </form>
 
