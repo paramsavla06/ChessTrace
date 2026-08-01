@@ -197,16 +197,44 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
 
       {/* Main Grid: Board + Controls + Narrative */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left 5 Cols: Interactive Chessboard */}
+        {/* Left 5 Cols: Interactive Chessboard + Vertical Eval Bar */}
         <div className="lg:col-span-5 space-y-6">
-          <div className="glass-panel p-4 rounded-2xl w-full max-w-[460px] aspect-square flex items-center justify-center glow-indigo mx-auto">
-            <Chessboard
-              position={fenToPositionObj(currentMove ? currentMove.fen : 'start')}
-              customBoardStyle={{
-                borderRadius: '12px',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
-              }}
-            />
+          <div className="flex items-center justify-center gap-3">
+            {/* Vertical Evaluation Bar */}
+            <div className="w-6 h-[440px] bg-slate-950 rounded-xl overflow-hidden border border-slate-800 flex flex-col justify-between relative shadow-2xl">
+              {/* Black Advantage (Top) */}
+              <div
+                className="bg-slate-900 w-full transition-all duration-500 ease-out"
+                style={{ height: `${100 - Math.max(8, Math.min(92, 50 + ((prediction ? (prediction.win_probability * 2 - 1) * 3.5 : 0.21) * 10)))}%` }}
+              />
+              {/* White Advantage (Bottom) */}
+              <div
+                className="bg-slate-100 w-full transition-all duration-500 ease-out"
+                style={{ height: `${Math.max(8, Math.min(92, 50 + ((prediction ? (prediction.win_probability * 2 - 1) * 3.5 : 0.21) * 10)))}%` }}
+              />
+              {/* Centered Eval Score Badge */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <span className={`text-[10px] font-extrabold font-mono px-1 py-0.5 rounded shadow ${
+                  (prediction ? (prediction.win_probability * 2 - 1) * 3.5 : 0.21) >= 0
+                    ? 'bg-slate-900 text-white border border-slate-700'
+                    : 'bg-white text-slate-900 border border-slate-300'
+                }`}>
+                  {(prediction ? (prediction.win_probability * 2 - 1) * 3.5 : 0.21) >= 0 ? '+' : ''}
+                  {(prediction ? (prediction.win_probability * 2 - 1) * 3.5 : 0.21).toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            {/* Interactive Chessboard */}
+            <div className="glass-panel p-4 rounded-2xl w-full max-w-[440px] aspect-square flex items-center justify-center glow-indigo">
+              <Chessboard
+                position={fenToPositionObj(currentMove ? currentMove.fen : 'start')}
+                customBoardStyle={{
+                  borderRadius: '12px',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+                }}
+              />
+            </div>
           </div>
 
           {/* Stepper Controls */}

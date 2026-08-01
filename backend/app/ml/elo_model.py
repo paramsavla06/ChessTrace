@@ -85,9 +85,44 @@ class EloSimulatorManager:
                 fen=board.fen(),
             )
 
-        candidates: list[CandidateMovePrediction] = []
-        legal_moves_sorted = sorted(legal_moves, key=lambda m: m.uci())
+        # Evaluate legal moves to identify true Stockfish best move
+        from app.core.config import STOCKFISH_PATH
+        best_move_uci = None
+        if STOCKFISH_PATH and Path(STOCKFISH_PATH).exists():
+            try:
+                from app.engine.evaluator import Evaluator
+                from app.engine.stockfish import StockfishEngine
 
+                engine = StockfishEngine(Path(STOCKFISH_PATH))
+                engine.start()
+                evaluator = Evaluator(engine)
+                res = evaluator.evaluate(board, move_number=1, depth=8)
+                best_move_uci = res.best_move
+                engine.stop()
+            except Exception as exc:
+                logger.warning("Could not run Stockfish for candidate move evaluation: %s", exc)
+
+        # Sort moves giving highest priority to Stockfish best move, captures, checks, and central pawn pushes
+        def move_quality_score(m: chess.Move) -> float:
+            score = 0.0
+            if best_move_uci and m.uci() == best_move_uci:
+                score += 100.0
+            if board.is_capture(m):
+                score += 10.0
+            if board.gives_check(m):
+                score += 8.0
+            # Central pawn pushes (d4, e4, d5, e5, c4, c5)
+            if m.to_square in (chess.D4, chess.E4, chess.D5, chess.E5, chess.C4, chess.C5):
+                score += 5.0
+            # Piece development (Knights & Bishops)
+            piece = board.piece_at(m.from_square)
+            if piece and piece.piece_type in (chess.KNIGHT, chess.BISHOP):
+                score += 3.0
+            return score
+
+        legal_moves_sorted = sorted(legal_moves, key=move_quality_score, reverse=True)
+
+        candidates: list[CandidateMovePrediction] = []
         elo_idx = self.elo_buckets.index(target_elo_bucket) if target_elo_bucket in self.elo_buckets else 3
         sharpness_factor = 0.5 + (elo_idx * 0.1)
 
@@ -96,8 +131,8 @@ class EloSimulatorManager:
             base_think = max(0.5, base_think * 0.3)
 
         probs: list[float] = []
-        for idx, m in enumerate(legal_moves_sorted[:5]):
-            score = max(0.1, 1.0 - (idx * 0.25 * sharpness_factor))
+        for idx in range(min(5, len(legal_moves_sorted))):
+            score = max(0.1, 1.0 - (idx * 0.22 * sharpness_factor))
             probs.append(score)
 
         total_score = sum(probs)
@@ -105,13 +140,14 @@ class EloSimulatorManager:
 
         for idx, m in enumerate(legal_moves_sorted[:5]):
             san_str = board.san(m)
+            is_top = (idx == 0)
             candidates.append(
                 CandidateMovePrediction(
                     san=san_str,
                     uci=m.uci(),
                     probability=round(normalized_probs[idx], 4),
                     expected_think_time_sec=round(base_think * (1.0 + idx * 0.15), 1),
-                    is_engine_top_choice=(idx == 0),
+                    is_engine_top_choice=is_top,
                 )
             )
 
