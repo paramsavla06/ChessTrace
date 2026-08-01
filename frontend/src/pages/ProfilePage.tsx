@@ -67,11 +67,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ username }) => {
 
   // Chart data for Accuracy vs Clock Remaining Curve
   const clockCurveData = profile?.accuracy_vs_clock.map((b) => {
-    const userAcc = Math.max(55, Math.min(95, 90 - (b.avg_think_time_sec < 3.0 ? 25 : 5)));
     const eloBenchmark = 78.5;
     return {
       bucket: b.clock_bucket,
-      userAccuracy: userAcc,
+      userAccuracy: b.accuracy_pct,
       eloAverage: eloBenchmark,
       thinkTimeSec: b.avg_think_time_sec.toFixed(1),
     };

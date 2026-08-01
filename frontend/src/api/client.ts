@@ -79,7 +79,7 @@ export interface EloSimResponse {
 export interface PlayerProfileResponse {
   player_name: string;
   total_games_analyzed: number;
-  accuracy_vs_clock: Array<{ clock_bucket: string; move_count: number; avg_think_time_sec: number }>;
+  accuracy_vs_clock: Array<{ clock_bucket: string; move_count: number; avg_think_time_sec: number; accuracy_pct: number }>;
   tilt_signature: {
     normal_avg_think_time_sec: number;
     post_material_loss_think_time_sec: number;
