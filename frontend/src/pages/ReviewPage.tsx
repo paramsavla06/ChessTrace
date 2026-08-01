@@ -154,6 +154,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
           fen: currentMove.fen,
           target_elo_bucket: selectedElo,
           time_remaining_sec: currentMove.time_remaining_sec,
+          best_move_uci: (currentMove as any).best_move_uci,
         });
         setEloSimResult(res.data);
       } catch (err) {

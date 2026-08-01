@@ -85,6 +85,7 @@ class EloSimulatorManager:
         pos_feats: PositionFeatures,
         time_feats: TimeFeatures,
         target_elo_bucket: str = "1600-1800",
+        best_move_uci: str | None = None,
     ) -> EloSimulationResult:
         """
         Predict candidate moves and think times for a specific target ELO bracket.
@@ -96,19 +97,20 @@ class EloSimulatorManager:
                 fen=board.fen(),
             )
 
-        # Evaluate legal moves using Stockfish 18 at fast depth=12 (150ms)
-        from app.core.config import STOCKFISH_PATH
-        best_move_uci = None
-        if STOCKFISH_PATH and Path(STOCKFISH_PATH).exists():
-            try:
-                from app.engine.stockfish import StockfishEngine
+        # Skip evaluating with Stockfish if we already know the best move from the DB timeline!
+        if not best_move_uci:
+            # Evaluate legal moves using Stockfish 18 at fast depth=12 (150ms)
+            from app.core.config import STOCKFISH_PATH
+            if STOCKFISH_PATH and Path(STOCKFISH_PATH).exists():
+                try:
+                    from app.engine.stockfish import StockfishEngine
 
-                with StockfishEngine(Path(STOCKFISH_PATH)) as engine:
-                    info = engine.analyse(board, depth=12)
-                    if info.get("pv"):
-                        best_move_uci = info["pv"][0].uci()
-            except Exception as exc:
-                logger.warning("Stockfish ELO analysis failed: %s", exc)
+                    with StockfishEngine(Path(STOCKFISH_PATH)) as engine:
+                        info = engine.analyse(board, depth=12)
+                        if info.get("pv"):
+                            best_move_uci = info["pv"][0].uci()
+                except Exception as exc:
+                    logger.warning("Stockfish ELO analysis failed: %s", exc)
 
         def move_quality_score(m: chess.Move) -> float:
             score = 0.0

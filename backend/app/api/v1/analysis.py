@@ -53,6 +53,7 @@ class EloSimRequest(BaseModel):
     fen: str
     target_elo_bucket: str = "1600-1800"
     time_remaining_sec: float = 120.0
+    best_move_uci: str | None = None
 
 
 @router.post("/analysis/game/{game_id}", summary="Run Stockfish analysis on a game")
@@ -387,7 +388,7 @@ def simulate_elo_move(req: EloSimRequest) -> dict[str, Any]:
     time_feats = extract_time_features(move_obj, previous_moves_same_color=[])
 
     manager = EloSimulatorManager()
-    result = manager.predict_for_elo(board, pos_feats, time_feats, req.target_elo_bucket)
+    result = manager.predict_for_elo(board, pos_feats, time_feats, req.target_elo_bucket, best_move_uci=req.best_move_uci)
 
     return {
         "elo_bucket": result.elo_bucket,
