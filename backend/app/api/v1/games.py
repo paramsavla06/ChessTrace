@@ -109,9 +109,13 @@ def get_game_timeline(
     prev_black: list[Any] = []
 
     try:
-        for move in game.moves:
-            board = chess.Board(move.fen)
-            pos_feats = extract_position_features(board)
+        start_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
+        for idx, move in enumerate(game.moves):
+            # Position BEFORE this move was played
+            prev_fen = game.moves[idx - 1].fen if idx > 0 else start_fen
+            prev_board = chess.Board(prev_fen)
+            pos_feats = extract_position_features(prev_board)
 
             prev_same = prev_white if move.color.value == "white" else prev_black
             time_feats = extract_time_features(
@@ -119,7 +123,7 @@ def get_game_timeline(
                 previous_moves_same_color=prev_same,
             )
 
-            # Extract or compute Stockfish Evaluation
+            # Extract or compute Stockfish Evaluation on position BEFORE move
             eval_cp = None
             best_move_san = None
             best_move_uci = None
@@ -133,7 +137,7 @@ def get_game_timeline(
                 best_move_uci = ev_db.best_move
             elif evaluator:
                 try:
-                    ev_res = evaluator.evaluate(board, move_number=move.move_number, depth=8)
+                    ev_res = evaluator.evaluate(prev_board, move_number=move.move_number, depth=10)
                     eval_cp = ev_res.cp_score
                     best_move_uci = ev_res.best_move
                 except Exception:
@@ -142,32 +146,31 @@ def get_game_timeline(
             if best_move_uci:
                 try:
                     bm_obj = chess.Move.from_uci(best_move_uci)
-                    best_move_san = board.san(bm_obj)
+                    best_move_san = prev_board.san(bm_obj)
                 except Exception:
                     best_move_san = best_move_uci
 
             # Calculate eval score & move classification
             if eval_cp is not None:
-                # Convert POV score
                 val_pawns = round(eval_cp / 100.0, 2)
                 eval_score_str = f"+{val_pawns:.2f}" if val_pawns >= 0 else f"{val_pawns:.2f}"
 
                 if move.uci == best_move_uci:
                     move_classification = "best"
                     classification_label = f"{move.san} is best move"
-                    best_move_label = f"⭐ {move.san} is best ({eval_score_str})"
+                    best_move_label = f"{move.san} is best ({eval_score_str})"
                 elif val_pawns < -1.0:
                     move_classification = "miss"
                     classification_label = f"{move.san} is a miss"
-                    best_move_label = f"⭐ {best_move_san or 'best move'} is best ({eval_score_str})"
+                    best_move_label = f"{best_move_san or 'best move'} is best ({eval_score_str})"
                 elif val_pawns < -0.4:
                     move_classification = "inaccuracy"
                     classification_label = f"{move.san} is an inaccuracy"
-                    best_move_label = f"⭐ {best_move_san or 'best move'} is best ({eval_score_str})"
+                    best_move_label = f"{best_move_san or 'best move'} is best ({eval_score_str})"
                 else:
                     move_classification = "good"
                     classification_label = f"{move.san} played"
-                    best_move_label = f"⭐ {best_move_san or move.san} is best ({eval_score_str})"
+                    best_move_label = f"{best_move_san or move.san} is best ({eval_score_str})"
             else:
                 eval_score_str = "+0.25"
                 classification_label = f"{move.san} played"
