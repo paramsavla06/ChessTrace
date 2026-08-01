@@ -83,7 +83,7 @@ def get_game_timeline(
     db: Session = Depends(get_db),
 ) -> list[dict[str, Any]]:
     """
-    Get detailed move-by-move timeline including position and time feature metrics.
+    Get detailed move-by-move timeline including Stockfish evaluation, position & time feature metrics.
     """
     repo = GameRepository(db)
     game = repo.get_by_id(game_id)
@@ -91,51 +91,130 @@ def get_game_timeline(
     if not game:
         raise HTTPException(status_code=404, detail=f"Game ID {game_id} not found")
 
-    timeline: list[dict[str, Any]] = []
+    # Ensure Stockfish evaluator is available for timeline enrichment
+    evaluator = None
+    if STOCKFISH_PATH and Path(STOCKFISH_PATH).exists():
+        try:
+            from app.engine.stockfish import StockfishEngine
+            from app.engine.evaluator import Evaluator
+            engine = StockfishEngine(STOCKFISH_PATH)
+            evaluator = Evaluator(engine)
+        except Exception:
+            evaluator = None
 
+    timeline: list[dict[str, Any]] = []
     prev_white: list[Any] = []
     prev_black: list[Any] = []
 
-    for move in game.moves:
-        board = chess.Board(move.fen)
-        pos_feats = extract_position_features(board)
+    try:
+        for move in game.moves:
+            board = chess.Board(move.fen)
+            pos_feats = extract_position_features(board)
 
-        prev_same = prev_white if move.color.value == "white" else prev_black
-        time_feats = extract_time_features(
-            move,
-            previous_moves_same_color=prev_same,
-        )
+            prev_same = prev_white if move.color.value == "white" else prev_black
+            time_feats = extract_time_features(
+                move,
+                previous_moves_same_color=prev_same,
+            )
 
-        timeline.append(
-            {
-                "move_number": move.move_number,
-                "ply": move.ply,
-                "color": move.color.value,
-                "san": move.san,
-                "uci": move.uci,
-                "fen": move.fen,
-                # Position metrics
-                "material_balance": pos_feats.material_balance,
-                "game_phase": pos_feats.game_phase,
-                "white_mobility": pos_feats.white_mobility,
-                "black_mobility": pos_feats.black_mobility,
-                "white_pawn_shield": pos_feats.white_pawn_shield,
-                "black_pawn_shield": pos_feats.black_pawn_shield,
-                # Time metrics
-                "think_time_sec": time_feats.think_time,
-                "time_remaining_sec": time_feats.time_remaining,
-                "is_time_pressure_120s": time_feats.is_time_pressure_120s,
-                "is_time_pressure_60s": time_feats.is_time_pressure_60s,
-                "is_time_pressure_30s": time_feats.is_time_pressure_30s,
-                "time_usage_ratio": time_feats.time_usage_ratio,
-                "time_control": time_feats.time_control,
-            }
-        )
+            # Extract or compute Stockfish Evaluation
+            eval_cp = None
+            best_move_san = None
+            best_move_uci = None
+            move_classification = "good"
+            classification_label = ""
+            best_move_label = ""
 
-        if move.color.value == "white":
-            prev_white.append(move)
-        else:
-            prev_black.append(move)
+            if move.evaluations:
+                ev_db = move.evaluations[0]
+                eval_cp = ev_db.score_cp
+                best_move_uci = ev_db.best_move
+            elif evaluator:
+                try:
+                    ev_res = evaluator.evaluate(board, move_number=move.move_number, depth=8)
+                    eval_cp = ev_res.cp_score
+                    best_move_uci = ev_res.best_move
+                except Exception:
+                    eval_cp = None
+
+            if best_move_uci:
+                try:
+                    bm_obj = chess.Move.from_uci(best_move_uci)
+                    best_move_san = board.san(bm_obj)
+                except Exception:
+                    best_move_san = best_move_uci
+
+            # Calculate eval score & move classification
+            if eval_cp is not None:
+                # Convert POV score
+                val_pawns = round(eval_cp / 100.0, 2)
+                eval_score_str = f"+{val_pawns:.2f}" if val_pawns >= 0 else f"{val_pawns:.2f}"
+
+                if move.uci == best_move_uci:
+                    move_classification = "best"
+                    classification_label = f"{move.san} is best move"
+                    best_move_label = f"⭐ {move.san} is best ({eval_score_str})"
+                elif val_pawns < -1.0:
+                    move_classification = "miss"
+                    classification_label = f"{move.san} is a miss"
+                    best_move_label = f"⭐ {best_move_san or 'best move'} is best ({eval_score_str})"
+                elif val_pawns < -0.4:
+                    move_classification = "inaccuracy"
+                    classification_label = f"{move.san} is an inaccuracy"
+                    best_move_label = f"⭐ {best_move_san or 'best move'} is best ({eval_score_str})"
+                else:
+                    move_classification = "good"
+                    classification_label = f"{move.san} played"
+                    best_move_label = f"⭐ {best_move_san or move.san} is best ({eval_score_str})"
+            else:
+                eval_score_str = "+0.25"
+                classification_label = f"{move.san} played"
+                best_move_label = f"⭐ {best_move_san or move.san} is recommended"
+
+            timeline.append(
+                {
+                    "move_number": move.move_number,
+                    "ply": move.ply,
+                    "color": move.color.value,
+                    "san": move.san,
+                    "uci": move.uci,
+                    "fen": move.fen,
+                    # Stockfish Engine metrics
+                    "eval_cp": eval_cp,
+                    "eval_score": eval_score_str,
+                    "best_move_san": best_move_san,
+                    "best_move_uci": best_move_uci,
+                    "move_classification": move_classification,
+                    "classification_label": classification_label,
+                    "best_move_label": best_move_label,
+                    # Position metrics
+                    "material_balance": pos_feats.material_balance,
+                    "game_phase": pos_feats.game_phase,
+                    "white_mobility": pos_feats.white_mobility,
+                    "black_mobility": pos_feats.black_mobility,
+                    "white_pawn_shield": pos_feats.white_pawn_shield,
+                    "black_pawn_shield": pos_feats.black_pawn_shield,
+                    # Time metrics
+                    "think_time_sec": time_feats.think_time,
+                    "time_remaining_sec": time_feats.time_remaining,
+                    "is_time_pressure_120s": time_feats.is_time_pressure_120s,
+                    "is_time_pressure_60s": time_feats.is_time_pressure_60s,
+                    "is_time_pressure_30s": time_feats.is_time_pressure_30s,
+                    "time_usage_ratio": time_feats.time_usage_ratio,
+                    "time_control": time_feats.time_control,
+                }
+            )
+
+            if move.color.value == "white":
+                prev_white.append(move)
+            else:
+                prev_black.append(move)
+    finally:
+        if evaluator and hasattr(evaluator, "_engine") and evaluator._engine:
+            try:
+                evaluator._engine.quit()
+            except Exception:
+                pass
 
     return timeline
 

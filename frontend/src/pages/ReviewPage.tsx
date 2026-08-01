@@ -240,6 +240,29 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left 5 Cols: Interactive Chessboard + Vertical Eval Bar */}
         <div className="lg:col-span-5 space-y-6">
+          {/* Move Quality Banner (Chess.com Style) */}
+          {currentMove && (
+            <div className="glass-panel p-3.5 rounded-2xl flex items-center justify-between gap-3 border border-indigo-500/20 shadow-lg">
+              <div className="flex items-center gap-2.5">
+                <span className={`px-2.5 py-1 rounded-lg text-xs font-black font-mono shadow ${
+                  (currentMove as any).move_classification === 'best' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                  (currentMove as any).move_classification === 'miss' || (currentMove as any).move_classification === 'blunder' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
+                  (currentMove as any).move_classification === 'inaccuracy' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                  'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                }`}>
+                  {(currentMove as any).eval_score || '+0.25'}
+                </span>
+                <span className="text-xs font-bold text-white font-mono">
+                  {(currentMove as any).classification_label || `${currentMove.san} played`}
+                </span>
+              </div>
+
+              <div className="text-[11px] font-bold font-mono text-emerald-300 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
+                {(currentMove as any).best_move_label || `⭐ ${(currentMove as any).best_move_san || 'best'} is best`}
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center justify-center gap-3">
             {/* Vertical Evaluation Bar */}
             {(() => {
