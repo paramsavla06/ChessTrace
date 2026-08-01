@@ -41,6 +41,7 @@ import {
   Sliders,
   AlertTriangle,
   Sparkles,
+  FlipVertical2,
 } from 'lucide-react';
 import { api } from '../api/client';
 import type { TimelineMove, PredictResponse, WhatIfResponse, EloSimResponse } from '../api/client';
@@ -392,14 +393,14 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
               </button>
               <button
                 onClick={() => setBoardFlipped(f => !f)}
-                className={`p-2 rounded-lg transition-colors text-base leading-none ${
+                className={`p-2 rounded-lg transition-colors ${
                   boardFlipped
                     ? 'bg-indigo-600 hover:bg-indigo-500 text-white'
                     : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
                 }`}
                 title="Flip board"
               >
-                ↕
+                <FlipVertical2 className="w-5 h-5" />
               </button>
             </div>
 
@@ -621,53 +622,48 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
         </div>
 
         {/* Column Headers: White | — | Black */}
-        <div className="px-6 pt-4 pb-2 grid grid-cols-[1fr_auto_auto_auto_1fr] items-center gap-2">
+        <div className="px-6 pt-4 pb-2 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
           {/* White player header */}
-          <div className="text-right">
+          <div className="text-right flex flex-col items-end">
             <div className="text-xs font-bold text-slate-300 font-mono truncate">{gameMeta?.white_player || 'White'}</div>
-            <div className="text-2xl font-extrabold text-white font-mono leading-none">{whiteRating}</div>
+            <div className="text-2xl font-extrabold text-white font-mono leading-none mt-1">{whiteRating}</div>
             <div className="text-[10px] text-indigo-400 font-mono">Est.</div>
           </div>
 
-          {/* Accuracy label col */}
-          <div className="w-[72px] text-center">
-            <div className="text-[10px] text-slate-500 uppercase font-semibold tracking-wider">Accuracy</div>
-          </div>
-
-          {/* Accuracy icon spacer */}
-          <div className="w-8" />
-
-          {/* Accuracy value right */}
-          <div className="w-[72px] text-center">
-            <div className="text-[10px] text-slate-500 uppercase font-semibold tracking-wider">Accuracy</div>
-          </div>
+          <div className="w-16" /> {/* Center spacer */}
 
           {/* Black player header */}
-          <div className="text-left">
+          <div className="text-left flex flex-col items-start">
             <div className="text-xs font-bold text-slate-300 font-mono truncate">{gameMeta?.black_player || 'Black'}</div>
-            <div className="text-2xl font-extrabold text-white font-mono leading-none">{blackRating}</div>
+            <div className="text-2xl font-extrabold text-white font-mono leading-none mt-1">{blackRating}</div>
             <div className="text-[10px] text-indigo-400 font-mono">Est.</div>
           </div>
         </div>
 
         {/* Accuracy Row */}
-        <div className="px-6 py-2 grid grid-cols-[1fr_auto_auto_auto_1fr] items-center gap-2">
+        <div className="px-6 py-2 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
           {/* White accuracy bar + number */}
-          <div className="flex items-center justify-end gap-2">
-            <span className="text-sm font-extrabold text-white font-mono w-10 text-right">{whiteAccuracy}</span>
+          <div className="flex items-center justify-end gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-extrabold text-white font-mono">{whiteAccuracy}</span>
+              <span className="text-[10px] text-slate-500 uppercase font-semibold tracking-wider">Accuracy</span>
+            </div>
             <div className="flex-1 max-w-[120px] bg-slate-800 h-2 rounded-full overflow-hidden">
               <div className="bg-blue-400 h-full rounded-full transition-all" style={{ width: `${whiteAccuracy}%` }} />
             </div>
           </div>
-          <div className="w-[72px]" />
-          <div className="w-8" />
-          <div className="w-[72px]" />
+
+          <div className="w-16" />
+
           {/* Black accuracy bar + number */}
-          <div className="flex items-center justify-start gap-2">
+          <div className="flex items-center justify-start gap-3">
             <div className="flex-1 max-w-[120px] bg-slate-800 h-2 rounded-full overflow-hidden">
               <div className="bg-emerald-400 h-full rounded-full transition-all" style={{ width: `${blackAccuracy}%` }} />
             </div>
-            <span className="text-sm font-extrabold text-white font-mono w-10">{blackAccuracy}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-slate-500 uppercase font-semibold tracking-wider">Accuracy</span>
+              <span className="text-sm font-extrabold text-white font-mono">{blackAccuracy}</span>
+            </div>
           </div>
         </div>
 
