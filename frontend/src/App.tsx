@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
 import { CatalogPage } from './pages/CatalogPage';
 import { ReviewPage } from './pages/ReviewPage';
@@ -10,19 +10,44 @@ export function App() {
   const [selectedGameId, setSelectedGameId] = useState<number>(1);
   const [selectedUsername, setSelectedUsername] = useState<string>('PlayerA');
 
+  // Sync activeTab with URL hash and listen to browser back/forward buttons
+  useEffect(() => {
+    const syncTabFromHash = () => {
+      const hash = window.location.hash.replace('#', '');
+      if (hash === 'catalog' || hash === 'review' || hash === 'profile' || hash === 'live') {
+        setActiveTab(hash as any);
+      } else {
+        setActiveTab('catalog');
+      }
+    };
+
+    syncTabFromHash();
+    window.addEventListener('popstate', syncTabFromHash);
+    window.addEventListener('hashchange', syncTabFromHash);
+    return () => {
+      window.removeEventListener('popstate', syncTabFromHash);
+      window.removeEventListener('hashchange', syncTabFromHash);
+    };
+  }, []);
+
+  const handleTabChange = (tab: 'catalog' | 'review' | 'profile' | 'live') => {
+    setActiveTab(tab);
+    window.location.hash = tab;
+  };
+
   const handleSelectGame = (gameId: number) => {
     setSelectedGameId(gameId);
-    setActiveTab('review');
+    handleTabChange('review');
   };
 
   const handleSelectProfile = (username: string) => {
     setSelectedUsername(username);
-    setActiveTab('profile');
+    handleTabChange('profile');
   };
 
   return (
     <div className="min-h-screen bg-[#0B0F19] text-slate-100 flex flex-col">
-      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Navbar activeTab={activeTab} setActiveTab={handleTabChange} />
 
       <main className="flex-1">
         {activeTab === 'catalog' && (
