@@ -174,56 +174,106 @@ def get_game_timeline(
             elif eval_cp is not None and move.color.value == "black":
                 eval_cp = -eval_cp  # normalize existing db score to White-relative
 
-            # Calculate eval score & move classification using Chess.com delta thresholds
+            # Calculate eval score & move classification using Chess.com official thresholds
+            # Chess.com uses win-probability (Expected Points) delta — approximated via centipawn sigmoid
+            # Centipawn delta thresholds (from Chess.com public docs):
+            #   Excellent: 0–20cp, Good: 20–50cp, Inaccuracy: 50–100cp,
+            #   Mistake: 100–200cp, Blunder: >200cp
+            # Special categories:
+            #   Book: opening move (move_number <= 10) matching engine top
+            #   Great(!): move that rescues a losing position (best_eval ≤ -100cp → played_eval ≥ -30cp)
+            #   Brilliant(!!): sound piece sacrifice that IS the engine's top move, position was NOT already winning
+
             if eval_cp is not None and best_eval_cp is not None:
                 val_pawns = round(eval_cp / 100.0, 2)
                 best_pawns = round(best_eval_cp / 100.0, 2)
                 eval_score_str = f"+{val_pawns:.2f}" if val_pawns >= 0 else f"{val_pawns:.2f}"
                 best_score_str = f"+{best_pawns:.2f}" if best_pawns >= 0 else f"{best_pawns:.2f}"
 
-                # Delta from White's perspective (positive = played move gained, negative = lost)
-                # For White moves: played_eval - best_eval (both White-normalized)
-                # For Black moves: already normalized to White POV
-                delta = val_pawns - best_pawns  # negative = worse than engine best
+                # Centipawn loss vs engine best (positive = played is better than threshold, negative = worse)
+                delta_cp = eval_cp - best_eval_cp  # negative means played worse than best
 
-                # Brilliant: sacrificial move that gains material or mates, detected as unexpected
-                is_sacrifice = (
-                    prev_board.is_capture(chess.Move.from_uci(move.uci))
-                    if chess.Move.from_uci(move.uci) in prev_board.legal_moves else False
+                # --- BOOK: opening move (first 10 moves) matching engine's top choice ---
+                is_book = (
+                    move.move_number <= 10
+                    and move.uci == best_move_uci
                 )
 
-                if (move.uci == best_move_uci or abs(delta) < 0.05) and is_sacrifice and abs(val_pawns) > 1.0:
+                # --- BRILLIANT: piece sacrifice that IS the engine best, position was NOT already winning ---
+                # A sacrifice = move results in losing material but is still best
+                # We detect sacrifice by checking if a higher-value piece moves to a square defended by opponent
+                played_uci_obj = chess.Move.from_uci(move.uci) if chess.Move.from_uci(move.uci) in prev_board.legal_moves else None
+                is_capture = played_uci_obj and prev_board.is_capture(played_uci_obj)
+                # For a "sacrifice" (non-capture sacrifice), check if the piece is undefended after move
+                is_sacrifice = False
+                if played_uci_obj and is_capture:
+                    # Capture: check if we're giving up more than we take (e.g., Rook takes pawn guarded)
+                    from_piece = prev_board.piece_at(played_uci_obj.from_square)
+                    to_piece = prev_board.piece_at(played_uci_obj.to_square)
+                    piece_values = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 0}
+                    if from_piece and to_piece:
+                        our_val = piece_values.get(from_piece.piece_type, 0)
+                        their_val = piece_values.get(to_piece.piece_type, 0)
+                        is_sacrifice = our_val > their_val  # we give up more than we take
+
+                is_brilliant = (
+                    is_sacrifice
+                    and move.uci == best_move_uci  # must be engine's exact top move
+                    and best_pawns <= 1.5           # position was NOT already clearly winning
+                    and val_pawns >= -0.5           # resulting position is at least drawable
+                    and delta_cp >= -30             # very close to or better than engine
+                )
+
+                # --- GREAT(!): move that rescues a losing or equal position significantly ---
+                is_great = (
+                    not is_brilliant
+                    and not is_book
+                    and best_pawns <= -100 / 100.0  # was losing before
+                    and val_pawns >= -0.3            # now equal or better after move
+                    and delta_cp >= -50              # close to engine best
+                )
+
+                if is_book:
+                    move_classification = "book"
+                    classification_label = f"{move.san} is a book move"
+                    best_move_label = f"{move.san} is theory ({eval_score_str})"
+                elif is_brilliant:
                     move_classification = "brilliant"
                     classification_label = f"{move.san} is brilliant!!"
                     best_move_label = f"{move.san} is the best move ({eval_score_str})"
-                elif abs(delta) < 0.10 and best_eval_cp is not None:
+                elif is_great:
+                    move_classification = "great"
+                    classification_label = f"{move.san} is a great move!"
+                    best_move_label = f"{move.san} saves the position ({eval_score_str})"
+                elif move.uci == best_move_uci or abs(delta_cp) <= 10:
                     move_classification = "best"
                     classification_label = f"{move.san} is best move"
                     best_move_label = f"{move.san} is best ({eval_score_str})"
-                elif abs(delta) < 0.20:
+                elif abs(delta_cp) <= 20:
                     move_classification = "excellent"
                     classification_label = f"{move.san} is excellent"
                     best_move_label = f"{best_move_san or move.san} is best ({best_score_str})"
-                elif abs(delta) < 0.40:
+                elif abs(delta_cp) <= 50:
                     move_classification = "good"
                     classification_label = f"{move.san} played"
                     best_move_label = f"{best_move_san or move.san} is best ({best_score_str})"
-                elif delta < -2.0:
-                    move_classification = "blunder"
-                    classification_label = f"{move.san} is a blunder!"
-                    best_move_label = f"{best_move_san or 'best move'} is best ({best_score_str})"
-                elif delta < -1.0:
-                    move_classification = "miss"
-                    classification_label = f"{move.san} is a miss"
-                    best_move_label = f"{best_move_san or 'best move'} is best ({best_score_str})"
-                elif delta < -0.60:
-                    move_classification = "mistake"
-                    classification_label = f"{move.san} is a mistake"
-                    best_move_label = f"{best_move_san or 'best move'} is best ({best_score_str})"
-                else:
+                elif abs(delta_cp) <= 100:
                     move_classification = "inaccuracy"
                     classification_label = f"{move.san} is an inaccuracy"
                     best_move_label = f"{best_move_san or 'best move'} is best ({best_score_str})"
+                elif abs(delta_cp) <= 200:
+                    move_classification = "mistake"
+                    classification_label = f"{move.san} is a mistake"
+                    best_move_label = f"{best_move_san or 'best move'} is best ({best_score_str})"
+                elif abs(delta_cp) <= 300:
+                    move_classification = "miss"
+                    classification_label = f"{move.san} is a miss"
+                    best_move_label = f"{best_move_san or 'best move'} is best ({best_score_str})"
+                else:
+                    move_classification = "blunder"
+                    classification_label = f"{move.san} is a blunder!"
+                    best_move_label = f"{best_move_san or 'best move'} is best ({best_score_str})"
+
             elif eval_cp is not None:
                 val_pawns = round(eval_cp / 100.0, 2)
                 eval_score_str = f"+{val_pawns:.2f}" if val_pawns >= 0 else f"{val_pawns:.2f}"

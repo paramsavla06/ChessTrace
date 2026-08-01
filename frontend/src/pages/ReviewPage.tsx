@@ -191,10 +191,11 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
       isPressure: m.is_time_pressure_30s,
     }));
 
-  // Chess.com move classification metadata
+  // Chess.com move classification metadata (order matches Chess.com Game Review)
   const MOVE_TYPES = [
     { key: 'brilliant', label: 'Brilliant', icon: '!!', color: '#00b5c8', bgColor: 'bg-cyan-500/20', borderColor: 'border-cyan-500/30', textColor: 'text-cyan-400' },
     { key: 'great',     label: 'Great',     icon: '!',  color: '#32a8a8', bgColor: 'bg-teal-500/20', borderColor: 'border-teal-500/30', textColor: 'text-teal-400' },
+    { key: 'book',      label: 'Book',      icon: '📖', color: '#8b5cf6', bgColor: 'bg-violet-500/20', borderColor: 'border-violet-500/30', textColor: 'text-violet-400' },
     { key: 'best',      label: 'Best',      icon: '★',  color: '#30c670', bgColor: 'bg-emerald-500/20', borderColor: 'border-emerald-500/30', textColor: 'text-emerald-400' },
     { key: 'excellent', label: 'Excellent', icon: '✓+', color: '#7fc97f', bgColor: 'bg-green-500/20', borderColor: 'border-green-500/30', textColor: 'text-green-400' },
     { key: 'good',      label: 'Good',      icon: '✓',  color: '#4ade80', bgColor: 'bg-lime-500/20', borderColor: 'border-lime-500/30', textColor: 'text-lime-400' },
@@ -217,17 +218,19 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
     return counts;
   };
 
-  // Compute accuracy % (best+excellent+good / total moves)
+  // Compute accuracy % — Book moves excluded from denominator (not evaluated by engine)
+  // Brilliant/Great/Best/Excellent/Good = accurate; Inaccuracy/Mistake/Miss/Blunder = inaccurate
   const computeAccuracy = (counts: Record<string, number>): number => {
-    const total = Object.values(counts).reduce((a, b) => a + b, 0) || 1;
+    const bookCount = counts['book'] || 0;
+    const total = (Object.values(counts).reduce((a, b) => a + b, 0) - bookCount) || 1;
     const goodMoves = (counts['brilliant'] || 0) + (counts['great'] || 0) + (counts['best'] || 0) + (counts['excellent'] || 0) + (counts['good'] || 0);
     return parseFloat(((goodMoves / total) * 100).toFixed(1));
   };
 
-  // Estimate ChessTrace rating from move quality distribution
+  // Estimate ChessTrace rating from move quality distribution (book moves neutral weight)
   const estimateRating = (counts: Record<string, number>): number => {
     const total = Object.values(counts).reduce((a, b) => a + b, 0) || 1;
-    const weights = { brilliant: 2500, great: 2200, best: 2000, excellent: 1800, good: 1600, inaccuracy: 1300, mistake: 1100, miss: 900, blunder: 700 };
+    const weights = { brilliant: 2500, great: 2200, book: 1800, best: 2000, excellent: 1800, good: 1600, inaccuracy: 1300, mistake: 1100, miss: 900, blunder: 700 };
     const weightedSum = Object.entries(counts).reduce((sum, [k, v]) => sum + (weights[k as keyof typeof weights] || 1200) * v, 0);
     return Math.round(weightedSum / total);
   };
