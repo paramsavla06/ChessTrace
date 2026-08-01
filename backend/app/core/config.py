@@ -25,5 +25,6 @@ BACKEND_CORS_ORIGINS: list[str] = [
     "http://localhost:3000",
     "http://localhost:5173",
     "http://localhost:8000",
-    "*",
+    "https://chess-trace.vercel.app",
+    "https://*.vercel.app",
 ]
