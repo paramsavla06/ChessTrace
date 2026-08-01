@@ -15,8 +15,14 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
   const [inputGameId, setInputGameId] = useState<string>(gameId.toString());
 
   useEffect(() => {
+    let cleanId = inputGameId.trim();
+    if (cleanId.includes('lichess.org/')) {
+      const parts = cleanId.split('lichess.org/')[1].split('/');
+      cleanId = parts[0];
+    }
+
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${wsProtocol}//${window.location.host}/ws/live/${inputGameId}`;
+    const wsUrl = `${wsProtocol}//${window.location.host}/api/v1/ws/live/${cleanId || gameId}`;
 
     const socket = new WebSocket(wsUrl);
 
@@ -28,8 +34,8 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
       try {
         const data = JSON.parse(event.data);
         if (data.fen) setFen(data.fen);
-        if (data.win_probability) setWinProb(data.win_probability);
-        if (data.collapse_probability) setCollapseProb(data.collapse_probability);
+        if (data.win_probability !== undefined) setWinProb(data.win_probability);
+        if (data.collapse_probability !== undefined) setCollapseProb(data.collapse_probability);
         if (data.narrative_summary) setNarrative(data.narrative_summary);
       } catch (err) {
         console.error('Failed parsing WS frame', err);
@@ -43,7 +49,7 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
     return () => {
       socket.close();
     };
-  }, [inputGameId]);
+  }, [inputGameId, gameId]);
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">

@@ -106,12 +106,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ username }) => {
       </div>
 
       {/* Game Phase Accuracy & Time Distribution Breakdown */}
-      {profile && (
+      {profile && profile.phase_accuracy && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="glass-panel p-5 rounded-2xl border-l-4 border-l-emerald-500">
             <span className="text-xs uppercase font-bold text-emerald-400 font-mono">Opening Phase Accuracy</span>
             <div className="flex justify-between items-baseline mt-2">
-              <span className="text-3xl font-extrabold text-white font-mono">89.4%</span>
+              <span className="text-3xl font-extrabold text-white font-mono">{profile.phase_accuracy.opening_accuracy_pct}%</span>
               <span className="text-xs text-slate-400 font-mono">{profile.time_distribution.opening_time_pct.toFixed(0)}% time used</span>
             </div>
             <p className="text-xs text-slate-400 mt-2">Solid book preparation across mainlines.</p>
@@ -120,7 +120,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ username }) => {
           <div className="glass-panel p-5 rounded-2xl border-l-4 border-l-indigo-500">
             <span className="text-xs uppercase font-bold text-indigo-400 font-mono">Middlegame Tactical Accuracy</span>
             <div className="flex justify-between items-baseline mt-2">
-              <span className="text-3xl font-extrabold text-white font-mono">74.2%</span>
+              <span className="text-3xl font-extrabold text-white font-mono">{profile.phase_accuracy.middlegame_accuracy_pct}%</span>
               <span className="text-xs text-slate-400 font-mono">{profile.time_distribution.middlegame_time_pct.toFixed(0)}% time used</span>
             </div>
             <p className="text-xs text-slate-400 mt-2">Slight tactical evaluation drops under complexity.</p>
@@ -129,10 +129,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ username }) => {
           <div className="glass-panel p-5 rounded-2xl border-l-4 border-l-amber-500">
             <span className="text-xs uppercase font-bold text-amber-400 font-mono">Endgame Technique Accuracy</span>
             <div className="flex justify-between items-baseline mt-2">
-              <span className="text-3xl font-extrabold text-white font-mono">61.8%</span>
+              <span className="text-3xl font-extrabold text-white font-mono">{profile.phase_accuracy.endgame_accuracy_pct}%</span>
               <span className="text-xs text-slate-400 font-mono">{profile.time_distribution.endgame_time_pct.toFixed(0)}% time used</span>
             </div>
-            <p className="text-xs text-amber-300 font-semibold mt-2">⚠️ Biggest weakness — technique deteriorates under clock pressure.</p>
+            <p className="text-xs text-amber-300 font-semibold mt-2">⚠️ Technique degrades under time pressure.</p>
           </div>
         </div>
       )}

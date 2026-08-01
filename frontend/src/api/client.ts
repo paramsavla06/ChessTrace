@@ -91,6 +91,11 @@ export interface PlayerProfileResponse {
     middlegame_time_pct: number;
     endgame_time_pct: number;
   };
+  phase_accuracy: {
+    opening_accuracy_pct: number;
+    middlegame_accuracy_pct: number;
+    endgame_accuracy_pct: number;
+  };
   panic_move_count: number;
   overthink_move_count: number;
 }
