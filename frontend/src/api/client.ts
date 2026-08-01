@@ -124,4 +124,58 @@ export interface PatternsResponse {
   }>;
 }
 
+export interface OpeningReportResponse {
+  username: string;
+  total_games_analyzed: number;
+  openings: Array<{
+    eco: string;
+    opening_name: string;
+    total_played: number;
+    win_rate_pct: number;
+    wins: number;
+    losses: number;
+    draws: number;
+    recommendation: string;
+  }>;
+}
+
+export interface BrilliancyResponse {
+  username: string;
+  total_brilliances_found: number;
+  top_brilliances: Array<{
+    game_id: number;
+    white_player: string;
+    black_player: string;
+    move_number: number;
+    san: string;
+    anomaly_score: number;
+    description: string;
+  }>;
+}
+
+export interface CompareResponse {
+  player1: {
+    username: string;
+    archetype: string;
+    normal_think_pace_sec: number;
+    post_blunder_pace_sec: number;
+    tilt_speedup_pct: number;
+    panic_move_count: number;
+    overthink_move_count: number;
+  };
+  player2: {
+    username: string;
+    archetype: string;
+    normal_think_pace_sec: number;
+    post_blunder_pace_sec: number;
+    tilt_speedup_pct: number;
+    panic_move_count: number;
+    overthink_move_count: number;
+  };
+  head_to_head_summary: {
+    tilt_vulnerability_winner: string;
+    comparison_verdict: string;
+  };
+}
+
 type float = number;

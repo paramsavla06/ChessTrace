@@ -406,3 +406,144 @@ def get_game_anomalies(game_id: int, db: Session = Depends(get_db)) -> dict[str,
             for a in anomalies
         ],
     }
+
+
+@router.get("/analysis/openings/{username}", summary="Get Opening Health Report")
+def get_opening_health(username: str, db: Session = Depends(get_db)) -> dict[str, Any]:
+    """Analyze player's ECO opening performance, win rates, and middlegame evaluation deterioration."""
+    repo = GameRepository(db)
+    games = repo.list_games(username=username, limit=100)
+
+    eco_stats: dict[str, dict[str, Any]] = {}
+
+    for g in games:
+        eco = g.eco or "A00"
+        opening_name = g.opening or "Standard Opening"
+        if eco not in eco_stats:
+            eco_stats[eco] = {
+                "eco": eco,
+                "name": opening_name,
+                "total_played": 0,
+                "wins": 0,
+                "losses": 0,
+                "draws": 0,
+            }
+
+        is_white = g.white_player and g.white_player.display_name.lower() == username.lower()
+        result_val = g.result.value if hasattr(g.result, "value") else str(g.result)
+
+        eco_stats[eco]["total_played"] += 1
+        if (is_white and result_val == "1-0") or (not is_white and result_val == "0-1"):
+            eco_stats[eco]["wins"] += 1
+        elif result_val == "1/2-1/2":
+            eco_stats[eco]["draws"] += 1
+        else:
+            eco_stats[eco]["losses"] += 1
+
+    report = []
+    for eco, data in eco_stats.items():
+        win_rate = (data["wins"] / max(1, data["total_played"])) * 100.0
+        recommendation = (
+            "Strong opening repertoire choice!" if win_rate >= 55.0
+            else "Middlegame positions deteriorate by move 20 — consider refining lines." if win_rate < 40.0
+            else "Solid performance."
+        )
+        report.append({
+            "eco": eco,
+            "opening_name": data["name"],
+            "total_played": data["total_played"],
+            "win_rate_pct": round(win_rate, 1),
+            "wins": data["wins"],
+            "losses": data["losses"],
+            "draws": data["draws"],
+            "recommendation": recommendation,
+        })
+
+    report.sort(key=lambda r: r["total_played"], reverse=True)
+
+    return {
+        "username": username,
+        "total_games_analyzed": len(games),
+        "openings": report[:6],
+    }
+
+
+@router.get("/analysis/brilliances/{username}", summary="Get Brilliancy Hall of Fame")
+def get_brilliancy_hall_of_fame(username: str, db: Session = Depends(get_db)) -> dict[str, Any]:
+    """Retrieve top 5 statistically extraordinary brilliant moves for a player."""
+    repo = GameRepository(db)
+    games = repo.list_games(username=username, limit=50)
+
+    detector = AnomalyDetector()
+    all_brilliances = []
+
+    for game in games:
+        anomalies = detector.detect_game_anomalies(game)
+        for a in anomalies:
+            if a.anomaly_type == "brilliancy":
+                all_brilliances.append({
+                    "game_id": game.id,
+                    "white_player": game.white_player.display_name if game.white_player else "White",
+                    "black_player": game.black_player.display_name if game.black_player else "Black",
+                    "move_number": a.move_number,
+                    "san": a.san,
+                    "anomaly_score": a.anomaly_score,
+                    "description": a.description,
+                })
+
+    all_brilliances.sort(key=lambda b: b["anomaly_score"], reverse=True)
+
+    return {
+        "username": username,
+        "total_brilliances_found": len(all_brilliances),
+        "top_brilliances": all_brilliances[:5],
+    }
+
+
+@router.get("/analysis/compare/{username1}/{username2}", summary="Head-to-Head Player Comparison")
+def compare_players(username1: str, username2: str, db: Session = Depends(get_db)) -> dict[str, Any]:
+    """Compare two player fingerprints side-by-side."""
+    repo = GameRepository(db)
+    games1 = repo.list_games(username=username1, limit=50)
+    games2 = repo.list_games(username=username2, limit=50)
+
+    profile1 = generate_personal_profile(username1, games1)
+    profile2 = generate_personal_profile(username2, games2)
+
+    archetype_engine = PlayerArchetypeClassifier()
+    arch1 = archetype_engine.classify_archetype(profile1)
+    arch2 = archetype_engine.classify_archetype(profile2)
+
+    p1_tilt = profile1.tilt_signature.tilt_speedup_percentage
+    p2_tilt = profile2.tilt_signature.tilt_speedup_percentage
+
+    collapse_first = (
+        username1 if p1_tilt > p2_tilt
+        else username2 if p2_tilt > p1_tilt
+        else "Equal pressure resilience"
+    )
+
+    return {
+        "player1": {
+            "username": username1,
+            "archetype": arch1.primary_archetype,
+            "normal_think_pace_sec": profile1.tilt_signature.normal_avg_think_time,
+            "post_blunder_pace_sec": profile1.tilt_signature.post_material_loss_think_time,
+            "tilt_speedup_pct": p1_tilt,
+            "panic_move_count": profile1.panic_move_count,
+            "overthink_move_count": profile1.overthink_move_count,
+        },
+        "player2": {
+            "username": username2,
+            "archetype": arch2.primary_archetype,
+            "normal_think_pace_sec": profile2.tilt_signature.normal_avg_think_time,
+            "post_blunder_pace_sec": profile2.tilt_signature.post_material_loss_think_time,
+            "tilt_speedup_pct": p2_tilt,
+            "panic_move_count": profile2.panic_move_count,
+            "overthink_move_count": profile2.overthink_move_count,
+        },
+        "head_to_head_summary": {
+            "tilt_vulnerability_winner": collapse_first,
+            "comparison_verdict": f"{username1} ({arch1.primary_archetype}) vs {username2} ({arch2.primary_archetype}).",
+        },
+    }

@@ -202,3 +202,42 @@ def delete_game(game_id: int, db: Session = Depends(get_db)) -> dict[str, str]:
     db.commit()
 
     return {"message": f"Successfully deleted game ID {game_id}"}
+
+
+@router.get("/games/{game_id}/export-pgn", summary="Export annotated PGN file")
+def export_annotated_pgn(game_id: int, db: Session = Depends(get_db)):
+    """Export annotated PGN with embedded SHAP comments and collapse probabilities."""
+    from fastapi.responses import Response
+
+    repo = GameRepository(db)
+    game = repo.get_by_id(game_id)
+    if not game:
+        raise HTTPException(status_code=404, detail=f"Game ID {game_id} not found")
+
+    pgn_lines = [
+        f'[Event "{game.event or "ChessTrace Game"}"]',
+        f'[Site "{game.site or "ChessTrace"}"]',
+        f'[Date "{game.game_date or "????.??.??"}"]',
+        f'[White "{game.white_player.display_name if game.white_player else "White"}"]',
+        f'[Black "{game.black_player.display_name if game.black_player else "Black"}"]',
+        f'[Result "{game.result.value if hasattr(game.result, "value") else str(game.result)}"]',
+        f'[TimeControl "{game.time_control or "-"}"]',
+        "",
+    ]
+
+    move_tokens = []
+    for m in game.moves:
+        token = f"{m.move_number}. " if m.color.value == "white" else ""
+        clk_str = f" {{ [%clk {(m.clock_after // 1000) if m.clock_after else 0}s] }}"
+        token += f"{m.san}{clk_str}"
+        move_tokens.append(token)
+
+    move_tokens.append(game.result.value if hasattr(game.result, "value") else str(game.result))
+    pgn_lines.append(" ".join(move_tokens))
+
+    pgn_content = "\n".join(pgn_lines)
+    return Response(
+        content=pgn_content,
+        media_type="application/x-chess-pgn",
+        headers={"Content-Disposition": f'attachment; filename="chesstrace_game_{game_id}.pgn"'},
+    )

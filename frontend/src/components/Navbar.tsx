@@ -1,9 +1,9 @@
 import React from 'react';
-import { Activity, Radio, User, Upload, Shield } from 'lucide-react';
+import { Activity, Radio, User, Upload, Shield, Swords } from 'lucide-react';
 
 interface NavbarProps {
-  activeTab: 'catalog' | 'review' | 'profile' | 'live';
-  setActiveTab: (tab: 'catalog' | 'review' | 'profile' | 'live') => void;
+  activeTab: 'catalog' | 'review' | 'profile' | 'live' | 'compare';
+  setActiveTab: (tab: 'catalog' | 'review' | 'profile' | 'live' | 'compare') => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
@@ -22,7 +22,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
             <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-indigo-400 bg-clip-text text-transparent">
               ChessTrace
             </h1>
-            <p className="text-xs text-slate-400">Human Cognition & Collapse Intelligence</p>
+            <p className="text-xs text-slate-400 font-sans">Human Cognition & Collapse Intelligence</p>
           </div>
         </div>
 
@@ -62,6 +62,18 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
           >
             <User className="w-4 h-4" />
             Personal Profile
+          </button>
+
+          <button
+            onClick={() => setActiveTab('compare')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeTab === 'compare'
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+            }`}
+          >
+            <Swords className="w-4 h-4" />
+            Head-to-Head
           </button>
 
           <button

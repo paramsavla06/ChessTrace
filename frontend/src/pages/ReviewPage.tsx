@@ -134,27 +134,30 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-      {/* Header Bar */}
-      {gameMeta && (
-        <div className="glass-panel p-6 rounded-2xl flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-xs text-indigo-400 font-semibold uppercase tracking-wider">
-              <span>{gameMeta.event || 'Blitz Game'}</span>
-              <span>•</span>
-              <span>{gameMeta.time_control || 'Blitz'}</span>
-            </div>
-            <h1 className="text-2xl font-bold text-white mt-1">
-              {gameMeta.white_player || 'White'} ({gameMeta.white_elo || '?'}) vs{' '}
-              {gameMeta.black_player || 'Black'} ({gameMeta.black_elo || '?'})
+      {/* Game Header Banner */}
+      <div className="glass-panel p-6 rounded-2xl flex flex-wrap justify-between items-center gap-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-white font-mono">
+              {gameMeta?.white_player || 'White'} vs {gameMeta?.black_player || 'Black'}
             </h1>
+            <span className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-mono">
+              {gameMeta?.eco || 'A00'}
+            </span>
           </div>
-
-          <div className="flex items-center gap-4 bg-slate-900/60 px-4 py-2 rounded-xl border border-slate-800">
-            <span className="text-sm font-semibold text-slate-300">Result: {gameMeta.result}</span>
-            <span className="text-xs text-slate-500 font-mono">ECO: {gameMeta.eco || 'A00'}</span>
-          </div>
+          <p className="text-xs text-slate-400 mt-1 font-mono">
+            {gameMeta?.event} • Result: {gameMeta?.result} • TC: {gameMeta?.time_control}
+          </p>
         </div>
-      )}
+
+        <a
+          href={`/api/v1/games/${gameId}/export-pgn`}
+          download
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 font-medium text-xs border border-indigo-500/30 transition-all font-mono shadow-md"
+        >
+          <span>Download PGN (Annotated)</span>
+        </a>
+      </div>
 
       {/* Main Grid: Board + Controls + Narrative */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
