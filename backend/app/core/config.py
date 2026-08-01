@@ -17,7 +17,10 @@ load_dotenv(env_path)
 PROJECT_NAME: str = "ChessTrace"
 API_V1_STR: str = "/api/v1"
 
-DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./chesstrace.db")
+_db_url = os.getenv("DATABASE_URL", "sqlite:///./chesstrace.db")
+if _db_url.startswith("postgres://"):
+    _db_url = _db_url.replace("postgres://", "postgresql://", 1)
+DATABASE_URL: str = _db_url
 STOCKFISH_PATH: str = os.getenv("STOCKFISH_PATH", "./stockfish_bin")
 LICHESS_API_TOKEN: str = os.getenv("LICHESS_API_TOKEN", "")
 
