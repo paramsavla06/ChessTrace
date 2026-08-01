@@ -790,7 +790,14 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
                     <stop offset="95%" stopColor="#f43f5e" stopOpacity={0.0} />
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="move" stroke="#64748B" fontSize={10} tick={{ fill: '#94a3b8' }} />
+                <XAxis
+                  dataKey="move"
+                  stroke="#64748B"
+                  fontSize={10}
+                  tick={{ fill: '#94a3b8' }}
+                  minTickGap={35}
+                  tickFormatter={(val: string) => (val.endsWith('.w') ? val : '')}
+                />
                 <YAxis stroke="#64748B" fontSize={10} unit="s" tick={{ fill: '#94a3b8' }} width={36} />
                 <Tooltip
                   contentStyle={{
