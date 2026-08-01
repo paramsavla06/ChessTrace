@@ -193,13 +193,22 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
     );
   }
 
-  const chartData = timeline.map((m) => ({
-    ply: m.ply,
-    move: `${m.move_number}.${m.color === 'white' ? 'w' : 'b'}`,
-    thinkTime: parseFloat((m.think_time_sec ?? 0).toFixed(1)),
-    clock: m.time_remaining_sec,
-    isPressure: m.is_time_pressure_30s,
-  }));
+  const chartData: any[] = [];
+  const movesByNumber = new Map<number, any>();
+
+  timeline.forEach((m) => {
+    if (!movesByNumber.has(m.move_number)) {
+      movesByNumber.set(m.move_number, { move: m.move_number });
+    }
+    const d = movesByNumber.get(m.move_number);
+    if (m.color === 'white') {
+      d.whiteThink = parseFloat((m.think_time_sec ?? 0).toFixed(1));
+    } else {
+      d.blackThink = parseFloat((m.think_time_sec ?? 0).toFixed(1));
+    }
+  });
+  movesByNumber.forEach((v) => chartData.push(v));
+  chartData.sort((a, b) => a.move - b.move);
 
   // Chess.com move classification metadata (order matches Chess.com Game Review)
   const MOVE_TYPES = [
@@ -864,7 +873,6 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
                   fontSize={10}
                   tick={{ fill: '#94a3b8' }}
                   minTickGap={35}
-                  tickFormatter={(val: string) => (val.endsWith('.w') ? val : '')}
                 />
                 <YAxis stroke="#64748B" fontSize={10} unit="s" tick={{ fill: '#94a3b8' }} width={36} />
                 <Tooltip
@@ -875,9 +883,10 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
                     color: '#fff',
                     fontSize: '12px',
                   }}
-                  formatter={(val: any) => [`${val}s`, 'Think Time']}
+                  formatter={(val: any, name: string) => [`${val}s`, name === 'whiteThink' ? 'White Time' : 'Black Time']}
                 />
-                <Area type="monotone" dataKey="thinkTime" name="Think Time" stroke="#6366F1" strokeWidth={2} fillOpacity={1} fill="url(#thinkColor)" dot={false} />
+                <Area type="monotone" dataKey="whiteThink" name="whiteThink" stroke="#f1f5f9" strokeWidth={2} fillOpacity={0.2} fill="#f1f5f9" dot={false} />
+                <Area type="monotone" dataKey="blackThink" name="blackThink" stroke="#6366F1" strokeWidth={2} fillOpacity={0.5} fill="#6366F1" dot={false} />
               </AreaChart>
             </ResponsiveContainer>
           </div>

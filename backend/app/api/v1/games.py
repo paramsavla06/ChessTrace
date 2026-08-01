@@ -208,20 +208,25 @@ def get_game_timeline(
 
                 # --- BRILLIANT: piece sacrifice that IS the engine best, position was NOT already winning ---
                 # A sacrifice = move results in losing material but is still best
-                # We detect sacrifice by checking if a higher-value piece moves to a square defended by opponent
                 played_uci_obj = chess.Move.from_uci(move.uci) if chess.Move.from_uci(move.uci) in prev_board.legal_moves else None
                 is_capture = played_uci_obj and prev_board.is_capture(played_uci_obj)
-                # For a "sacrifice" (non-capture sacrifice), check if the piece is undefended after move
+                
                 is_sacrifice = False
-                if played_uci_obj and is_capture:
-                    # Capture: check if we're giving up more than we take (e.g., Rook takes pawn guarded)
-                    from_piece = prev_board.piece_at(played_uci_obj.from_square)
-                    to_piece = prev_board.piece_at(played_uci_obj.to_square)
-                    piece_values = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 0}
-                    if from_piece and to_piece:
-                        our_val = piece_values.get(from_piece.piece_type, 0)
-                        their_val = piece_values.get(to_piece.piece_type, 0)
-                        is_sacrifice = our_val > their_val  # we give up more than we take
+                if played_uci_obj:
+                    is_attacked = prev_board.is_attacked_by(not prev_board.turn, played_uci_obj.to_square)
+                    if is_capture:
+                        # Capture: check if we give up more than we take AND the square is defended
+                        from_piece = prev_board.piece_at(played_uci_obj.from_square)
+                        to_piece = prev_board.piece_at(played_uci_obj.to_square)
+                        piece_values = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 0}
+                        if from_piece and to_piece:
+                            our_val = piece_values.get(from_piece.piece_type, 0)
+                            their_val = piece_values.get(to_piece.piece_type, 0)
+                            is_sacrifice = (our_val > their_val) and is_attacked
+                    else:
+                        # Non-capture: check if we move a piece to an attacked square where it is under-defended
+                        # (A simple heuristic: moving any piece to an attacked square is a 'sacrifice' if engine says it's best)
+                        is_sacrifice = is_attacked
 
                 # For brilliant, check that the player wasn't already overwhelmingly winning
                 already_winning = (best_pawns >= 1.5 if move.color.value == "white" else best_pawns <= -1.5)
