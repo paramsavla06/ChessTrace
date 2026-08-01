@@ -190,8 +190,15 @@ def get_game_timeline(
                 eval_score_str = f"+{val_pawns:.2f}" if val_pawns >= 0 else f"{val_pawns:.2f}"
                 best_score_str = f"+{best_pawns:.2f}" if best_pawns >= 0 else f"{best_pawns:.2f}"
 
-                # Centipawn loss vs engine best (positive = played is better than threshold, negative = worse)
-                delta_cp = eval_cp - best_eval_cp  # negative means played worse than best
+                # Centipawn loss vs engine best (always >= 0 unless depth anomaly, larger = worse move)
+                if move.color.value == "white":
+                    cp_loss = best_eval_cp - eval_cp
+                    was_losing = best_pawns <= -1.0
+                    now_rescued = val_pawns >= -0.3
+                else:
+                    cp_loss = eval_cp - best_eval_cp
+                    was_losing = best_pawns >= 1.0
+                    now_rescued = val_pawns <= 0.3
 
                 # --- BOOK: opening move (first 10 moves) matching engine's top choice ---
                 is_book = (
@@ -216,21 +223,25 @@ def get_game_timeline(
                         their_val = piece_values.get(to_piece.piece_type, 0)
                         is_sacrifice = our_val > their_val  # we give up more than we take
 
+                # For brilliant, check that the player wasn't already overwhelmingly winning
+                already_winning = (best_pawns >= 1.5 if move.color.value == "white" else best_pawns <= -1.5)
+                drawable = (val_pawns >= -0.5 if move.color.value == "white" else val_pawns <= 0.5)
+
                 is_brilliant = (
                     is_sacrifice
                     and move.uci == best_move_uci  # must be engine's exact top move
-                    and best_pawns <= 1.5           # position was NOT already clearly winning
-                    and val_pawns >= -0.5           # resulting position is at least drawable
-                    and delta_cp >= -30             # very close to or better than engine
+                    and not already_winning         # position was NOT already clearly winning
+                    and drawable                    # resulting position is at least drawable
+                    and cp_loss <= 30               # very close to or better than engine
                 )
 
                 # --- GREAT(!): move that rescues a losing or equal position significantly ---
                 is_great = (
                     not is_brilliant
                     and not is_book
-                    and best_pawns <= -100 / 100.0  # was losing before
-                    and val_pawns >= -0.3            # now equal or better after move
-                    and delta_cp >= -50              # close to engine best
+                    and was_losing                   # was losing before
+                    and now_rescued                  # now equal or better after move
+                    and cp_loss <= 50                # close to engine best
                 )
 
                 if is_book:
@@ -245,27 +256,27 @@ def get_game_timeline(
                     move_classification = "great"
                     classification_label = f"{move.san} is a great move!"
                     best_move_label = f"{move.san} saves the position ({eval_score_str})"
-                elif move.uci == best_move_uci or abs(delta_cp) <= 10:
+                elif move.uci == best_move_uci or cp_loss <= 10:
                     move_classification = "best"
                     classification_label = f"{move.san} is best move"
                     best_move_label = f"{move.san} is best ({eval_score_str})"
-                elif abs(delta_cp) <= 20:
+                elif cp_loss <= 20:
                     move_classification = "excellent"
                     classification_label = f"{move.san} is excellent"
                     best_move_label = f"{best_move_san or move.san} is best ({best_score_str})"
-                elif abs(delta_cp) <= 50:
+                elif cp_loss <= 50:
                     move_classification = "good"
                     classification_label = f"{move.san} played"
                     best_move_label = f"{best_move_san or move.san} is best ({best_score_str})"
-                elif abs(delta_cp) <= 100:
+                elif cp_loss <= 100:
                     move_classification = "inaccuracy"
                     classification_label = f"{move.san} is an inaccuracy"
                     best_move_label = f"{best_move_san or 'best move'} is best ({best_score_str})"
-                elif abs(delta_cp) <= 200:
+                elif cp_loss <= 200:
                     move_classification = "mistake"
                     classification_label = f"{move.san} is a mistake"
                     best_move_label = f"{best_move_san or 'best move'} is best ({best_score_str})"
-                elif abs(delta_cp) <= 300:
+                elif cp_loss <= 300:
                     move_classification = "miss"
                     classification_label = f"{move.san} is a miss"
                     best_move_label = f"{best_move_san or 'best move'} is best ({best_score_str})"
