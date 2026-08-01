@@ -79,7 +79,7 @@ class Evaluator:
         try:
             info = self._engine.analyse(
                 board,
-                depth=depth,
+                limit=chess.engine.Limit(depth=depth, time=2.0),
             )
         except chess.engine.EngineError as exc:
             raise EvaluationError("Failed to evaluate chess position.") from exc
