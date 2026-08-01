@@ -63,8 +63,8 @@ def parse_moves(game: chess.pgn.Game,) -> list[Move]:
     board = game.board()
 
     moves: list[Move] = []
-
-    previous_clock: int | None = None
+    previous_white_clock: int | None = None
+    previous_black_clock: int | None = None
 
     for ply, node in enumerate(game.mainline(), start=1):
 
@@ -73,9 +73,10 @@ def parse_moves(game: chess.pgn.Game,) -> list[Move]:
         if chess_move is None:
             continue
 
+        turn = board.turn
         color = (
             MoveColor.WHITE
-            if board.turn == chess.WHITE
+            if turn == chess.WHITE
             else MoveColor.BLACK
         )
 
@@ -103,10 +104,16 @@ def parse_moves(game: chess.pgn.Game,) -> list[Move]:
 
         clock_after = _extract_clock(node)
 
+        prev_clock = previous_white_clock if turn == chess.WHITE else previous_black_clock
         time_spent = None
 
-        if (previous_clock is not None and clock_after is not None):
-            time_spent = previous_clock - clock_after
+        if prev_clock is not None and clock_after is not None:
+            time_spent = max(0, prev_clock - clock_after)
+
+        if turn == chess.WHITE:
+            previous_white_clock = clock_after
+        else:
+            previous_black_clock = clock_after
 
         move = Move(
             move_number=move_number,
@@ -119,14 +126,12 @@ def parse_moves(game: chess.pgn.Game,) -> list[Move]:
             is_check=is_check,
             is_checkmate=is_checkmate,
             promotion=promotion,
-            clock_before=previous_clock,
+            clock_before=prev_clock,
             clock_after=clock_after,
             time_spent=time_spent,
         )
 
         moves.append(move)
-
-        previous_clock = clock_after
 
     return moves
 

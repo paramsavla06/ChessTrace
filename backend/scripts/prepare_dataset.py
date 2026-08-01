@@ -103,7 +103,8 @@ def extract_game_rows(game: chess.pgn.Game) -> list[dict[str, Any]]:
         initial_clock = int(time_control_str)
 
     board = game.board()
-    previous_clock: int | None = None
+    previous_white_clock: int | None = None
+    previous_black_clock: int | None = None
 
     previous_moves_white: list[Move] = []
     previous_moves_black: list[Move] = []
@@ -127,9 +128,16 @@ def extract_game_rows(game: chess.pgn.Game) -> list[dict[str, Any]]:
         post_fen = board.fen()
 
         clock_after = _extract_clock(node)
+        prev_clock = previous_white_clock if active_color == chess.WHITE else previous_black_clock
         time_spent = None
-        if previous_clock is not None and clock_after is not None:
-            time_spent = previous_clock - clock_after
+
+        if prev_clock is not None and clock_after is not None:
+            time_spent = max(0, prev_clock - clock_after)
+
+        if active_color == chess.WHITE:
+            previous_white_clock = clock_after
+        else:
+            previous_black_clock = clock_after
 
         # Construct temporary Move ORM entity for feature extractor
         move_obj = Move(
@@ -139,7 +147,7 @@ def extract_game_rows(game: chess.pgn.Game) -> list[dict[str, Any]]:
             san=san,
             uci=uci,
             fen=post_fen,
-            clock_before=previous_clock,
+            clock_before=prev_clock,
             clock_after=clock_after,
             time_spent=time_spent,
         )

@@ -10,7 +10,6 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import dataclass
-from typing import Sequence
 
 from app.ml.personal_profile import PersonalProfileFingerprint
 
@@ -30,29 +29,27 @@ class PlayerSimilarityEngine:
     """
 
     def __init__(self) -> None:
-        # Reference dataset of known player style fingerprints
-        self.reference_database: dict[str, dict[str, float]] = {
-            "MagnusCarlsen": {"avg_think": 6.5, "tilt": 0.05, "endgame_time": 0.40, "panic_ratio": 0.02},
-            "HikaruNakamura": {"avg_think": 3.2, "tilt": 0.12, "endgame_time": 0.25, "panic_ratio": 0.05},
-            "DanielNaroditsky": {"avg_think": 4.1, "tilt": 0.15, "endgame_time": 0.30, "panic_ratio": 0.04},
-            "FabianoCaruana": {"avg_think": 8.2, "tilt": 0.08, "endgame_time": 0.35, "panic_ratio": 0.03},
-            "AlirezaFirouzja": {"avg_think": 3.8, "tilt": 0.22, "endgame_time": 0.28, "panic_ratio": 0.08},
+        # Reference dataset of known player style feature vectors:
+        # [normalized_avg_think, tilt_factor, endgame_allocation, panic_ratio]
+        self.reference_database: dict[str, list[float]] = {
+            "MagnusCarlsen": [0.45, 0.05, 0.40, 0.02],
+            "HikaruNakamura": [0.20, 0.12, 0.25, 0.05],
+            "DanielNaroditsky": [0.25, 0.15, 0.30, 0.04],
+            "FabianoCaruana": [0.65, 0.08, 0.35, 0.03],
+            "AlirezaFirouzja": [0.22, 0.25, 0.28, 0.08],
         }
 
-    def _profile_to_vector(self, profile: PersonalProfileFingerprint) -> dict[str, float]:
-        total_moves = max(1, len(profile.accuracy_vs_clock))
-        return {
-            "avg_think": profile.tilt_signature.normal_avg_think_time,
-            "tilt": profile.tilt_signature.tilt_speedup_percentage / 100.0,
-            "endgame_time": profile.time_distribution.endgame_time_pct / 100.0,
-            "panic_ratio": profile.panic_move_count / (total_moves * 20.0),
-        }
+    def _profile_to_vector(self, profile: PersonalProfileFingerprint) -> list[float]:
+        norm_think = max(0.0, min(1.0, profile.tilt_signature.normal_avg_think_time / 15.0))
+        tilt = max(0.0, min(1.0, (profile.tilt_signature.tilt_speedup_percentage + 50.0) / 150.0))
+        endgame = max(0.0, min(1.0, profile.time_distribution.endgame_time_pct / 100.0))
+        panic = max(0.0, min(1.0, profile.panic_move_count / max(1, profile.total_games_analyzed * 10)))
+        return [norm_think, tilt, endgame, panic]
 
-    def _cosine_similarity(self, vec1: dict[str, float], vec2: dict[str, float]) -> float:
-        keys = set(vec1.keys()).union(vec2.keys())
-        dot = sum(vec1.get(k, 0.0) * vec2.get(k, 0.0) for k in keys)
-        mag1 = math.sqrt(sum(v**2 for v in vec1.values()))
-        mag2 = math.sqrt(sum(v**2 for v in vec2.values()))
+    def _cosine_similarity(self, vec1: list[float], vec2: list[float]) -> float:
+        dot = sum(a * b for a, b in zip(vec1, vec2))
+        mag1 = math.sqrt(sum(a**2 for a in vec1))
+        mag2 = math.sqrt(sum(b**2 for b in vec2))
         if mag1 == 0 or mag2 == 0:
             return 0.0
         return dot / (mag1 * mag2)
@@ -73,14 +70,15 @@ class PlayerSimilarityEngine:
                 continue
 
             sim = self._cosine_similarity(user_vec, ref_vec)
-            score_pct = round(min(99.9, max(50.0, sim * 100.0)), 1)
+            # Map cosine similarity (0.0 to 1.0) into a realistic 60.0% to 98.5% style match range
+            score_pct = round(62.0 + (sim * 36.5), 1)
 
             traits: list[str] = []
-            if abs(user_vec["avg_think"] - ref_vec["avg_think"]) < 2.0:
-                traits.append("Similar thought pace")
-            if abs(user_vec["endgame_time"] - ref_vec["endgame_time"]) < 0.1:
-                traits.append("Matching endgame time allocation")
-            if abs(user_vec["tilt"] - ref_vec["tilt"]) < 0.1:
+            if abs(user_vec[0] - ref_vec[0]) < 0.15:
+                traits.append("Similar thought pace & clock allocation")
+            if abs(user_vec[2] - ref_vec[2]) < 0.10:
+                traits.append("Matching endgame time ratio")
+            if abs(user_vec[1] - ref_vec[1]) < 0.15:
                 traits.append("Resilient tilt signature under pressure")
 
             matches.append(
@@ -91,5 +89,6 @@ class PlayerSimilarityEngine:
                 )
             )
 
+        # Sort descending by similarity match percentage
         matches.sort(key=lambda m: m.similarity_score_pct, reverse=True)
         return matches[:top_n]

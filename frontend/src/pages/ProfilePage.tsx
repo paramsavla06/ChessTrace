@@ -104,7 +104,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ username }) => {
             <div className="p-4 rounded-xl bg-rose-950/30 border border-rose-900/50 flex justify-between items-center text-xs">
               <span className="text-rose-300 font-medium">Tilt Speedup Factor</span>
               <span className="text-rose-400 font-bold text-sm">
-                -{profile.tilt_signature.tilt_speedup_percentage}% think time after blunder
+                {profile.tilt_signature.tilt_speedup_percentage > 0
+                  ? `Plays ${profile.tilt_signature.tilt_speedup_percentage.toFixed(1)}% faster after blunders (${(
+                      profile.tilt_signature.normal_avg_think_time_sec /
+                      Math.max(profile.tilt_signature.post_material_loss_think_time_sec, 0.1)
+                    ).toFixed(1)}x speedup)`
+                  : profile.tilt_signature.tilt_speedup_percentage < 0
+                  ? `Plays ${Math.abs(profile.tilt_signature.tilt_speedup_percentage).toFixed(1)}% slower after blunders`
+                  : 'Pace remains steady after material loss'}
               </span>
             </div>
           </div>

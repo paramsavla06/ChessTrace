@@ -104,8 +104,8 @@ def generate_personal_profile(
                 continue
 
             all_player_moves.append(move)
-            think_sec = (move.time_spent or 0) / 1000.0
-            clock_sec = (move.clock_after or 0) / 1000.0
+            think_sec = max(0.0, (move.time_spent or 0) / 1000.0)
+            clock_sec = max(0.0, (move.clock_after or 0) / 1000.0)
 
             # Track time distribution across game phases
             if move.move_number <= 12:
@@ -170,10 +170,10 @@ def generate_personal_profile(
 
     # Compute tilt signature
     all_thinks = [
-        (m.time_spent or 0) / 1000.0 for m in all_player_moves if m.time_spent is not None
+        max(0.0, (m.time_spent or 0) / 1000.0) for m in all_player_moves if m.time_spent is not None
     ]
     post_loss_thinks = [
-        (m.time_spent or 0) / 1000.0 for m in post_loss_moves if m.time_spent is not None
+        max(0.0, (m.time_spent or 0) / 1000.0) for m in post_loss_moves if m.time_spent is not None
     ]
 
     norm_avg = sum(all_thinks) / max(len(all_thinks), 1)
@@ -181,13 +181,18 @@ def generate_personal_profile(
         sum(post_loss_thinks) / max(len(post_loss_thinks), 1) if post_loss_thinks else norm_avg
     )
 
-    speedup_pct = ((norm_avg - post_avg) / max(norm_avg, 1.0)) * 100.0
+    if norm_avg > 0:
+        speedup_pct = ((norm_avg - post_avg) / norm_avg) * 100.0
+        speedup_pct = max(-200.0, min(200.0, speedup_pct))
+    else:
+        speedup_pct = 0.0
+
     is_tilted = speedup_pct > 20.0
 
     tilt_sig = TiltSignature(
-        normal_avg_think_time=norm_avg,
-        post_material_loss_think_time=post_avg,
-        tilt_speedup_percentage=speedup_pct,
+        normal_avg_think_time=round(norm_avg, 2),
+        post_material_loss_think_time=round(post_avg, 2),
+        tilt_speedup_percentage=round(speedup_pct, 1),
         is_panic_tilted=is_tilted,
     )
 
