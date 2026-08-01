@@ -127,7 +127,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
   useEffect(() => {
     if (!currentMove) { setPrediction(null); return; }
 
-    const fetchMovePredict = async () => {
+    const timer = setTimeout(async () => {
       try {
         const res = await api.post<PredictResponse>('/analysis/predict', {
           fen: currentMove.fen,
@@ -139,15 +139,16 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
       } catch (err) {
         console.error('Prediction failed', err);
       }
-    };
+    }, 400);
 
-    fetchMovePredict();
+    return () => clearTimeout(timer);
   }, [currentIndex, currentMove]);
 
   // Run ELO Simulator on target ELO change (skip at starting position)
   useEffect(() => {
     if (!currentMove) { setEloSimResult(null); return; }
-    const fetchEloSim = async () => {
+    
+    const timer = setTimeout(async () => {
       try {
         const res = await api.post<EloSimResponse>('/analysis/elo-sim', {
           fen: currentMove.fen,
@@ -158,8 +159,9 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
       } catch (err) {
         console.error('ELO Sim failed', err);
       }
-    };
-    fetchEloSim();
+    }, 400);
+
+    return () => clearTimeout(timer);
   }, [currentIndex, selectedElo, currentMove]);
 
   const handleWhatIfSubmit = async (e: React.FormEvent) => {
