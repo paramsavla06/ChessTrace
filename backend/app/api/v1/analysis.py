@@ -241,7 +241,7 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
     # Played move position
     board_played = board.copy()
     board_played.push(played_move)
-    played_eval_cp = None
+    played_eval_cp = req.eval_cp
     if evaluator:
         try:
             ev = evaluator.evaluate(board_played, depth=10)
@@ -257,7 +257,7 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
     # Alternative move position
     board_alt = board.copy()
     board_alt.push(alt_move)
-    alt_eval_cp = None
+    alt_eval_cp = req.eval_cp if alt_move == played_move else None
     if evaluator:
         try:
             ev = evaluator.evaluate(board_alt, depth=10)
@@ -289,7 +289,7 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
         clock_after=int(req.time_remaining_sec * 1000),
     )
     time_played = extract_time_features(move_played_obj, previous_moves_same_color=[])
-    pred_played = predictor.predict(pos_played, time_played, eval_cp=played_eval_cp or req.eval_cp)
+    pred_played = predictor.predict(pos_played, time_played, eval_cp=played_eval_cp)
 
     pos_alt = extract_position_features(board_alt)
     move_alt_obj = Move(
