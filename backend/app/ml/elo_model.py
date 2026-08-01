@@ -85,7 +85,7 @@ class EloSimulatorManager:
                 fen=board.fen(),
             )
 
-        # Evaluate legal moves to identify true Stockfish best move
+        # Evaluate legal moves using Stockfish or tactical/positional heuristic
         from app.core.config import STOCKFISH_PATH
         best_move_uci = None
         if STOCKFISH_PATH and Path(STOCKFISH_PATH).exists():
@@ -102,43 +102,57 @@ class EloSimulatorManager:
             except Exception as exc:
                 logger.warning("Could not run Stockfish for candidate move evaluation: %s", exc)
 
-        # Sort moves giving highest priority to Stockfish best move, captures, checks, and central pawn pushes
         def move_quality_score(m: chess.Move) -> float:
             score = 0.0
             if best_move_uci and m.uci() == best_move_uci:
-                score += 100.0
-            if board.is_capture(m):
-                score += 10.0
-            if board.gives_check(m):
-                score += 8.0
-            # Central pawn pushes (d4, e4, d5, e5, c4, c5)
-            if m.to_square in (chess.D4, chess.E4, chess.D5, chess.E5, chess.C4, chess.C5):
-                score += 5.0
+                score += 200.0
+
+            # Central pawn pushes (d5, e5, c5, d4, e4, c4)
+            if m.to_square in (chess.D5, chess.E5, chess.C5, chess.D4, chess.E4, chess.C4):
+                score += 30.0
+
             # Piece development (Knights & Bishops)
             piece = board.piece_at(m.from_square)
             if piece and piece.piece_type in (chess.KNIGHT, chess.BISHOP):
-                score += 3.0
+                score += 20.0
+
+            if board.is_capture(m):
+                score += 15.0
+
+            # Penalize queen checks that hang pieces
+            if board.gives_check(m):
+                if piece and piece.piece_type == chess.QUEEN:
+                    score -= 50.0
+                else:
+                    score += 5.0
+
             return score
 
         legal_moves_sorted = sorted(legal_moves, key=move_quality_score, reverse=True)
 
         candidates: list[CandidateMovePrediction] = []
         elo_idx = self.elo_buckets.index(target_elo_bucket) if target_elo_bucket in self.elo_buckets else 3
-        sharpness_factor = 0.5 + (elo_idx * 0.1)
 
         base_think = 3.0 + (time_feats.time_remaining / 30.0)
         if time_feats.is_time_pressure_30s:
             base_think = max(0.5, base_think * 0.3)
 
-        probs: list[float] = []
-        for idx in range(min(5, len(legal_moves_sorted))):
-            score = max(0.1, 1.0 - (idx * 0.22 * sharpness_factor))
-            probs.append(score)
+        # Probabilities distribution per ELO tier
+        if target_elo_bucket == "2000+":
+            probs = [0.75, 0.15, 0.06, 0.03, 0.01]
+        elif target_elo_bucket == "1800-2000":
+            probs = [0.65, 0.20, 0.09, 0.04, 0.02]
+        elif target_elo_bucket == "1600-1800":
+            probs = [0.55, 0.25, 0.12, 0.05, 0.03]
+        else:
+            probs = [0.45, 0.28, 0.15, 0.08, 0.04]
 
-        total_score = sum(probs)
-        normalized_probs = [p / total_score for p in probs]
+        num_cand = min(len(legal_moves_sorted), 5)
+        probs = probs[:num_cand]
+        total_p = sum(probs)
+        normalized_probs = [p / total_p for p in probs]
 
-        for idx, m in enumerate(legal_moves_sorted[:5]):
+        for idx, m in enumerate(legal_moves_sorted[:num_cand]):
             san_str = board.san(m)
             is_top = (idx == 0)
             candidates.append(
