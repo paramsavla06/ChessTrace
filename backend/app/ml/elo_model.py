@@ -85,7 +85,7 @@ class EloSimulatorManager:
                 fen=board.fen(),
             )
 
-        # Evaluate legal moves using Stockfish 18
+        # Evaluate legal moves using Stockfish 18 at depth=16
         from app.core.config import STOCKFISH_PATH
         best_move_uci = None
         if STOCKFISH_PATH and Path(STOCKFISH_PATH).exists():
@@ -93,7 +93,7 @@ class EloSimulatorManager:
                 from app.engine.stockfish import StockfishEngine
 
                 engine = StockfishEngine(Path(STOCKFISH_PATH))
-                info = engine.analyse(board, depth=12)
+                info = engine.analyse(board, depth=16)
                 if info.get("pv"):
                     best_move_uci = info["pv"][0].uci()
                 engine.quit()
@@ -103,11 +103,15 @@ class EloSimulatorManager:
         def move_quality_score(m: chess.Move) -> float:
             score = 0.0
             if best_move_uci and m.uci() == best_move_uci:
-                score += 200.0
+                score += 500.0
 
-            # Central pawn pushes (d5, e5, c5, d4, e4, c4)
-            if m.to_square in (chess.D5, chess.E5, chess.C5, chess.D4, chess.E4, chess.C4):
-                score += 30.0
+            # Main line central pawn pushes priority: d5 > e5 > c5 > d4 > e4 > c4
+            if m.to_square == chess.D5:
+                score += 35.0
+            elif m.to_square == chess.E5:
+                score += 32.0
+            elif m.to_square in (chess.C5, chess.D4, chess.E4, chess.C4):
+                score += 25.0
 
             # Piece development (Knights & Bishops)
             piece = board.piece_at(m.from_square)
@@ -120,7 +124,7 @@ class EloSimulatorManager:
             # Penalize queen checks that hang pieces
             if board.gives_check(m):
                 if piece and piece.piece_type == chess.QUEEN:
-                    score -= 50.0
+                    score -= 100.0
                 else:
                     score += 5.0
 

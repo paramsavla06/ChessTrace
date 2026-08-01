@@ -50,6 +50,8 @@ interface ReviewPageProps {
 }
 
 export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
+  const [allGames, setAllGames] = useState<any[]>([]);
+  const [activeGameId, setActiveGameId] = useState<number>(gameId);
   const [timeline, setTimeline] = useState<TimelineMove[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
@@ -62,14 +64,33 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
   const [altMoveInput, setAltMoveInput] = useState<string>('');
   const [selectedElo, setSelectedElo] = useState<string>('1600-1800');
 
+  // Load available games list
   useEffect(() => {
+    const fetchGamesList = async () => {
+      try {
+        const res = await api.get('/games');
+        setAllGames(res.data);
+        if (res.data.length > 0 && !activeGameId) {
+          setActiveGameId(res.data[0].id);
+        }
+      } catch (err) {
+        console.error('Failed fetching games list', err);
+      }
+    };
+    fetchGamesList();
+  }, []);
+
+  useEffect(() => {
+    const targetId = activeGameId || gameId;
+    if (!targetId) return;
+
     const loadGameData = async () => {
       setLoading(true);
       try {
-        const metaRes = await api.get(`/games/${gameId}`);
+        const metaRes = await api.get(`/games/${targetId}`);
         setGameMeta(metaRes.data);
 
-        const timelineRes = await api.get<TimelineMove[]>(`/games/${gameId}/timeline`);
+        const timelineRes = await api.get<TimelineMove[]>(`/games/${targetId}/timeline`);
         setTimeline(timelineRes.data);
         setCurrentIndex(0);
       } catch (err) {
@@ -79,7 +100,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
       }
     };
     loadGameData();
-  }, [gameId]);
+  }, [activeGameId, gameId]);
 
   // Keyboard Arrow Navigation
   useEffect(() => {
@@ -186,13 +207,33 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
           </p>
         </div>
 
-        <a
-          href={`/api/v1/games/${gameId}/export-pgn`}
-          download
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 font-medium text-xs border border-indigo-500/30 transition-all font-mono shadow-md"
-        >
-          <span>Download PGN (Annotated)</span>
-        </a>
+        <div className="flex items-center gap-4">
+          {/* Game Selection Dropdown */}
+          {allGames.length > 0 && (
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-mono text-slate-400">Select Game:</label>
+              <select
+                value={activeGameId}
+                onChange={(e) => setActiveGameId(Number(e.target.value))}
+                className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-indigo-300 font-mono focus:outline-none focus:border-indigo-500 shadow-md cursor-pointer hover:border-indigo-400 transition-colors"
+              >
+                {allGames.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    #{g.id}: {g.white_player} vs {g.black_player} ({g.result})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <a
+            href={`/api/v1/games/${activeGameId || gameId}/export-pgn`}
+            download
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 font-medium text-xs border border-indigo-500/30 transition-all font-mono shadow-md"
+          >
+            <span>Download PGN</span>
+          </a>
+        </div>
       </div>
 
       {/* Main Grid: Board + Controls + Narrative */}
