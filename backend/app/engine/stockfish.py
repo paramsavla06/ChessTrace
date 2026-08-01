@@ -30,6 +30,11 @@ from app.engine.limits import (
     DEFAULT_THREADS,
 )
 
+import threading
+
+# Global lock to ensure only ONE Stockfish process runs at a time across all FastAPI threads
+stockfish_lock = threading.Lock()
+
 class StockfishEngine:
     """
     Thin wrapper around python-chess's UCI engine.
@@ -42,35 +47,22 @@ class StockfishEngine:
 		threads: int = DEFAULT_THREADS,
 		hash_mb: int = DEFAULT_HASH_MB,
 	) -> None:
-        """
-		Launch and configure the Stockfish engine.
-
-		Parameters
-		----------
-		engine_path
-			Path to the Stockfish executable.
-
-		threads
-			Number of CPU threads.
-
-		hash_mb
-			Size of the engine hash table in MB.
-		"""
+        stockfish_lock.acquire()
         try:
             self._engine: chess.engine.SimpleEngine = (
 				chess.engine.SimpleEngine.popen_uci(str(engine_path))
 			)
+            self._engine.configure(
+                {
+                    "Threads": threads,
+                    "Hash": hash_mb,
+                }
+            )
         except (FileNotFoundError, OSError) as exc:
+            stockfish_lock.release()
             raise RuntimeError(
 				f"Failed to start Stockfish engine: {engine_path}"
 			) from exc
-        
-        self._engine.configure(
-			{
-				"Threads": threads,
-				"Hash": hash_mb,
-			}
-		)
         
     def analyse(
 		self,
@@ -120,5 +112,8 @@ class StockfishEngine:
 		exc: BaseException | None,
 		tb: TracebackType | None,
 	) -> None:
-        self.quit()
+        try:
+            self.quit()
+        finally:
+            stockfish_lock.release()
 
