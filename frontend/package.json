@@ -16,7 +16,7 @@
     "framer-motion": "^12.43.0",
     "lucide-react": "^1.28.0",
     "react": "^19.2.8",
-    "react-chessboard": "^5.10.0",
+    "react-chessboard": "^4.7.2",
     "react-dom": "^19.2.8",
     "recharts": "^3.10.1",
     "tailwindcss": "^4.3.3"

@@ -162,8 +162,11 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
         <div className="lg:col-span-5 space-y-6">
           <div className="glass-panel p-4 rounded-2xl aspect-square flex items-center justify-center glow-indigo">
             <Chessboard
-              options={{
-                position: currentMove ? currentMove.fen : 'start',
+              position={currentMove ? currentMove.fen : 'start'}
+              boardWidth={440}
+              customBoardStyle={{
+                borderRadius: '12px',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
               }}
             />
           </div>
