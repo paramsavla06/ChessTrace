@@ -41,7 +41,6 @@ import {
   Sliders,
   AlertTriangle,
   Sparkles,
-  FlipVertical2,
 } from 'lucide-react';
 import { api } from '../api/client';
 import type { TimelineMove, PredictResponse, WhatIfResponse, EloSimResponse } from '../api/client';
@@ -54,7 +53,9 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
   const [allGames, setAllGames] = useState<any[]>([]);
   const [activeGameId, setActiveGameId] = useState<number>(gameId);
   const [timeline, setTimeline] = useState<TimelineMove[]>([]);
-  const [currentIndex, setCurrentIndex] = useState<number>(0);
+  const [boardFlipped, setBoardFlipped] = useState<boolean>(false);
+  // -1 = starting position (before any moves), 0..n-1 = timeline moves
+  const [currentIndex, setCurrentIndex] = useState<number>(-1);
   const [loading, setLoading] = useState<boolean>(true);
   const [gameMeta, setGameMeta] = useState<any>(null);
 
@@ -64,7 +65,6 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
   const [eloSimResult, setEloSimResult] = useState<EloSimResponse | null>(null);
   const [altMoveInput, setAltMoveInput] = useState<string>('');
   const [selectedElo, setSelectedElo] = useState<string>('1600-1800');
-  const [boardFlipped, setBoardFlipped] = useState<boolean>(false);
 
   // Load available games list
   useEffect(() => {
@@ -117,11 +117,11 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [timeline.length]);
 
-  const currentMove = timeline[currentIndex] || null;
+  const currentMove = timeline[currentIndex] ?? null;  // null at index -1 (start)
 
-  // Run ML Prediction on move change
+  // Run ML Prediction on move change (skip at starting position)
   useEffect(() => {
-    if (!currentMove) return;
+    if (!currentMove) { setPrediction(null); return; }
 
     const fetchMovePredict = async () => {
       try {
@@ -129,6 +129,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
           fen: currentMove.fen,
           think_time_sec: currentMove.think_time_sec,
           time_remaining_sec: currentMove.time_remaining_sec,
+          eval_cp: (currentMove as any).eval_cp,
         });
         setPrediction(res.data);
       } catch (err) {
@@ -139,9 +140,9 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
     fetchMovePredict();
   }, [currentIndex, currentMove]);
 
-  // Run ELO Simulator on target ELO change
+  // Run ELO Simulator on target ELO change (skip at starting position)
   useEffect(() => {
-    if (!currentMove) return;
+    if (!currentMove) { setEloSimResult(null); return; }
     const fetchEloSim = async () => {
       try {
         const res = await api.post<EloSimResponse>('/analysis/elo-sim', {
@@ -168,6 +169,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
         alternative_move_uci: altMoveInput.trim(),
         think_time_sec: currentMove.think_time_sec,
         time_remaining_sec: currentMove.time_remaining_sec,
+        eval_cp: (currentMove as any).eval_cp,
       });
       setWhatIfResult(res.data);
     } catch (err: any) {
@@ -178,7 +180,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
   if (loading) {
     return (
       <div className="py-24 text-center text-slate-400">
-        Loading game #{gameId} timeline and neural feature metrics...
+        Loading game #{activeGameId || gameId} timeline and neural feature metrics...
       </div>
     );
   }
@@ -345,19 +347,21 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
                   }`}>
                     {evalDisplay}
                   </span>
-                  {/* Bar */}
+                  {/* Bar — orientation flips with board */}
                   <div className="w-5 h-[400px] bg-slate-950 rounded-xl overflow-hidden border border-slate-800 flex flex-col relative shadow-2xl">
-                    <div
-                      className="bg-slate-800 w-full transition-all duration-300 ease-out"
-                      style={{ height: `${100 - whitePct}%` }}
-                    />
-                    <div
-                      className="bg-slate-100 w-full transition-all duration-300 ease-out"
-                      style={{ height: `${whitePct}%` }}
-                    />
-                  </div>
-                  {/* Labels */}
-                  <div className="flex flex-col gap-[350px] absolute pointer-events-none">
+                    {boardFlipped ? (
+                      <>
+                        {/* Flipped: White advantage at top */}
+                        <div className="bg-slate-100 w-full transition-all duration-300 ease-out" style={{ height: `${whitePct}%` }} />
+                        <div className="bg-slate-800 w-full transition-all duration-300 ease-out" style={{ height: `${100 - whitePct}%` }} />
+                      </>
+                    ) : (
+                      <>
+                        {/* Normal: Black advantage at top */}
+                        <div className="bg-slate-800 w-full transition-all duration-300 ease-out" style={{ height: `${100 - whitePct}%` }} />
+                        <div className="bg-slate-100 w-full transition-all duration-300 ease-out" style={{ height: `${whitePct}%` }} />
+                      </>
+                    )}
                   </div>
                 </div>
               );
@@ -380,7 +384,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
           <div className="glass-panel p-4 rounded-2xl flex items-center justify-between">
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setCurrentIndex(0)}
+                onClick={() => setCurrentIndex(-1)}
                 className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
                 title="Reset to start"
               >
@@ -388,28 +392,28 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
               </button>
               <button
                 onClick={() => setBoardFlipped(f => !f)}
-                className={`p-2 rounded-lg transition-colors ${
+                className={`p-2 rounded-lg transition-colors text-base leading-none ${
                   boardFlipped
                     ? 'bg-indigo-600 hover:bg-indigo-500 text-white'
                     : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
                 }`}
                 title="Flip board"
               >
-                <FlipVertical2 className="w-5 h-5" />
+                ↕
               </button>
             </div>
 
             <div className="flex items-center gap-3">
               <button
-                disabled={currentIndex === 0}
-                onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
+                disabled={currentIndex <= -1}
+                onClick={() => setCurrentIndex((prev) => Math.max(-1, prev - 1))}
                 className="p-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 text-white transition-all"
               >
                 <ChevronLeft className="w-6 h-6" />
               </button>
 
               <span className="text-sm font-semibold text-slate-300 font-mono min-w-[80px] text-center">
-                {currentIndex + 1} / {timeline.length}
+                {currentIndex === -1 ? 'Start' : `${currentIndex + 1} / ${timeline.length}`}
               </span>
 
               <button
@@ -451,15 +455,59 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
                   <p className="text-3xl font-extrabold text-emerald-400 mt-1">
                     {(prediction.win_probability * 100).toFixed(1)}%
                   </p>
+                  <p className="text-[10px] text-slate-500 mt-1 font-mono">
+                    {prediction.win_probability > 0.6 ? '▲ White is winning' :
+                     prediction.win_probability < 0.4 ? '▼ Black is winning' :
+                     '= Position is balanced'}
+                  </p>
                 </div>
 
                 <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800">
-                  <p className="text-xs text-slate-400 uppercase font-semibold">Collapse Probability</p>
-                  <p className="text-3xl font-extrabold text-pink-400 mt-1">
+                  <p className="text-xs text-slate-400 uppercase font-semibold">Collapse Risk</p>
+                  <p className={`text-3xl font-extrabold mt-1 ${
+                    prediction.collapse_probability > 0.6 ? 'text-red-400' :
+                    prediction.collapse_probability > 0.35 ? 'text-orange-400' : 'text-green-400'
+                  }`}>
                     {(prediction.collapse_probability * 100).toFixed(1)}%
+                  </p>
+                  <p className="text-[10px] text-slate-500 mt-1 font-mono">
+                    {prediction.collapse_probability > 0.6 ? '⚠ High time-pressure risk' :
+                     prediction.collapse_probability > 0.35 ? '~ Moderate risk' :
+                     '✓ Low risk'}
                   </p>
                 </div>
               </div>
+
+              {/* SHAP Factor Breakdown */}
+              {(prediction.top_positive_factors?.length > 0 || prediction.top_negative_factors?.length > 0) && (
+                <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-300">
+                    <Brain className="w-4 h-4 text-indigo-400" />
+                    <span>Position Factor Breakdown (SHAP)</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {[...(prediction.top_positive_factors || []), ...(prediction.top_negative_factors || [])]
+                      .sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact))
+                      .slice(0, 5)
+                      .map((f, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <span className={`text-[10px] font-bold w-5 text-center ${
+                            f.impact >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                          }`}>{f.impact >= 0 ? '+' : ''}{(f.impact * 100).toFixed(1)}</span>
+                          <div className="flex-1 bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full ${
+                                f.impact >= 0 ? 'bg-emerald-500' : 'bg-rose-500'
+                              }`}
+                              style={{ width: `${Math.min(100, Math.abs(f.impact) * 400)}%` }}
+                            />
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-mono truncate max-w-[120px]">{f.feature}</span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
 
               {/* SHAP Narrative */}
               <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800 space-y-2">

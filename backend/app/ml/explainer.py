@@ -89,35 +89,39 @@ class ShapExplainer:
         X = self.predictor.feature_vector_from_dtos(pos_feats, time_feats)
 
         if self._tree_explainer is not None:
-            shap_values = self._tree_explainer.shap_values(X)[0]
-        shap_values = np.zeros(len(FEATURE_COLUMNS))
-        for idx, col in enumerate(FEATURE_COLUMNS):
-            val = float(X[col].iloc[0])
-            if col == "material_balance":
-                shap_values[idx] = val * 0.12
-            elif col == "white_center_control":
-                shap_values[idx] = val * 0.04
-            elif col == "black_center_control":
-                shap_values[idx] = -val * 0.04
-            elif col == "white_mobility":
-                shap_values[idx] = (val - 15.0) * 0.01
-            elif col == "black_mobility":
-                shap_values[idx] = -(val - 15.0) * 0.01
-            elif col == "white_pawn_shield":
-                shap_values[idx] = (val - 2.0) * 0.05
-            elif col == "black_pawn_shield":
-                shap_values[idx] = -(val - 2.0) * 0.05
-            elif col == "is_time_pressure_30s" and val == 1:
-                shap_values[idx] = -0.28
-            elif col == "is_time_pressure_60s" and val == 1:
-                shap_values[idx] = -0.18
-            elif col == "think_time_deviation" and abs(val) > 1.5:
-                shap_values[idx] = -0.12 if val > 0 else 0.08
+            # Use real SHAP values from trained tree model
+            raw_shap = self._tree_explainer.shap_values(X)
+            shap_values = np.array(raw_shap[0] if isinstance(raw_shap, list) else raw_shap).flatten()
+        else:
+            # Heuristic SHAP proxy when no model is loaded
+            shap_values = np.zeros(len(FEATURE_COLUMNS))
+            for idx, col in enumerate(FEATURE_COLUMNS):
+                val = float(X[col].iloc[0])
+                if col == "material_balance":
+                    shap_values[idx] = val * 0.12
+                elif col == "white_center_control":
+                    shap_values[idx] = val * 0.04
+                elif col == "black_center_control":
+                    shap_values[idx] = -val * 0.04
+                elif col == "white_mobility":
+                    shap_values[idx] = (val - 15.0) * 0.01
+                elif col == "black_mobility":
+                    shap_values[idx] = -(val - 15.0) * 0.01
+                elif col == "white_pawn_shield":
+                    shap_values[idx] = (val - 2.0) * 0.05
+                elif col == "black_pawn_shield":
+                    shap_values[idx] = -(val - 2.0) * 0.05
+                elif col == "is_time_pressure_30s" and val == 1:
+                    shap_values[idx] = -0.28
+                elif col == "is_time_pressure_60s" and val == 1:
+                    shap_values[idx] = -0.18
+                elif col == "think_time_deviation" and abs(val) > 1.5:
+                    shap_values[idx] = -0.12 if val > 0 else 0.08
 
         impacts: list[FeatureImpact] = []
         for idx, col in enumerate(FEATURE_COLUMNS):
             val = float(X[col].iloc[0])
-            s_val = float(shap_values[idx])
+            s_val = float(shap_values[idx]) if idx < len(shap_values) else 0.0
             impacts.append(
                 FeatureImpact(
                     feature_key=col,
@@ -138,23 +142,43 @@ class ShapExplainer:
             key=lambda x: x.shap_value,
         )[:3]
 
-        # Construct narrative summary
+        # Build rich narrative with actual feature values
+        def _val_str(imp: FeatureImpact) -> str:
+            """Format the raw feature value for display."""
+            col = imp.feature_key
+            v = imp.feature_value
+            if col in ("is_time_pressure_30s", "is_time_pressure_60s", "is_time_pressure_120s"):
+                return "active" if v == 1 else "inactive"
+            if col in ("think_time", "time_remaining", "running_avg_think_time"):
+                return f"{v:.1f}s"
+            if col in ("time_usage_ratio", "think_time_deviation"):
+                return f"{v:.2f}"
+            return f"{v:.1f}"
+
         narrative_parts = []
         if positive:
             top_pos = positive[0]
             narrative_parts.append(
-                f"{top_pos.display_name} boosted score (+{top_pos.shap_value:.2f})"
+                f"{top_pos.display_name} ({_val_str(top_pos)}) is helping (+{top_pos.shap_value:.3f})"
+            )
+        if len(positive) > 1:
+            narrative_parts.append(
+                f"{positive[1].display_name} ({_val_str(positive[1])}) also contributing (+{positive[1].shap_value:.3f})"
             )
         if negative:
             top_neg = negative[0]
             narrative_parts.append(
-                f"{top_neg.display_name} created vulnerability ({top_neg.shap_value:.2f})"
+                f"{top_neg.display_name} ({_val_str(top_neg)}) is a risk factor ({top_neg.shap_value:.3f})"
+            )
+        if len(negative) > 1:
+            narrative_parts.append(
+                f"{negative[1].display_name} ({_val_str(negative[1])}) also hurting ({negative[1].shap_value:.3f})"
             )
 
         if not narrative_parts:
-            summary = "Position evaluation is balanced with standard clock usage."
+            summary = "Position evaluation is balanced — material is even and clock usage is normal."
         else:
-            summary = "; ".join(narrative_parts) + "."
+            summary = ". ".join(narrative_parts) + "."
 
         return ExplanationResult(
             narrative_summary=summary,

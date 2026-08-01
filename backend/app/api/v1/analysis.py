@@ -36,6 +36,7 @@ class PredictRequest(BaseModel):
     think_time_sec: float = 5.0
     time_remaining_sec: float = 120.0
     initial_clock_seconds: int = 300
+    eval_cp: float | None = None
 
 
 class WhatIfRequest(BaseModel):
@@ -45,6 +46,7 @@ class WhatIfRequest(BaseModel):
     think_time_sec: float = 5.0
     time_remaining_sec: float = 120.0
     initial_clock_seconds: int = 300
+    eval_cp: float | None = None
 
 
 class EloSimRequest(BaseModel):
@@ -160,7 +162,7 @@ def predict_position(req: PredictRequest) -> dict[str, Any]:
     )
 
     predictor = WinCollapsePredictor()
-    pred = predictor.predict(pos_feats, time_feats)
+    pred = predictor.predict(pos_feats, time_feats, eval_cp=req.eval_cp)
 
     explainer = ShapExplainer(predictor)
     exp = explainer.explain(pos_feats, time_feats)
@@ -213,7 +215,7 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
         clock_after=int(req.time_remaining_sec * 1000),
     )
     time_played = extract_time_features(move_played_obj, previous_moves_same_color=[])
-    pred_played = predictor.predict(pos_played, time_played)
+    pred_played = predictor.predict(pos_played, time_played, eval_cp=req.eval_cp)
 
     # Alternative move state
     board_alt = board.copy()
@@ -236,7 +238,7 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
         clock_after=int(req.time_remaining_sec * 1000),
     )
     time_alt = extract_time_features(move_alt_obj, previous_moves_same_color=[])
-    pred_alt = predictor.predict(pos_alt, time_alt)
+    pred_alt = predictor.predict(pos_alt, time_alt, eval_cp=req.eval_cp)
 
     win_diff = pred_alt.win_probability - pred_played.win_probability
     collapse_diff = pred_alt.collapse_probability - pred_played.collapse_probability

@@ -102,6 +102,7 @@ class WinCollapsePredictor:
         self,
         pos_feats: PositionFeatures,
         time_feats: TimeFeatures,
+        eval_cp: float | None = None,
     ) -> PredictionResult:
         """
         Run inference to predict win and collapse probability.
@@ -111,8 +112,13 @@ class WinCollapsePredictor:
         if self.model is not None:
             raw_pred = float(self.model.predict(X)[0])
             win_prob = float(np.clip(raw_pred, 0.0, 1.0))
+        elif eval_cp is not None:
+            import math
+            # Standard Stockfish/Lichess formula to map centipawns to win probability
+            # win_prob = 1 / (1 + exp(-0.00368208 * eval_cp))
+            win_prob = 1.0 / (1.0 + math.exp(-0.00368208 * eval_cp))
         else:
-            # Baseline mathematical heuristic if un-trained
+            # Fallback mathematical heuristic if un-trained and no eval
             base_score = 0.5 + (pos_feats.material_balance * 0.05)
             win_prob = float(np.clip(base_score, 0.05, 0.95))
 
