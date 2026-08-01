@@ -29,6 +29,16 @@ def list_games(
     """List games with optional pagination and player username filter."""
     repo = GameRepository(db)
     games = repo.list_games(skip=skip, limit=limit, username=username)
+    
+    from sqlalchemy import func
+    from app.models.move import Move
+    game_ids = [g.id for g in games]
+    move_counts = dict(
+        db.query(Move.game_id, func.count(Move.id))
+        .filter(Move.game_id.in_(game_ids))
+        .group_by(Move.game_id)
+        .all()
+    ) if game_ids else {}
 
     return [
         {
@@ -43,7 +53,7 @@ def list_games(
             "result": g.result.value,
             "eco": g.eco,
             "time_control": g.time_control,
-            "move_count": len(g.moves),
+            "move_count": move_counts.get(g.id, 0),
         }
         for g in games
     ]
