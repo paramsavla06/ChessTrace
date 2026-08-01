@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Chessboard } from 'react-chessboard';
+import { Chess } from 'chess.js';
 import {
   AreaChart,
   Area,
@@ -8,6 +9,28 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+
+function fenToPositionObj(fen: string): Record<string, string> | 'start' {
+  if (!fen || fen === 'start') return 'start';
+  try {
+    const chess = new Chess(fen);
+    const board = chess.board();
+    const pos: Record<string, string> = {};
+    const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const piece = board[r][c];
+        if (piece) {
+          const square = `${files[c]}${8 - r}`;
+          pos[square] = `${piece.color}${piece.type.toUpperCase()}`;
+        }
+      }
+    }
+    return pos;
+  } catch (err) {
+    return 'start';
+  }
+}
 import {
   ChevronLeft,
   ChevronRight,
@@ -178,7 +201,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
         <div className="lg:col-span-5 space-y-6">
           <div className="glass-panel p-4 rounded-2xl w-full max-w-[460px] aspect-square flex items-center justify-center glow-indigo mx-auto">
             <Chessboard
-              position={currentMove ? currentMove.fen : 'start'}
+              position={fenToPositionObj(currentMove ? currentMove.fen : 'start')}
               customBoardStyle={{
                 borderRadius: '12px',
                 boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',

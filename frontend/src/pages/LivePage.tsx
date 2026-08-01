@@ -1,6 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { Chessboard } from 'react-chessboard';
+import { Chess } from 'chess.js';
 import { Radio, Zap } from 'lucide-react';
+
+function fenToPositionObj(fen: string): Record<string, string> | 'start' {
+  if (!fen || fen === 'start') return 'start';
+  try {
+    const chess = new Chess(fen);
+    const board = chess.board();
+    const pos: Record<string, string> = {};
+    const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const piece = board[r][c];
+        if (piece) {
+          const square = `${files[c]}${8 - r}`;
+          pos[square] = `${piece.color}${piece.type.toUpperCase()}`;
+        }
+      }
+    }
+    return pos;
+  } catch (err) {
+    return 'start';
+  }
+}
 
 interface LivePageProps {
   gameId: number;
@@ -81,7 +104,7 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
         {/* Board */}
         <div className="lg:col-span-5 flex justify-center">
           <div className="glass-panel p-4 rounded-2xl w-full max-w-[460px] aspect-square flex items-center justify-center glow-pink mx-auto">
-            <Chessboard position={fen} />
+            <Chessboard position={fenToPositionObj(fen)} />
           </div>
         </div>
 
