@@ -313,16 +313,27 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
                 </select>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-3">
                 {eloSimResult.top_candidate_moves.map((cand, i) => (
-                  <div key={i} className="bg-slate-900/50 p-3 rounded-xl border border-slate-800 text-xs flex justify-between items-center">
-                    <div>
-                      <span className="font-bold text-white text-sm">{cand.san}</span>
-                      <span className="text-slate-500 ml-2">({cand.uci})</span>
+                  <div key={i} className="bg-slate-900/50 p-3 rounded-xl border border-slate-800 space-y-1.5 text-xs">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <span className="font-bold text-white text-sm font-mono">{cand.san}</span>
+                        <span className="text-slate-500 ml-2 font-mono">({cand.uci})</span>
+                        {cand.is_engine_top_choice && (
+                          <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">
+                            Stockfish Best
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-indigo-400 font-bold font-mono">{(cand.probability * 100).toFixed(1)}%</span>
                     </div>
-                    <div className="text-right">
-                      <span className="text-indigo-400 font-bold">{(cand.probability * 100).toFixed(1)}%</span>
-                      <p className="text-[10px] text-slate-500">{cand.expected_think_time_sec}s think</p>
+
+                    <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                      <div
+                        className="bg-indigo-500 h-full rounded-full transition-all"
+                        style={{ width: `${Math.min(100, cand.probability * 100)}%` }}
+                      />
                     </div>
                   </div>
                 ))}

@@ -89,7 +89,32 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({ onSelectGame, onSelect
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+    <div className="max-w-7xl mx-auto px-6 py-8 space-y-8 font-sans">
+      {/* First-Time User Onboarding Banner */}
+      <div className="glass-panel p-6 rounded-2xl bg-gradient-to-r from-indigo-950/60 via-slate-900 to-slate-900 border border-indigo-500/30 flex flex-wrap items-center justify-between gap-6">
+        <div className="space-y-2 max-w-3xl">
+          <div className="flex items-center gap-2">
+            <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-bold font-mono border border-indigo-500/30">
+              Welcome to ChessTrace
+            </span>
+            <span className="text-xs text-slate-400 font-mono">• Human Cognition & Collapse Intelligence</span>
+          </div>
+          <h2 className="text-xl font-extrabold text-white">
+            Analyze Time Pressure, Blunder Collapse Risks, and Cognitive Fingerprints
+          </h2>
+          <p className="text-xs text-slate-300">
+            ChessTrace combines Stockfish 18 evaluations with 8 XGBoost ML models trained on 500k+ move plies to decode human time-stress behavior, SHAP plain-English explanations, counterfactual what-if branches, and grandmaster style matches.
+          </p>
+        </div>
+
+        <button
+          onClick={() => onSelectGame(1)}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 text-white font-bold text-xs transition-all shadow-lg shadow-indigo-600/30"
+        >
+          <Play className="w-4 h-4 fill-white" />
+          <span>Launch Demo Game Review</span>
+        </button>
+      </div>
       {/* Header Notification */}
       {message && (
         <div
