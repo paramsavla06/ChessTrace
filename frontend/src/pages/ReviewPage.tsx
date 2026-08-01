@@ -577,7 +577,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
             <form onSubmit={handleWhatIfSubmit} className="flex gap-3">
               <input
                 type="text"
-                placeholder="Enter alternative move (e.g. g4 or g3g4)..."
+                placeholder={`What if ${currentMove?.color === 'white' ? 'White' : 'Black'} played... (instead of ${currentMove?.san})`}
                 value={altMoveInput}
                 onChange={(e) => setAltMoveInput(e.target.value)}
                 className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
