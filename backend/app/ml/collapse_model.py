@@ -113,10 +113,11 @@ class WinCollapsePredictor:
             raw_pred = float(self.model.predict(X)[0])
             win_prob = float(np.clip(raw_pred, 0.0, 1.0))
         elif eval_cp is not None:
-            import math
             # Standard Stockfish/Lichess formula to map centipawns to win probability
-            # win_prob = 1 / (1 + exp(-0.00368208 * eval_cp))
-            win_prob = 1.0 / (1.0 + math.exp(-0.00368208 * eval_cp))
+            # Cap the exponent between -700 and 700 to prevent math.exp OverflowError
+            exponent = max(-700.0, min(700.0, -0.00368208 * eval_cp))
+            import math
+            win_prob = 1.0 / (1.0 + math.exp(exponent))
         else:
             # Fallback mathematical heuristic if un-trained and no eval
             base_score = 0.5 + (pos_feats.material_balance * 0.05)
