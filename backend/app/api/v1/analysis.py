@@ -238,59 +238,45 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
     alt_san = board.san(alt_move)
 
     # --- Evaluate BOTH resulting positions with Stockfish ---
-    evaluator = None
     try:
-        engine = StockfishEngine(STOCKFISH_PATH)
-        evaluator = Evaluator(engine)
-    except Exception:
-        pass
-
-    if not evaluator and alt_move != played_move:
-        raise HTTPException(
-            status_code=400,
-            detail="Local Stockfish engine is not installed or configured. The What-If feature requires Stockfish to evaluate new variations."
-        )
-
-    # --- Evaluate positions with Stockfish ---
-
-    # Played move: evaluate the resulting position
-    board_played = board.copy()
-    board_played.push(played_move)
-    played_eval_cp = req.eval_cp  # fallback to cached eval from timeline
-    if evaluator:
-        try:
-            ev = evaluator.evaluate(board_played, move_number=1, depth=16)
-            raw = ev.cp_score
-            if raw is not None:
-                # score.relative is from the NEXT side-to-move's perspective.
-                # Normalize to White's perspective (positive = good for White):
-                played_eval_cp = -raw if board_played.turn == chess.BLACK else raw
-        except Exception:
-            pass
-
-    # Alternative move: if same as played, clone results; otherwise evaluate fresh
-    if alt_move == played_move:
-        board_alt = board_played
-        alt_eval_cp = played_eval_cp
-    else:
-        board_alt = board.copy()
-        board_alt.push(alt_move)
-        alt_eval_cp = None
-        if evaluator:
+        with StockfishEngine(STOCKFISH_PATH) as engine:
+            evaluator = Evaluator(engine)
+            
+            # Played move: evaluate the resulting position
+            board_played = board.copy()
+            board_played.push(played_move)
+            played_eval_cp = req.eval_cp  # fallback to cached eval from timeline
+            
             try:
-                ev = evaluator.evaluate(board_alt, move_number=1, depth=16)
+                ev = evaluator.evaluate(board_played, move_number=1, depth=16)
                 raw = ev.cp_score
                 if raw is not None:
-                    alt_eval_cp = -raw if board_alt.turn == chess.BLACK else raw
+                    # score.relative is from the NEXT side-to-move's perspective.
+                    # Normalize to White's perspective (positive = good for White):
+                    played_eval_cp = -raw if board_played.turn == chess.BLACK else raw
             except Exception:
                 pass
 
-    # Cleanup engine
-    if evaluator and hasattr(evaluator, "_engine") and evaluator._engine:
-        try:
-            evaluator._engine.quit()
-        except Exception:
-            pass
+            # Alternative move: if same as played, clone results; otherwise evaluate fresh
+            if alt_move == played_move:
+                board_alt = board_played
+                alt_eval_cp = played_eval_cp
+            else:
+                board_alt = board.copy()
+                board_alt.push(alt_move)
+                alt_eval_cp = None
+                
+                try:
+                    ev = evaluator.evaluate(board_alt, move_number=1, depth=16)
+                    raw = ev.cp_score
+                    if raw is not None:
+                        alt_eval_cp = -raw if board_alt.turn == chess.BLACK else raw
+                except Exception:
+                    pass
+    except Exception:
+        # Fallback if engine fails to start
+        played_eval_cp = req.eval_cp
+        alt_eval_cp = None
 
     if alt_move != played_move and alt_eval_cp is None:
         raise HTTPException(
