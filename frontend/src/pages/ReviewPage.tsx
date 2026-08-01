@@ -41,6 +41,7 @@ import {
   Sliders,
   AlertTriangle,
   Sparkles,
+  FlipVertical2,
 } from 'lucide-react';
 import { api } from '../api/client';
 import type { TimelineMove, PredictResponse, WhatIfResponse, EloSimResponse } from '../api/client';
@@ -63,6 +64,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
   const [eloSimResult, setEloSimResult] = useState<EloSimResponse | null>(null);
   const [altMoveInput, setAltMoveInput] = useState<string>('');
   const [selectedElo, setSelectedElo] = useState<string>('1600-1800');
+  const [boardFlipped, setBoardFlipped] = useState<boolean>(false);
 
   // Load available games list
   useEffect(() => {
@@ -365,6 +367,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
             <div className="glass-panel p-4 rounded-2xl w-full max-w-[440px] aspect-square flex items-center justify-center glow-indigo">
               <Chessboard
                 position={fenToPositionObj(currentMove ? currentMove.fen : 'start')}
+                boardOrientation={boardFlipped ? 'black' : 'white'}
                 customBoardStyle={{
                   borderRadius: '12px',
                   boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
@@ -375,12 +378,26 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
 
           {/* Stepper Controls */}
           <div className="glass-panel p-4 rounded-2xl flex items-center justify-between">
-            <button
-              onClick={() => setCurrentIndex(0)}
-              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
-            >
-              <RotateCcw className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentIndex(0)}
+                className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+                title="Reset to start"
+              >
+                <RotateCcw className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setBoardFlipped(f => !f)}
+                className={`p-2 rounded-lg transition-colors ${
+                  boardFlipped
+                    ? 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                }`}
+                title="Flip board"
+              >
+                <FlipVertical2 className="w-5 h-5" />
+              </button>
+            </div>
 
             <div className="flex items-center gap-3">
               <button
@@ -609,15 +626,39 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
         {/* Divider */}
         <div className="mx-6 border-t border-slate-800/60" />
 
-        {/* Move Type Rows */}
+        {/* Move Type Rows — clickable to jump to first move of that type */}
         <div className="px-6 py-3 space-y-1">
           {MOVE_TYPES.map((mt) => {
             const wCount = whiteCounts[mt.key] || 0;
             const bCount = blackCounts[mt.key] || 0;
             const wPct = (wCount / whiteTotalMoves) * 100;
             const bPct = (bCount / blackTotalMoves) * 100;
+
+            // Find the first occurrence index in the full timeline
+            const firstIdx = timeline.findIndex(
+              (m) => (m as any).move_classification === mt.key
+            );
+            const isClickable = firstIdx !== -1;
+
+            const handleRowClick = () => {
+              if (isClickable) {
+                setCurrentIndex(firstIdx);
+                // Scroll the board into view
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
+            };
+
             return (
-              <div key={mt.key} className="grid grid-cols-[1fr_auto_auto_auto_1fr] items-center gap-2 py-1">
+              <div
+                key={mt.key}
+                onClick={handleRowClick}
+                className={`grid grid-cols-[1fr_auto_auto_auto_1fr] items-center gap-2 py-1.5 px-2 rounded-xl transition-all ${
+                  isClickable
+                    ? 'cursor-pointer hover:bg-slate-800/50 group'
+                    : 'opacity-40 cursor-default'
+                }`}
+                title={isClickable ? `Jump to first ${mt.label} move` : `No ${mt.label} moves`}
+              >
                 {/* White side: bar + count (right-aligned) */}
                 <div className="flex items-center justify-end gap-2">
                   {wCount > 0 && (
@@ -634,17 +675,23 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
                 </div>
 
                 {/* Label */}
-                <div className="w-[72px] text-center">
-                  <span className="text-xs font-semibold text-slate-400">{mt.label}</span>
+                <div className="w-[72px] text-center flex items-center justify-center gap-1">
+                  <span className="text-xs font-semibold text-slate-400 group-hover:text-slate-200 transition-colors">{mt.label}</span>
                 </div>
 
                 {/* Icon — center */}
-                <div className={`w-8 h-8 flex items-center justify-center rounded-full text-xs font-black flex-shrink-0 ${mt.bgColor} ${mt.textColor} border ${mt.borderColor}`}>
+                <div className={`w-8 h-8 flex items-center justify-center rounded-full text-xs font-black flex-shrink-0 ${mt.bgColor} ${mt.textColor} border ${mt.borderColor} ${isClickable ? 'group-hover:scale-110 transition-transform' : ''}`}>
                   {mt.icon}
                 </div>
 
-                {/* Label right (empty, label is center) */}
-                <div className="w-[72px] text-center" />
+                {/* Right label — show "→ move N" tooltip on hover when clickable */}
+                <div className="w-[72px] text-center">
+                  {isClickable && (
+                    <span className="text-[10px] text-slate-600 group-hover:text-slate-400 font-mono transition-colors">
+                      #{firstIdx + 1}
+                    </span>
+                  )}
+                </div>
 
                 {/* Black side: bar + count (left-aligned) */}
                 <div className="flex items-center justify-start gap-2">
