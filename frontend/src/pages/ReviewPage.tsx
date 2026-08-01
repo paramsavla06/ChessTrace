@@ -58,6 +58,19 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
     loadGameData();
   }, [gameId]);
 
+  // Keyboard Arrow Navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        setCurrentIndex((prev) => Math.max(0, prev - 1));
+      } else if (e.key === 'ArrowRight') {
+        setCurrentIndex((prev) => Math.min(timeline.length - 1, prev + 1));
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [timeline.length]);
+
   const currentMove = timeline[currentIndex] || null;
 
   // Run ML Prediction on move change
@@ -165,6 +178,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
         <div className="lg:col-span-5 space-y-6">
           <div className="glass-panel p-4 rounded-2xl aspect-square flex items-center justify-center glow-indigo">
             <Chessboard
+              key={currentMove ? currentMove.fen : 'start'}
               position={currentMove ? currentMove.fen : 'start'}
               boardWidth={440}
               customBoardStyle={{

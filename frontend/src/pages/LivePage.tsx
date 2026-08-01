@@ -81,7 +81,7 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
         {/* Board */}
         <div className="lg:col-span-5 flex justify-center">
           <div className="glass-panel p-4 rounded-2xl aspect-square flex items-center justify-center glow-pink">
-            <Chessboard position={fen} boardWidth={440} />
+            <Chessboard key={fen} position={fen} boardWidth={440} />
           </div>
         </div>
 
