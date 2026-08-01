@@ -238,6 +238,12 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
     except Exception:
         pass
 
+    if not evaluator and alt_move != played_move:
+        raise HTTPException(
+            status_code=400,
+            detail="Local Stockfish engine is not installed or configured. The What-If feature requires Stockfish to evaluate new variations."
+        )
+
     # Played move position
     board_played = board.copy()
     board_played.push(played_move)
