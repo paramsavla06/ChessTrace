@@ -105,6 +105,7 @@ class StockfishEngine:
         """Shut down the Stockfish engine."""
         try:
             self._engine.quit()
+            self._engine.close()
         except chess.engine.EngineTerminatedError:
             pass
 

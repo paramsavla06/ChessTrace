@@ -104,6 +104,7 @@ def get_game_timeline(
         raise HTTPException(status_code=404, detail=f"Game ID {game_id} not found")
 
     # Ensure Stockfish evaluator is available for timeline enrichment
+    engine = None
     evaluator = None
     if STOCKFISH_PATH and Path(STOCKFISH_PATH).exists():
         try:
@@ -112,6 +113,12 @@ def get_game_timeline(
             engine = StockfishEngine(STOCKFISH_PATH)
             evaluator = Evaluator(engine)
         except Exception:
+            if engine:
+                try:
+                    engine.quit()
+                except Exception:
+                    pass
+            engine = None
             evaluator = None
 
     timeline: list[dict[str, Any]] = []
@@ -149,7 +156,7 @@ def get_game_timeline(
                 eval_cp = ev_db.score_cp
                 best_move_uci = ev_db.best_move
 
-            if evaluator:
+            if evaluator and not move.evaluations:
                 try:
                     # Eval of position BEFORE the move (from side-to-move POV), normalized to White's POV
                     ev_before = evaluator.evaluate(prev_board, move_number=move.move_number, depth=10)
@@ -350,9 +357,9 @@ def get_game_timeline(
             else:
                 prev_black.append(move)
     finally:
-        if evaluator and hasattr(evaluator, "_engine") and evaluator._engine:
+        if engine:
             try:
-                evaluator._engine.quit()
+                engine.quit()
             except Exception:
                 pass
 
