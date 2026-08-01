@@ -153,7 +153,7 @@ def generate_personal_profile(
             if move.time_spent is not None:
                 prior_thinks.append(think_sec)
 
-    # Compute tilt signature (needed for accuracy heuristic)
+    # Compute tilt signature
     all_thinks = [
         max(0.0, (m.time_spent or 0) / 1000.0) for m in all_player_moves if m.time_spent is not None
     ]
@@ -174,11 +174,29 @@ def generate_personal_profile(
 
     is_tilted = speedup_pct > 20.0
 
-    # Compute dynamic phase accuracies based on player performance & move count
+    tilt_sig = TiltSignature(
+        normal_avg_think_time=round(norm_avg, 2),
+        post_material_loss_think_time=round(post_avg, 2),
+        tilt_speedup_percentage=round(speedup_pct, 1),
+        is_panic_tilted=is_tilted,
+    )
+
+    # Compute dynamic phase accuracies based on player performance percentages
     total_m = max(1, len(all_player_moves))
-    opening_acc = round(max(50.0, min(98.0, 92.5 - (panic_moves * 1.5))), 1)
-    middlegame_acc = round(max(40.0, min(95.0, 85.0 - (overthink_moves * 2.0) - (len(post_loss_moves) * 1.2))), 1)
-    endgame_acc = round(max(35.0, min(92.0, 78.0 - (len(bucket_sub1m) * 0.8) - (speedup_pct * 0.15))), 1)
+    panic_pct = (panic_moves / total_m) * 100.0
+    overthink_pct = (overthink_moves / total_m) * 100.0
+    post_loss_pct = (len(post_loss_moves) / total_m) * 100.0
+    sub1m_pct = (len(bucket_sub1m) / total_m) * 100.0
+
+    opening_acc = round(max(50.0, min(98.0, 92.5 - (panic_pct * 1.5))), 1)
+    middlegame_acc = round(max(40.0, min(95.0, 85.0 - (overthink_pct * 2.0) - (post_loss_pct * 1.2))), 1)
+    endgame_acc = round(max(35.0, min(92.0, 78.0 - (sub1m_pct * 0.8) - (speedup_pct * 0.15))), 1)
+
+    phase_acc = PhaseAccuracy(
+        opening_accuracy_pct=opening_acc,
+        middlegame_accuracy_pct=middlegame_acc,
+        endgame_accuracy_pct=endgame_acc,
+    )
 
     # Base accuracy for 5m+ is roughly middlegame accuracy
     base_acc = middlegame_acc
@@ -211,52 +229,12 @@ def generate_personal_profile(
         ),
     ]
 
-    # Compute tilt signature
-    all_thinks = [
-        max(0.0, (m.time_spent or 0) / 1000.0) for m in all_player_moves if m.time_spent is not None
-    ]
-    post_loss_thinks = [
-        max(0.0, (m.time_spent or 0) / 1000.0) for m in post_loss_moves if m.time_spent is not None
-    ]
-
-    norm_avg = sum(all_thinks) / max(len(all_thinks), 1)
-    post_avg = (
-        sum(post_loss_thinks) / max(len(post_loss_thinks), 1) if post_loss_thinks else norm_avg
-    )
-
-    if norm_avg > 0:
-        speedup_pct = ((norm_avg - post_avg) / norm_avg) * 100.0
-        speedup_pct = max(-200.0, min(200.0, speedup_pct))
-    else:
-        speedup_pct = 0.0
-
-    is_tilted = speedup_pct > 20.0
-
-    tilt_sig = TiltSignature(
-        normal_avg_think_time=round(norm_avg, 2),
-        post_material_loss_think_time=round(post_avg, 2),
-        tilt_speedup_percentage=round(speedup_pct, 1),
-        is_panic_tilted=is_tilted,
-    )
-
     # Compute time distribution percentages
     total_sec = max(opening_time_sec + middlegame_time_sec + endgame_time_sec, 1.0)
     time_dist = TimeManagementDistribution(
         opening_time_pct=(opening_time_sec / total_sec) * 100.0,
         middlegame_time_pct=(middlegame_time_sec / total_sec) * 100.0,
         endgame_time_pct=(endgame_time_sec / total_sec) * 100.0,
-    )
-
-    # Compute dynamic phase accuracies based on player performance & move count
-    total_m = max(1, len(all_player_moves))
-    opening_acc = round(max(50.0, min(98.0, 92.5 - (panic_moves * 1.5))), 1)
-    middlegame_acc = round(max(40.0, min(95.0, 85.0 - (overthink_moves * 2.0) - (len(post_loss_moves) * 1.2))), 1)
-    endgame_acc = round(max(35.0, min(92.0, 78.0 - (len(bucket_sub1m) * 0.8) - (speedup_pct * 0.15))), 1)
-
-    phase_acc = PhaseAccuracy(
-        opening_accuracy_pct=opening_acc,
-        middlegame_accuracy_pct=middlegame_acc,
-        endgame_accuracy_pct=endgame_acc,
     )
 
     return PersonalProfileFingerprint(

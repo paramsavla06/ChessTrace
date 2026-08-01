@@ -112,6 +112,7 @@ def get_player_profile(
                 "clock_bucket": b.clock_bucket,
                 "move_count": b.move_count,
                 "avg_think_time_sec": round(b.avg_think_time, 2),
+                "accuracy_pct": b.accuracy_pct,
             }
             for b in profile.accuracy_vs_clock
         ],
@@ -127,6 +128,11 @@ def get_player_profile(
             "opening_time_pct": round(profile.time_distribution.opening_time_pct, 1),
             "middlegame_time_pct": round(profile.time_distribution.middlegame_time_pct, 1),
             "endgame_time_pct": round(profile.time_distribution.endgame_time_pct, 1),
+        },
+        "phase_accuracy": {
+            "opening_accuracy_pct": round(profile.phase_accuracy.opening_accuracy_pct, 1),
+            "middlegame_accuracy_pct": round(profile.phase_accuracy.middlegame_accuracy_pct, 1),
+            "endgame_accuracy_pct": round(profile.phase_accuracy.endgame_accuracy_pct, 1),
         },
         "panic_move_count": profile.panic_move_count,
         "overthink_move_count": profile.overthink_move_count,
