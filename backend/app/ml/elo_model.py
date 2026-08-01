@@ -85,20 +85,18 @@ class EloSimulatorManager:
                 fen=board.fen(),
             )
 
-        # Evaluate legal moves using Stockfish or tactical/positional heuristic
+        # Evaluate legal moves using Stockfish 18
         from app.core.config import STOCKFISH_PATH
         best_move_uci = None
         if STOCKFISH_PATH and Path(STOCKFISH_PATH).exists():
             try:
-                from app.engine.evaluator import Evaluator
                 from app.engine.stockfish import StockfishEngine
 
                 engine = StockfishEngine(Path(STOCKFISH_PATH))
-                engine.start()
-                evaluator = Evaluator(engine)
-                res = evaluator.evaluate(board, move_number=1, depth=8)
-                best_move_uci = res.best_move
-                engine.stop()
+                info = engine.analyse(board, depth=12)
+                if info.get("pv"):
+                    best_move_uci = info["pv"][0].uci()
+                engine.quit()
             except Exception as exc:
                 logger.warning("Could not run Stockfish for candidate move evaluation: %s", exc)
 
