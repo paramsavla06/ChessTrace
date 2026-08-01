@@ -152,7 +152,7 @@ def get_game_timeline(
                 eval_cp = ev_db.score_cp
                 best_move_uci = ev_db.best_move
 
-            if evaluator and not move.evaluations:
+            if evaluator:
                 try:
                     # Eval of position BEFORE the move (from side-to-move POV), normalized to White's POV
                     ev_before = evaluator.evaluate(prev_board, move_number=move.move_number, depth=10)
