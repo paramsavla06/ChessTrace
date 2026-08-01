@@ -250,7 +250,7 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
     played_eval_cp = req.eval_cp
     if evaluator:
         try:
-            ev = evaluator.evaluate(board_played, depth=10)
+            ev = evaluator.evaluate(board_played, move_number=1, depth=10)
             raw = ev.cp_score
             if raw is not None:
                 # Normalize to side-that-just-moved perspective
@@ -266,7 +266,7 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
     alt_eval_cp = req.eval_cp if alt_move == played_move else None
     if evaluator:
         try:
-            ev = evaluator.evaluate(board_alt, depth=10)
+            ev = evaluator.evaluate(board_alt, move_number=1, depth=10)
             raw = ev.cp_score
             if raw is not None:
                 alt_eval_cp = raw if board_alt.turn == chess.BLACK else -raw
@@ -281,6 +281,12 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
             evaluator._engine.quit()
         except Exception:
             pass
+
+    if alt_move != played_move and alt_eval_cp is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Local Stockfish engine failed to evaluate the new variation. Please ensure Stockfish is installed locally and STOCKFISH_PATH is correct."
+        )
 
     # --- Run predictor for both ---
     predictor = WinCollapsePredictor()
