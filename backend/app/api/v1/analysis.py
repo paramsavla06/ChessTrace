@@ -244,36 +244,39 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
             detail="Local Stockfish engine is not installed or configured. The What-If feature requires Stockfish to evaluate new variations."
         )
 
-    # Played move position
+    # --- Evaluate positions with Stockfish ---
+
+    # Played move: evaluate the resulting position
     board_played = board.copy()
     board_played.push(played_move)
-    played_eval_cp = req.eval_cp
+    played_eval_cp = req.eval_cp  # fallback to cached eval from timeline
     if evaluator:
         try:
-            ev = evaluator.evaluate(board_played, move_number=1, depth=10)
+            ev = evaluator.evaluate(board_played, move_number=1, depth=16)
             raw = ev.cp_score
             if raw is not None:
-                # Normalize to side-that-just-moved perspective
-                played_eval_cp = raw if board_played.turn == chess.BLACK else -raw
-                if board.turn == chess.BLACK:
-                    played_eval_cp = -played_eval_cp
+                # score.relative is from the NEXT side-to-move's perspective.
+                # Normalize to White's perspective (positive = good for White):
+                played_eval_cp = -raw if board_played.turn == chess.BLACK else raw
         except Exception:
             pass
 
-    # Alternative move position
-    board_alt = board.copy()
-    board_alt.push(alt_move)
-    alt_eval_cp = req.eval_cp if alt_move == played_move else None
-    if evaluator:
-        try:
-            ev = evaluator.evaluate(board_alt, move_number=1, depth=10)
-            raw = ev.cp_score
-            if raw is not None:
-                alt_eval_cp = raw if board_alt.turn == chess.BLACK else -raw
-                if board.turn == chess.BLACK:
-                    alt_eval_cp = -alt_eval_cp
-        except Exception:
-            pass
+    # Alternative move: if same as played, clone results; otherwise evaluate fresh
+    if alt_move == played_move:
+        board_alt = board_played
+        alt_eval_cp = played_eval_cp
+    else:
+        board_alt = board.copy()
+        board_alt.push(alt_move)
+        alt_eval_cp = None
+        if evaluator:
+            try:
+                ev = evaluator.evaluate(board_alt, move_number=1, depth=16)
+                raw = ev.cp_score
+                if raw is not None:
+                    alt_eval_cp = -raw if board_alt.turn == chess.BLACK else raw
+            except Exception:
+                pass
 
     # Cleanup engine
     if evaluator and hasattr(evaluator, "_engine") and evaluator._engine:
@@ -285,7 +288,7 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
     if alt_move != played_move and alt_eval_cp is None:
         raise HTTPException(
             status_code=400,
-            detail="Local Stockfish engine failed to evaluate the new variation. Please ensure Stockfish is installed locally and STOCKFISH_PATH is correct."
+            detail="Stockfish engine failed to evaluate the alternative variation. Ensure Stockfish is installed and STOCKFISH_PATH is set correctly in backend/.env."
         )
 
     # --- Run predictor for both ---
