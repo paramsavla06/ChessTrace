@@ -250,6 +250,8 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
             try:
                 ev = evaluator.evaluate(board_played, move_number=1, depth=16)
                 raw = ev.cp_score
+                if raw is None and ev.mate_score is not None:
+                    raw = 200000 if ev.mate_score > 0 else -200000
                 if raw is not None:
                     # score.relative is from the NEXT side-to-move's perspective.
                     # Normalize to White's perspective (positive = good for White):
@@ -269,6 +271,8 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
                 try:
                     ev = evaluator.evaluate(board_alt, move_number=1, depth=16)
                     raw = ev.cp_score
+                    if raw is None and ev.mate_score is not None:
+                        raw = 200000 if ev.mate_score > 0 else -200000
                     if raw is not None:
                         alt_eval_cp = -raw if board_alt.turn == chess.BLACK else raw
                 except Exception:
