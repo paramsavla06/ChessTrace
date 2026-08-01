@@ -92,13 +92,12 @@ class EloSimulatorManager:
             try:
                 from app.engine.stockfish import StockfishEngine
 
-                engine = StockfishEngine(Path(STOCKFISH_PATH))
-                info = engine.analyse(board, depth=12)
-                if info.get("pv"):
-                    best_move_uci = info["pv"][0].uci()
-                engine.quit()
+                with StockfishEngine(Path(STOCKFISH_PATH)) as engine:
+                    info = engine.analyse(board, depth=12)
+                    if info.get("pv"):
+                        best_move_uci = info["pv"][0].uci()
             except Exception as exc:
-                logger.warning("Could not run Stockfish for candidate move evaluation: %s", exc)
+                logger.warning("Stockfish ELO analysis failed: %s", exc)
 
         def move_quality_score(m: chess.Move) -> float:
             score = 0.0
