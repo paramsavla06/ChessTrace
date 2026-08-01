@@ -439,6 +439,47 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
 
         {/* Right 7 Cols: Analysis, SHAP, What-If & ELO Sim */}
         <div className="lg:col-span-7 space-y-6">
+          {/* Clickable Move List */}
+          <div className="glass-panel p-4 rounded-2xl max-h-[200px] overflow-y-auto">
+            <div className="flex items-center gap-2 text-indigo-400 font-semibold text-sm mb-3">
+              <Zap className="w-4 h-4" />
+              <span>Game Moves</span>
+            </div>
+            <div className="grid grid-cols-[40px_1fr_1fr] gap-x-2 gap-y-1 text-sm font-mono">
+              {Array.from({ length: Math.ceil(timeline.length / 2) }).map((_, i) => {
+                const whiteMove = timeline[i * 2];
+                const blackMove = timeline[i * 2 + 1];
+                return (
+                  <React.Fragment key={i}>
+                    <div className="text-slate-500 text-right pr-2 py-0.5">{whiteMove?.move_number}.</div>
+                    {whiteMove && (
+                      <button 
+                        onClick={() => setCurrentIndex(i * 2)}
+                        className={`text-left px-2 py-0.5 rounded transition-colors ${
+                          currentIndex === i * 2 ? 'bg-indigo-600 text-white font-bold shadow-md' : 'hover:bg-slate-800 text-slate-300'
+                        }`}
+                      >
+                        {whiteMove.san}
+                      </button>
+                    )}
+                    {blackMove ? (
+                      <button 
+                        onClick={() => setCurrentIndex(i * 2 + 1)}
+                        className={`text-left px-2 py-0.5 rounded transition-colors ${
+                          currentIndex === i * 2 + 1 ? 'bg-indigo-600 text-white font-bold shadow-md' : 'hover:bg-slate-800 text-slate-300'
+                        }`}
+                      >
+                        {blackMove.san}
+                      </button>
+                    ) : (
+                      <div />
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Win & Collapse Probability Card */}
           {prediction && (
             <div className="glass-panel p-6 rounded-2xl space-y-4">
