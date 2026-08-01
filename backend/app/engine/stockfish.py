@@ -58,10 +58,10 @@ class StockfishEngine:
                     "Hash": hash_mb,
                 }
             )
-        except (FileNotFoundError, OSError) as exc:
+        except Exception as exc:
             stockfish_lock.release()
             raise RuntimeError(
-				f"Failed to start Stockfish engine: {engine_path}"
+				f"Failed to start or configure Stockfish engine: {engine_path}"
 			) from exc
         
     def analyse(
