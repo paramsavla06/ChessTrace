@@ -181,13 +181,57 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
     );
   }
 
-  const chartData = timeline.map((m) => ({
-    ply: m.ply,
-    move: `${m.move_number}.${m.color === 'white' ? 'w' : 'b'}`,
-    thinkTime: m.think_time_sec,
-    clock: m.time_remaining_sec,
-    isPressure: m.is_time_pressure_30s,
-  }));
+  const chartData = timeline
+    .filter((m) => m.think_time_sec != null && m.think_time_sec > 0)
+    .map((m) => ({
+      ply: m.ply,
+      move: `${m.move_number}.${m.color === 'white' ? 'w' : 'b'}`,
+      thinkTime: parseFloat((m.think_time_sec ?? 0).toFixed(1)),
+      clock: m.time_remaining_sec,
+      isPressure: m.is_time_pressure_30s,
+    }));
+
+  // Chess.com move classification metadata
+  const MOVE_TYPES = [
+    { key: 'brilliant', label: 'Brilliant', icon: '!!', color: '#00b5c8', bgColor: 'bg-cyan-500/20', borderColor: 'border-cyan-500/30', textColor: 'text-cyan-400' },
+    { key: 'great',     label: 'Great',     icon: '!',  color: '#32a8a8', bgColor: 'bg-teal-500/20', borderColor: 'border-teal-500/30', textColor: 'text-teal-400' },
+    { key: 'best',      label: 'Best',      icon: '★',  color: '#30c670', bgColor: 'bg-emerald-500/20', borderColor: 'border-emerald-500/30', textColor: 'text-emerald-400' },
+    { key: 'excellent', label: 'Excellent', icon: '✓+', color: '#7fc97f', bgColor: 'bg-green-500/20', borderColor: 'border-green-500/30', textColor: 'text-green-400' },
+    { key: 'good',      label: 'Good',      icon: '✓',  color: '#4ade80', bgColor: 'bg-lime-500/20', borderColor: 'border-lime-500/30', textColor: 'text-lime-400' },
+    { key: 'inaccuracy',label: 'Inaccuracy',icon: '?!', color: '#f59e0b', bgColor: 'bg-amber-500/20', borderColor: 'border-amber-500/30', textColor: 'text-amber-400' },
+    { key: 'mistake',   label: 'Mistake',   icon: '?',  color: '#f97316', bgColor: 'bg-orange-500/20', borderColor: 'border-orange-500/30', textColor: 'text-orange-400' },
+    { key: 'miss',      label: 'Miss',      icon: '✗',  color: '#ef4444', bgColor: 'bg-rose-500/20', borderColor: 'border-rose-500/30', textColor: 'text-rose-400' },
+    { key: 'blunder',   label: 'Blunder',   icon: '??', color: '#dc2626', bgColor: 'bg-red-600/20', borderColor: 'border-red-600/30', textColor: 'text-red-400' },
+  ];
+
+  // Count move types per player for Game Review summary
+  const getMoveTypeCounts = (color: 'white' | 'black') => {
+    const counts: Record<string, number> = {};
+    MOVE_TYPES.forEach(t => { counts[t.key] = 0; });
+    timeline.forEach(m => {
+      if (m.color === color) {
+        const cls = (m as any).move_classification || 'good';
+        if (counts[cls] !== undefined) counts[cls]++;
+      }
+    });
+    return counts;
+  };
+
+  // Estimate ChessTrace rating from move quality distribution
+  const estimateRating = (counts: Record<string, number>): number => {
+    const total = Object.values(counts).reduce((a, b) => a + b, 0) || 1;
+    const weights = { brilliant: 2500, great: 2200, best: 2000, excellent: 1800, good: 1600, inaccuracy: 1300, mistake: 1100, miss: 900, blunder: 700 };
+    const weightedSum = Object.entries(counts).reduce((sum, [k, v]) => sum + (weights[k as keyof typeof weights] || 1200) * v, 0);
+    return Math.round(weightedSum / total);
+  };
+
+  const whiteCounts = getMoveTypeCounts('white');
+  const blackCounts = getMoveTypeCounts('black');
+  const whiteRating = estimateRating(whiteCounts);
+  const blackRating = estimateRating(blackCounts);
+
+  // Current move classification metadata helper
+  const getMoveTypeMeta = (cls: string) => MOVE_TYPES.find(t => t.key === cls) || MOVE_TYPES[4];
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
@@ -241,30 +285,32 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
         {/* Left 5 Cols: Interactive Chessboard + Vertical Eval Bar */}
         <div className="lg:col-span-5 space-y-6">
           {/* Move Quality Banner (Chess.com Style) */}
-          {currentMove && (
-            <div className="glass-panel p-3.5 rounded-2xl flex items-center justify-between gap-3 border border-indigo-500/20 shadow-lg">
-              <div className="flex items-center gap-2.5">
-                <span className={`px-2.5 py-1 rounded-lg text-xs font-black font-mono shadow ${
-                  (currentMove as any).move_classification === 'best' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-                  (currentMove as any).move_classification === 'miss' || (currentMove as any).move_classification === 'blunder' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
-                  (currentMove as any).move_classification === 'inaccuracy' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
-                  'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
-                }`}>
-                  {(currentMove as any).eval_score || '+0.25'}
-                </span>
-                <span className="text-xs font-bold text-white font-mono">
-                  {(currentMove as any).classification_label || `${currentMove.san} played`}
-                </span>
+          {currentMove && (() => {
+            const cls = (currentMove as any).move_classification || 'good';
+            const meta = getMoveTypeMeta(cls);
+            return (
+              <div className={`glass-panel p-3.5 rounded-2xl flex items-center justify-between gap-3 border ${meta.borderColor} shadow-lg`}>
+                <div className="flex items-center gap-2.5">
+                  <span className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-black ${meta.bgColor} ${meta.textColor} border ${meta.borderColor}`}>
+                    {meta.icon}
+                  </span>
+                  <div>
+                    <div className={`text-xs font-black font-mono ${meta.textColor}`}>{meta.label}</div>
+                    <div className="text-[11px] text-slate-400 font-mono">{(currentMove as any).classification_label || `${currentMove.san} played`}</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-sm font-extrabold font-mono ${meta.textColor}`}>{(currentMove as any).eval_score || '+0.25'}</span>
+                  <div className="text-[11px] font-bold font-mono text-emerald-300 bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20">
+                    {(currentMove as any).best_move_label || `${(currentMove as any).best_move_san || 'best'} is best`}
+                  </div>
+                </div>
               </div>
+            );
+          })()}
 
-              <div className="text-[11px] font-bold font-mono text-emerald-300 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
-                {(currentMove as any).best_move_label || `⭐ ${(currentMove as any).best_move_san || 'best'} is best`}
-              </div>
-            </div>
-          )}
-
-          <div className="flex items-center justify-center gap-3">
-            {/* Vertical Evaluation Bar */}
+          <div className="flex items-center justify-center gap-2">
+            {/* Vertical Evaluation Bar + visible score */}
             {(() => {
               const rawEval = prediction ? (prediction.win_probability * 2 - 1) * 3.5 : 0.25;
               const evalScore = (currentMove as any)?.eval_cp !== undefined && (currentMove as any)?.eval_cp !== null
@@ -274,26 +320,28 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
               const evalDisplay = `${evalScore >= 0 ? '+' : ''}${evalScore.toFixed(2)}`;
 
               return (
-                <div className="w-6 h-[440px] bg-slate-950 rounded-xl overflow-hidden border border-slate-800 flex flex-col justify-between relative shadow-2xl">
-                  {/* Black Advantage (Top) */}
-                  <div
-                    className="bg-slate-900 w-full transition-all duration-300 ease-out"
-                    style={{ height: `${100 - whitePct}%` }}
-                  />
-                  {/* White Advantage (Bottom) */}
-                  <div
-                    className="bg-slate-100 w-full transition-all duration-300 ease-out"
-                    style={{ height: `${whitePct}%` }}
-                  />
-                  {/* Centered Eval Score Badge */}
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <span className={`text-[10px] font-extrabold font-mono px-1 py-0.5 rounded shadow ${
-                      evalScore >= 0
-                        ? 'bg-slate-900 text-white border border-slate-700'
-                        : 'bg-white text-slate-900 border border-slate-300'
-                    }`}>
-                      {evalDisplay}
-                    </span>
+                <div className="flex flex-col items-center gap-1">
+                  {/* Score above bar */}
+                  <span className={`text-[11px] font-extrabold font-mono px-2 py-0.5 rounded-lg shadow-md ${
+                    evalScore >= 0
+                      ? 'bg-slate-800 text-white border border-slate-600'
+                      : 'bg-slate-100 text-slate-900 border border-slate-300'
+                  }`}>
+                    {evalDisplay}
+                  </span>
+                  {/* Bar */}
+                  <div className="w-5 h-[400px] bg-slate-950 rounded-xl overflow-hidden border border-slate-800 flex flex-col relative shadow-2xl">
+                    <div
+                      className="bg-slate-800 w-full transition-all duration-300 ease-out"
+                      style={{ height: `${100 - whitePct}%` }}
+                    />
+                    <div
+                      className="bg-slate-100 w-full transition-all duration-300 ease-out"
+                      style={{ height: `${whitePct}%` }}
+                    />
+                  </div>
+                  {/* Labels */}
+                  <div className="flex flex-col gap-[350px] absolute pointer-events-none">
                   </div>
                 </div>
               );
@@ -480,6 +528,57 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
         </div>
       </div>
 
+      {/* Game Review Summary Panel (Chess.com Style) */}
+      <div className="glass-panel p-6 rounded-2xl space-y-5">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-indigo-400" />
+            <span>Game Review</span>
+          </h3>
+          <div className="flex items-center gap-6">
+            <div className="text-center">
+              <div className="text-xs text-slate-400 font-mono mb-1">{gameMeta?.white_player || 'White'}</div>
+              <div className="text-2xl font-extrabold text-white font-mono">{whiteRating}</div>
+              <div className="text-[10px] text-indigo-400 font-mono">ChessTrace Est.</div>
+            </div>
+            <div className="w-px h-10 bg-slate-700" />
+            <div className="text-center">
+              <div className="text-xs text-slate-400 font-mono mb-1">{gameMeta?.black_player || 'Black'}</div>
+              <div className="text-2xl font-extrabold text-white font-mono">{blackRating}</div>
+              <div className="text-[10px] text-indigo-400 font-mono">ChessTrace Est.</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          {MOVE_TYPES.map((mt) => (
+            <div key={mt.key} className="flex items-center gap-3">
+              <div className="w-24 text-xs font-semibold text-slate-300">{mt.label}</div>
+              <div className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-black ${mt.bgColor} ${mt.textColor} border ${mt.borderColor} flex-shrink-0`}>
+                {mt.icon}
+              </div>
+              <div className={`w-10 text-center text-sm font-extrabold font-mono ${mt.textColor}`}>
+                {whiteCounts[mt.key] || 0}
+              </div>
+              <div className="flex-1 flex gap-1 h-2 items-center">
+                <div
+                  className="h-2 rounded-full transition-all"
+                  style={{ width: `${Math.max(2, ((whiteCounts[mt.key] || 0) / (timeline.filter(m => m.color === 'white').length || 1)) * 100)}%`, backgroundColor: mt.color + '60' }}
+                />
+              </div>
+              <div className={`w-10 text-center text-sm font-extrabold font-mono ${mt.textColor}`}>
+                {blackCounts[mt.key] || 0}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-xs text-slate-400 font-mono">
+          <span>{gameMeta?.white_player || 'White'} (White) ← counts → {gameMeta?.black_player || 'Black'} (Black)</span>
+          <span>{timeline.length} total moves analyzed</span>
+        </div>
+      </div>
+
       {/* Bottom Full-Width Chart: Think Time & Clock Heatmap */}
       <div className="glass-panel p-6 rounded-2xl space-y-4">
         <div className="flex items-center justify-between">
@@ -490,29 +589,41 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
           <span className="text-xs text-slate-400">Seconds spent per move throughout the game</span>
         </div>
 
-        <div className="h-48 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData}>
-              <defs>
-                <linearGradient id="thinkColor" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#6366F1" stopOpacity={0.8} />
-                  <stop offset="95%" stopColor="#6366F1" stopOpacity={0.0} />
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="move" stroke="#64748B" fontSize={11} />
-              <YAxis stroke="#64748B" fontSize={11} unit="s" />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#0F172A',
-                  borderColor: '#334155',
-                  borderRadius: '12px',
-                  color: '#fff',
-                }}
-              />
-              <Area type="monotone" dataKey="thinkTime" stroke="#6366F1" fillOpacity={1} fill="url(#thinkColor)" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+        {chartData.length === 0 ? (
+          <div className="h-48 flex items-center justify-center text-slate-500 text-sm">
+            No think time data available for this game (clock times may not have been recorded)
+          </div>
+        ) : (
+          <div className="h-48 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+                <defs>
+                  <linearGradient id="thinkColor" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6366F1" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="#6366F1" stopOpacity={0.0} />
+                  </linearGradient>
+                  <linearGradient id="pressureColor" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.7} />
+                    <stop offset="95%" stopColor="#f43f5e" stopOpacity={0.0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="move" stroke="#64748B" fontSize={10} tick={{ fill: '#94a3b8' }} />
+                <YAxis stroke="#64748B" fontSize={10} unit="s" tick={{ fill: '#94a3b8' }} width={36} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#0F172A',
+                    borderColor: '#334155',
+                    borderRadius: '12px',
+                    color: '#fff',
+                    fontSize: '12px',
+                  }}
+                  formatter={(val: any) => [`${val}s`, 'Think Time']}
+                />
+                <Area type="monotone" dataKey="thinkTime" name="Think Time" stroke="#6366F1" strokeWidth={2} fillOpacity={1} fill="url(#thinkColor)" dot={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -123,10 +123,13 @@ def get_game_timeline(
                 previous_moves_same_color=prev_same,
             )
 
-            # Extract or compute Stockfish Evaluation on position BEFORE move
-            eval_cp = None
-            best_move_san = None
+            # Compute Stockfish eval on BEST move (eval after best) and PLAYED move (eval after played)
+            # to get the accuracy delta — same as Chess.com approach
+            best_eval_cp = None
+            played_eval_cp = None
             best_move_uci = None
+            best_move_san = None
+            eval_cp = None
             move_classification = "good"
             classification_label = ""
             best_move_label = ""
@@ -135,14 +138,29 @@ def get_game_timeline(
                 ev_db = move.evaluations[0]
                 eval_cp = ev_db.score_cp
                 best_move_uci = ev_db.best_move
-            elif evaluator:
-                try:
-                    ev_res = evaluator.evaluate(prev_board, move_number=move.move_number, depth=10)
-                    eval_cp = ev_res.cp_score
-                    best_move_uci = ev_res.best_move
-                except Exception:
-                    eval_cp = None
 
+            if evaluator:
+                try:
+                    # Eval of position BEFORE the move (from side-to-move POV), normalized to White's POV
+                    ev_before = evaluator.evaluate(prev_board, move_number=move.move_number, depth=10)
+                    raw_before = ev_before.cp_score  # side-to-move relative
+                    if raw_before is not None:
+                        best_eval_cp = raw_before if prev_board.turn == chess.WHITE else -raw_before
+                    # Best move from THIS position (what Stockfish recommends)
+                    if ev_before.best_move:
+                        best_move_uci = ev_before.best_move
+
+                    # Eval of position AFTER the move played (opponent's POV → flip sign for White)
+                    after_board = chess.Board(move.fen)
+                    ev_after = evaluator.evaluate(after_board, move_number=move.move_number, depth=10)
+                    raw_after = ev_after.cp_score
+                    if raw_after is not None:
+                        # After move, the turn switches — so flip sign to get White-relative score
+                        played_eval_cp = raw_after if after_board.turn == chess.WHITE else -raw_after
+                except Exception:
+                    pass
+
+            # Resolve best_move_san from prev_board
             if best_move_uci:
                 try:
                     bm_obj = chess.Move.from_uci(best_move_uci)
@@ -150,31 +168,72 @@ def get_game_timeline(
                 except Exception:
                     best_move_san = best_move_uci
 
-            # Calculate eval score & move classification
-            if eval_cp is not None:
-                val_pawns = round(eval_cp / 100.0, 2)
-                eval_score_str = f"+{val_pawns:.2f}" if val_pawns >= 0 else f"{val_pawns:.2f}"
+            # eval_cp = the White-normalized eval of the played position
+            if played_eval_cp is not None:
+                eval_cp = played_eval_cp
+            elif eval_cp is not None and move.color.value == "black":
+                eval_cp = -eval_cp  # normalize existing db score to White-relative
 
-                if move.uci == best_move_uci:
+            # Calculate eval score & move classification using Chess.com delta thresholds
+            if eval_cp is not None and best_eval_cp is not None:
+                val_pawns = round(eval_cp / 100.0, 2)
+                best_pawns = round(best_eval_cp / 100.0, 2)
+                eval_score_str = f"+{val_pawns:.2f}" if val_pawns >= 0 else f"{val_pawns:.2f}"
+                best_score_str = f"+{best_pawns:.2f}" if best_pawns >= 0 else f"{best_pawns:.2f}"
+
+                # Delta from White's perspective (positive = played move gained, negative = lost)
+                # For White moves: played_eval - best_eval (both White-normalized)
+                # For Black moves: already normalized to White POV
+                delta = val_pawns - best_pawns  # negative = worse than engine best
+
+                # Brilliant: sacrificial move that gains material or mates, detected as unexpected
+                is_sacrifice = (
+                    prev_board.is_capture(chess.Move.from_uci(move.uci))
+                    if chess.Move.from_uci(move.uci) in prev_board.legal_moves else False
+                )
+
+                if (move.uci == best_move_uci or abs(delta) < 0.05) and is_sacrifice and abs(val_pawns) > 1.0:
+                    move_classification = "brilliant"
+                    classification_label = f"{move.san} is brilliant!!"
+                    best_move_label = f"{move.san} is the best move ({eval_score_str})"
+                elif abs(delta) < 0.10 and best_eval_cp is not None:
                     move_classification = "best"
                     classification_label = f"{move.san} is best move"
                     best_move_label = f"{move.san} is best ({eval_score_str})"
-                elif val_pawns < -1.0:
-                    move_classification = "miss"
-                    classification_label = f"{move.san} is a miss"
-                    best_move_label = f"{best_move_san or 'best move'} is best ({eval_score_str})"
-                elif val_pawns < -0.4:
-                    move_classification = "inaccuracy"
-                    classification_label = f"{move.san} is an inaccuracy"
-                    best_move_label = f"{best_move_san or 'best move'} is best ({eval_score_str})"
-                else:
+                elif abs(delta) < 0.20:
+                    move_classification = "excellent"
+                    classification_label = f"{move.san} is excellent"
+                    best_move_label = f"{best_move_san or move.san} is best ({best_score_str})"
+                elif abs(delta) < 0.40:
                     move_classification = "good"
                     classification_label = f"{move.san} played"
-                    best_move_label = f"{best_move_san or move.san} is best ({eval_score_str})"
+                    best_move_label = f"{best_move_san or move.san} is best ({best_score_str})"
+                elif delta < -2.0:
+                    move_classification = "blunder"
+                    classification_label = f"{move.san} is a blunder!"
+                    best_move_label = f"{best_move_san or 'best move'} is best ({best_score_str})"
+                elif delta < -1.0:
+                    move_classification = "miss"
+                    classification_label = f"{move.san} is a miss"
+                    best_move_label = f"{best_move_san or 'best move'} is best ({best_score_str})"
+                elif delta < -0.60:
+                    move_classification = "mistake"
+                    classification_label = f"{move.san} is a mistake"
+                    best_move_label = f"{best_move_san or 'best move'} is best ({best_score_str})"
+                else:
+                    move_classification = "inaccuracy"
+                    classification_label = f"{move.san} is an inaccuracy"
+                    best_move_label = f"{best_move_san or 'best move'} is best ({best_score_str})"
+            elif eval_cp is not None:
+                val_pawns = round(eval_cp / 100.0, 2)
+                eval_score_str = f"+{val_pawns:.2f}" if val_pawns >= 0 else f"{val_pawns:.2f}"
+                move_classification = "good"
+                classification_label = f"{move.san} played"
+                best_move_label = f"{best_move_san or move.san} is best ({eval_score_str})"
             else:
                 eval_score_str = "+0.25"
                 classification_label = f"{move.san} played"
-                best_move_label = f"⭐ {best_move_san or move.san} is recommended"
+                best_move_label = f"{best_move_san or move.san} is recommended"
 
             timeline.append(
                 {
