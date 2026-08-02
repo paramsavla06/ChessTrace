@@ -208,7 +208,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
     await runWhatIf(prevFen, currentMove, altMoveInput);
   };
 
-  const onPieceDrop = (sourceSquare: string, targetSquare: string, piece: string) => {
+  const onPieceDrop = (sourceSquare: string, targetSquare: string, _piece: string) => {
     const fen = currentMove ? currentMove.fen : 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
     const chess = new Chess(fen);
     
@@ -988,7 +988,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
                     color: '#fff',
                     fontSize: '12px',
                   }}
-                  formatter={(val: any, name: string) => [`${val}s`, name === 'whiteThink' ? 'White Time' : 'Black Time']}
+                  formatter={(val: any, name: any) => [`${val}s`, name === 'whiteThink' ? 'White Time' : 'Black Time']}
                 />
                 <Area type="monotone" dataKey="whiteThink" name="whiteThink" stroke="#f1f5f9" strokeWidth={2} fillOpacity={0.2} fill="#f1f5f9" dot={false} />
                 <Area type="monotone" dataKey="blackThink" name="blackThink" stroke="#6366F1" strokeWidth={2} fillOpacity={0.5} fill="#6366F1" dot={false} />
