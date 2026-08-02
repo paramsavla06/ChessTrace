@@ -542,6 +542,67 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
             </div>
           </div>
 
+          {/* Counterfactual What-If Brancher */}
+          <div className="glass-panel p-6 rounded-2xl space-y-4">
+            <div className="flex items-center gap-2 text-sm font-semibold text-white">
+              <Sliders className="w-4 h-4 text-pink-400" />
+              <span>Counterfactual What-If Divergence Analysis</span>
+            </div>
+
+            <form onSubmit={handleWhatIfSubmit} className="flex gap-3">
+              <input
+                type="text"
+                placeholder={`What if ${currentMove?.color === 'white' ? 'White' : 'Black'} played... (instead of ${currentMove?.san})`}
+                value={altMoveInput}
+                onChange={(e) => setAltMoveInput(e.target.value)}
+                className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+              />
+              <button
+                type="submit"
+                disabled={whatIfLoading}
+                className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+                  whatIfLoading 
+                    ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                    : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                }`}
+              >
+                {whatIfLoading ? 'Evaluating...' : 'Evaluate Divergence'}
+              </button>
+            </form>
+
+            {whatIfResult && (
+              <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-3 text-xs">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-800/50 p-3 rounded-lg">
+                    <div className="text-[10px] text-slate-500 uppercase font-semibold">Played Move</div>
+                    <div className="text-sm font-bold text-white mt-1">{(whatIfResult.played_move as any).san || whatIfResult.played_move.uci}</div>
+                    <div className="text-slate-300 font-mono mt-0.5">
+                      {(whatIfResult.played_move as any).eval_cp != null
+                        ? `${((whatIfResult.played_move as any).eval_cp / 100).toFixed(2)} eval`
+                        : ''} · {(whatIfResult.played_move.win_probability * 100).toFixed(1)}% win
+                    </div>
+                  </div>
+                  <div className="bg-slate-800/50 p-3 rounded-lg">
+                    <div className="text-[10px] text-slate-500 uppercase font-semibold">Alternative Move</div>
+                    <div className="text-sm font-bold text-white mt-1">{(whatIfResult.alternative_move as any).san || whatIfResult.alternative_move.uci}</div>
+                    <div className="text-slate-300 font-mono mt-0.5">
+                      {(whatIfResult.alternative_move as any).eval_cp != null
+                        ? `${((whatIfResult.alternative_move as any).eval_cp / 100).toFixed(2)} eval`
+                        : ''} · {(whatIfResult.alternative_move.win_probability * 100).toFixed(1)}% win
+                    </div>
+                  </div>
+                </div>
+                <p className={`font-semibold text-sm mt-1 ${
+                  whatIfResult.probability_divergence.win_probability_delta > 0.03 ? 'text-emerald-400' :
+                  whatIfResult.probability_divergence.win_probability_delta < -0.03 ? 'text-rose-400' :
+                  'text-slate-300'
+                }`}>
+                  {whatIfResult.probability_divergence.recommendation}
+                </p>
+              </div>
+            )}
+          </div>
+
           {/* Win & Collapse Probability Card */}
           {prediction && (
             <div className="glass-panel p-6 rounded-2xl space-y-4">
@@ -628,67 +689,6 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
               </div>
             </div>
           )}
-
-          {/* Counterfactual What-If Brancher */}
-          <div className="glass-panel p-6 rounded-2xl space-y-4">
-            <div className="flex items-center gap-2 text-sm font-semibold text-white">
-              <Sliders className="w-4 h-4 text-pink-400" />
-              <span>Counterfactual What-If Divergence Analysis</span>
-            </div>
-
-            <form onSubmit={handleWhatIfSubmit} className="flex gap-3">
-              <input
-                type="text"
-                placeholder={`What if ${currentMove?.color === 'white' ? 'White' : 'Black'} played... (instead of ${currentMove?.san})`}
-                value={altMoveInput}
-                onChange={(e) => setAltMoveInput(e.target.value)}
-                className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-              />
-              <button
-                type="submit"
-                disabled={whatIfLoading}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-                  whatIfLoading 
-                    ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
-                    : 'bg-indigo-600 hover:bg-indigo-500 text-white'
-                }`}
-              >
-                {whatIfLoading ? 'Evaluating...' : 'Evaluate Divergence'}
-              </button>
-            </form>
-
-            {whatIfResult && (
-              <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-3 text-xs">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-slate-800/50 p-3 rounded-lg">
-                    <div className="text-[10px] text-slate-500 uppercase font-semibold">Played Move</div>
-                    <div className="text-sm font-bold text-white mt-1">{(whatIfResult.played_move as any).san || whatIfResult.played_move.uci}</div>
-                    <div className="text-slate-300 font-mono mt-0.5">
-                      {(whatIfResult.played_move as any).eval_cp != null
-                        ? `${((whatIfResult.played_move as any).eval_cp / 100).toFixed(2)} eval`
-                        : ''} · {(whatIfResult.played_move.win_probability * 100).toFixed(1)}% win
-                    </div>
-                  </div>
-                  <div className="bg-slate-800/50 p-3 rounded-lg">
-                    <div className="text-[10px] text-slate-500 uppercase font-semibold">Alternative Move</div>
-                    <div className="text-sm font-bold text-white mt-1">{(whatIfResult.alternative_move as any).san || whatIfResult.alternative_move.uci}</div>
-                    <div className="text-slate-300 font-mono mt-0.5">
-                      {(whatIfResult.alternative_move as any).eval_cp != null
-                        ? `${((whatIfResult.alternative_move as any).eval_cp / 100).toFixed(2)} eval`
-                        : ''} · {(whatIfResult.alternative_move.win_probability * 100).toFixed(1)}% win
-                    </div>
-                  </div>
-                </div>
-                <p className={`font-semibold text-sm mt-1 ${
-                  whatIfResult.probability_divergence.win_probability_delta > 0.03 ? 'text-emerald-400' :
-                  whatIfResult.probability_divergence.win_probability_delta < -0.03 ? 'text-rose-400' :
-                  'text-slate-300'
-                }`}>
-                  {whatIfResult.probability_divergence.recommendation}
-                </p>
-              </div>
-            )}
-          </div>
 
           {/* ELO Simulator Overlay */}
           {eloSimResult && (
