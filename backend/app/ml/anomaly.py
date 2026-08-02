@@ -10,6 +10,7 @@ Uses Isolation Forest & statistical outlier bounds to detect:
 from __future__ import annotations
 
 import logging
+import random
 from dataclasses import dataclass
 from typing import Sequence
 
@@ -92,6 +93,13 @@ class AnomalyDetector:
             # 3. Brilliancy Move Detection
             elif think_sec < 2.0 and move.move_number > 15 and clock_sec > 60.0:
                 # Fast precise move in complex late game
+                templates = [
+                    f"Rapid high-precision tactical move {move.san} executed in {think_sec:.1f}s.",
+                    f"Found the crushing move {move.san} with barely any hesitation ({think_sec:.1f}s).",
+                    f"Instinctively played the brilliant {move.san} in under {think_sec:.1f}s.",
+                    f"Spotted the tactical sequence starting with {move.san} instantly.",
+                    f"A masterclass in intuition: executing {move.san} in just {think_sec:.1f}s."
+                ]
                 anomalies.append(
                     DetectedAnomaly(
                         move_number=move.move_number,
@@ -100,7 +108,7 @@ class AnomalyDetector:
                         san=move.san,
                         anomaly_type="brilliancy",
                         anomaly_score=0.92,
-                        description=f"Rapid high-precision tactical move {move.san} executed in {think_sec:.1f}s.",
+                        description=random.choice(templates),
                     )
                 )
 
