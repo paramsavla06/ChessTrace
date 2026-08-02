@@ -86,7 +86,7 @@ class StockfishEngine:
         chess.engine.InfoDict
             Raw engine analysis.
         """
-        return self._engine.analyse(board, chess.engine.Limit(depth=depth))
+        return self._engine.analyse(board, chess.engine.Limit(depth=depth, time=2.0))
     
     @property
     def version(self) -> str:

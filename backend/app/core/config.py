@@ -29,5 +29,7 @@ BACKEND_CORS_ORIGINS: list[str] = [
     "http://localhost:5173",
     "http://localhost:8000",
     "https://chess-trace.vercel.app",
-    "https://*.vercel.app",
+    "https://chesstrace.onrender.com",
+    os.getenv("FRONTEND_URL", ""),
 ]
+BACKEND_CORS_ORIGINS = [o for o in BACKEND_CORS_ORIGINS if o]  # filter empty
