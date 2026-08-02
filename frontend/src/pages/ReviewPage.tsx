@@ -319,20 +319,25 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
     return parseFloat(((goodMoves / total) * 100).toFixed(1));
   };
 
-  // Estimate ChessTrace rating from move quality distribution (book moves neutral weight)
-  const estimateRating = (counts: Record<string, number>): number => {
-    const total = Object.values(counts).reduce((a, b) => a + b, 0) || 1;
-    const weights = { brilliant: 2500, great: 2200, book: 1800, best: 2000, excellent: 1800, good: 1600, inaccuracy: 1300, mistake: 1100, miss: 900, blunder: 700 };
-    const weightedSum = Object.entries(counts).reduce((sum, [k, v]) => sum + (weights[k as keyof typeof weights] || 1200) * v, 0);
-    return Math.round(weightedSum / total);
+  // Estimate ChessTrace rating using a curve mapping + blending with actual ELO for stability
+  const estimateRating = (accuracy: number, actualElo?: number): number => {
+    // Exponential mapping of accuracy to ELO performance
+    const perfElo = Math.max(100, Math.pow(accuracy / 100, 2.5) * 3200);
+    
+    if (actualElo && actualElo > 0) {
+      // Blend 60% actual ELO with 40% game performance ELO to keep estimates grounded
+      return Math.round((actualElo * 0.6) + (perfElo * 0.4));
+    }
+    
+    return Math.round(perfElo);
   };
 
   const whiteCounts = getMoveTypeCounts('white');
   const blackCounts = getMoveTypeCounts('black');
-  const whiteRating = estimateRating(whiteCounts);
-  const blackRating = estimateRating(blackCounts);
   const whiteAccuracy = computeAccuracy(whiteCounts);
   const blackAccuracy = computeAccuracy(blackCounts);
+  const whiteRating = estimateRating(whiteAccuracy, gameMeta?.white_elo);
+  const blackRating = estimateRating(blackAccuracy, gameMeta?.black_elo);
   const whiteTotalMoves = timeline.filter(m => m.color === 'white').length || 1;
   const blackTotalMoves = timeline.filter(m => m.color === 'black').length || 1;
 
