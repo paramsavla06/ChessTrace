@@ -97,66 +97,27 @@ class EloSimulatorManager:
                 fen=board.fen(),
             )
 
-        # Skip evaluating with Stockfish if we already know the best move from the DB timeline!
-        if not best_move_uci:
-            # Evaluate legal moves using Stockfish 18 at fast depth=12 (150ms)
-            from app.core.config import STOCKFISH_PATH
-            if STOCKFISH_PATH and Path(STOCKFISH_PATH).exists():
-                try:
-                    from app.engine.stockfish import StockfishEngine
+        # Get the top candidate moves according to Stockfish
+        engine_top_moves = []
+        from app.core.config import STOCKFISH_PATH
+        if STOCKFISH_PATH and Path(STOCKFISH_PATH).exists():
+            try:
+                from app.engine.stockfish import StockfishEngine
 
-                    with StockfishEngine(Path(STOCKFISH_PATH)) as engine:
-                        info = engine.analyse(board, depth=12)
+                with StockfishEngine(Path(STOCKFISH_PATH)) as engine:
+                    infos = engine.analyse_multipv(board, depth=12, multipv=5)
+                    for info in infos:
                         if info.get("pv"):
-                            best_move_uci = info["pv"][0].uci()
-                except Exception as exc:
-                    logger.warning("Stockfish ELO analysis failed: %s", exc)
+                            engine_top_moves.append(info["pv"][0])
+            except Exception as exc:
+                logger.warning("Stockfish ELO multipv analysis failed: %s", exc)
 
-        def move_quality_score(m: chess.Move) -> float:
-            score = 0.0
-            if best_move_uci and m.uci() == best_move_uci:
-                score += 500.0
-
-            # Main line central pawn pushes priority: d5 > e5 > c5 > d4 > e4 > c4
-            if m.to_square == chess.D5:
-                score += 35.0
-            elif m.to_square == chess.E5:
-                score += 32.0
-            elif m.to_square in (chess.C5, chess.D4, chess.E4, chess.C4):
-                score += 25.0
-
-            # Piece development (Knights & Bishops)
-            piece = board.piece_at(m.from_square)
-            if piece and piece.piece_type in (chess.KNIGHT, chess.BISHOP):
-                score += 25.0
-                # Reward pinning bishop move (Bg4 / Bg5)
-                if piece.piece_type == chess.BISHOP and m.to_square in (chess.G4, chess.G5, chess.B4, chess.B5):
-                    score += 30.0
-
-            # Captures: only reward safe captures, penalize hanging piece captures (like Nxe5 into defended pawn)
-            if board.is_capture(m):
-                board.push(m)
-                is_defender_present = any(board.is_capture(op) and op.to_square == m.to_square for op in board.legal_moves)
-                board.pop()
-                if is_defender_present and piece and piece.piece_type in (chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN):
-                    score -= 80.0
-                else:
-                    score += 15.0
-
-            # Penalize queen checks that hang pieces
-            if board.gives_check(m):
-                if piece and piece.piece_type == chess.QUEEN:
-                    score -= 100.0
-                else:
-                    score += 5.0
-
-            return score
-
-        legal_moves_sorted = sorted(legal_moves, key=move_quality_score, reverse=True)
+        # Fallback to legal moves if engine failed
+        if not engine_top_moves:
+            engine_top_moves = list(board.legal_moves)[:5]
 
         candidates: list[CandidateMovePrediction] = []
-        elo_idx = self.elo_buckets.index(target_elo_bucket) if target_elo_bucket in self.elo_buckets else 3
-
+        
         base_think = 3.0 + (time_feats.time_remaining / 30.0)
         if time_feats.is_time_pressure_30s:
             base_think = max(0.5, base_think * 0.3)
@@ -168,15 +129,21 @@ class EloSimulatorManager:
             probs = [0.65, 0.20, 0.09, 0.04, 0.02]
         elif target_elo_bucket == "1600-1800":
             probs = [0.55, 0.25, 0.12, 0.05, 0.03]
-        else:
+        elif target_elo_bucket == "1400-1600":
             probs = [0.45, 0.28, 0.15, 0.08, 0.04]
+        elif target_elo_bucket == "1200-1400":
+            probs = [0.35, 0.30, 0.18, 0.10, 0.07]
+        elif target_elo_bucket == "1000-1200":
+            probs = [0.25, 0.32, 0.20, 0.13, 0.10]
+        else: # < 1000
+            probs = [0.15, 0.30, 0.25, 0.18, 0.12]
 
-        num_cand = min(len(legal_moves_sorted), 5)
+        num_cand = min(len(engine_top_moves), 5)
         probs = probs[:num_cand]
         total_p = sum(probs)
         normalized_probs = [p / total_p for p in probs]
 
-        for idx, m in enumerate(legal_moves_sorted[:num_cand]):
+        for idx, m in enumerate(engine_top_moves[:num_cand]):
             san_str = board.san(m)
             is_top = (idx == 0)
             candidates.append(

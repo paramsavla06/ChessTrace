@@ -159,20 +159,20 @@ class ShapExplainer:
         if positive:
             top_pos = positive[0]
             narrative_parts.append(
-                f"{top_pos.display_name} ({_val_str(top_pos)}) is helping (+{top_pos.shap_value:.3f})"
+                f"{top_pos.display_name} ({_val_str(top_pos)}) is helping (+{top_pos.shap_value * 100:.1f}%)"
             )
         if len(positive) > 1:
             narrative_parts.append(
-                f"{positive[1].display_name} ({_val_str(positive[1])}) also contributing (+{positive[1].shap_value:.3f})"
+                f"{positive[1].display_name} ({_val_str(positive[1])}) also contributing (+{positive[1].shap_value * 100:.1f}%)"
             )
         if negative:
             top_neg = negative[0]
             narrative_parts.append(
-                f"{top_neg.display_name} ({_val_str(top_neg)}) is a risk factor ({top_neg.shap_value:.3f})"
+                f"{top_neg.display_name} ({_val_str(top_neg)}) is a risk factor ({top_neg.shap_value * 100:.1f}%)"
             )
         if len(negative) > 1:
             narrative_parts.append(
-                f"{negative[1].display_name} ({_val_str(negative[1])}) also hurting ({negative[1].shap_value:.3f})"
+                f"{negative[1].display_name} ({_val_str(negative[1])}) also hurting ({negative[1].shap_value * 100:.1f}%)"
             )
 
         if not narrative_parts:

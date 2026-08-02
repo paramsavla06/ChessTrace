@@ -684,9 +684,9 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
                       .slice(0, 5)
                       .map((f, i) => (
                         <div key={i} className="flex items-center gap-2">
-                          <span className={`text-[10px] font-bold w-5 text-center ${
+                          <span className={`text-[10px] font-bold w-[30px] text-right mr-2 ${
                             f.impact >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                          }`}>{f.impact >= 0 ? '+' : ''}{(f.impact * 100).toFixed(1)}</span>
+                          }`}>{f.impact >= 0 ? '+' : ''}{(f.impact * 100).toFixed(1)}%</span>
                           <div className="flex-1 bg-slate-800 h-1.5 rounded-full overflow-hidden">
                             <div
                               className={`h-full rounded-full ${
@@ -727,7 +727,10 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
                   onChange={(e) => setSelectedElo(e.target.value)}
                   className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1 text-xs text-indigo-300 font-semibold focus:outline-none"
                 >
-                  <option value="< 1600">&lt; 1600 ELO</option>
+                  <option value="< 1000">&lt; 1000 ELO</option>
+                  <option value="1000-1200">1000-1200 ELO</option>
+                  <option value="1200-1400">1200-1400 ELO</option>
+                  <option value="1400-1600">1400-1600 ELO</option>
                   <option value="1600-1800">1600-1800 ELO</option>
                   <option value="1800-2000">1800-2000 ELO</option>
                   <option value="2000+">2000+ ELO</option>
