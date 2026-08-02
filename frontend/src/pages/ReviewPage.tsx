@@ -727,9 +727,9 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
                   onChange={(e) => setSelectedElo(e.target.value)}
                   className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1 text-xs text-indigo-300 font-semibold focus:outline-none"
                 >
-                  <option value="<1000">&lt; 1000 ELO</option>
-                  <option value="1200-1400">1200-1400 ELO</option>
+                  <option value="< 1600">&lt; 1600 ELO</option>
                   <option value="1600-1800">1600-1800 ELO</option>
+                  <option value="1800-2000">1800-2000 ELO</option>
                   <option value="2000+">2000+ ELO</option>
                 </select>
               </div>
