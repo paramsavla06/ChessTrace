@@ -77,25 +77,20 @@ async def stream_live_game(websocket: WebSocket, game_id: str) -> None:
                     except json.JSONDecodeError:
                         continue
 
-                    # Handle move event in Lichess stream
-                    moves_str = data.get("state", {}).get("moves", "") or data.get("moves", "")
-                    if not moves_str:
+                    # Check if this line has a move
+                    # The Lichess spectator stream sends {"fen": "...", "lm": "e2e4", "wc": 180, "bc": 180}
+                    new_uci = data.get("lm")
+                    
+                    if not new_uci:
                         continue
-
-                    move_list = moves_str.split()
-                    if len(move_list) <= ply:
-                        continue
-
-                    # Process new move
-                    new_uci = move_list[ply]
+                        
                     try:
                         chess_move = chess.Move.from_uci(new_uci)
-                        if chess_move not in board.legal_moves:
-                            board = chess.Board()
-                            for m in move_list[: ply + 1]:
-                                board.push_uci(m)
-                        else:
+                        if chess_move in board.legal_moves:
                             board.push(chess_move)
+                        else:
+                            logger.error("Illegal move received from stream: %s", new_uci)
+                            continue
                     except ValueError:
                         continue
 
@@ -105,13 +100,14 @@ async def stream_live_game(websocket: WebSocket, game_id: str) -> None:
                         MoveColor.WHITE if board.turn == chess.BLACK else MoveColor.BLACK
                     )
 
-                    # Extract clock info from stream data if present
+                    # Extract clock info from stream data
                     clock_after = None
-                    if "wtime" in data or "btime" in data:
+                    if "wc" in data and "bc" in data:
+                        # Lichess spectator stream sends clock in seconds, we need milliseconds for compatibility
                         clock_after = (
-                            data.get("wtime")
+                            int(data.get("wc") * 1000)
                             if active_color == MoveColor.WHITE
-                            else data.get("btime")
+                            else int(data.get("bc") * 1000)
                         )
 
                     time_spent = None
