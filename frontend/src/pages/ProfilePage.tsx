@@ -23,9 +23,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ username }) => {
   const [openings, setOpenings] = useState<OpeningReportResponse | null>(null);
   const [brilliances, setBrilliances] = useState<BrilliancyResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchProfileData = async () => {
     setLoading(true);
+    setError(null);
     try {
       const [profRes, archRes, simRes, patRes, openRes, brilRes] = await Promise.all([
         api.get<PlayerProfileResponse>(`/analysis/profile/${username}`),
@@ -42,8 +44,19 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ username }) => {
       setPatterns(patRes.data);
       if (openRes) setOpenings(openRes.data);
       if (brilRes) setBrilliances(brilRes.data);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed loading profile intelligence data', err);
+      if (err.response?.status === 404) {
+        setError("No games found for this player. Import their games in the Catalog first!");
+      } else {
+        setError("Failed loading profile intelligence data.");
+      }
+      setProfile(null);
+      setArchetype(null);
+      setSimilarity(null);
+      setPatterns(null);
+      setOpenings(null);
+      setBrilliances(null);
     } finally {
       setLoading(false);
     }
@@ -64,6 +77,20 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ username }) => {
         <h2 className="text-3xl font-bold text-white">Enter Your Username</h2>
         <p className="text-slate-400 max-w-lg mx-auto">
           To generate a personal cognitive fingerprint, please enter your username in the top right corner.
+        </p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-4xl mx-auto px-6 py-24 text-center space-y-6">
+        <div className="w-24 h-24 bg-red-600/20 rounded-full flex items-center justify-center mx-auto">
+          <AlertTriangle className="w-12 h-12 text-red-400" />
+        </div>
+        <h2 className="text-3xl font-bold text-white">Profile Not Found</h2>
+        <p className="text-slate-400 max-w-lg mx-auto">
+          {error}
         </p>
       </div>
     );

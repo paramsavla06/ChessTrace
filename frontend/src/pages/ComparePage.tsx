@@ -29,6 +29,7 @@ export const ComparePage: React.FC<ComparePageProps> = ({ currentUser }) => {
       setResult(res.data);
     } catch (err: any) {
       alert(err.response?.data?.detail || 'Failed fetching player comparison!');
+      setResult(null);
     } finally {
       setLoading(false);
     }
