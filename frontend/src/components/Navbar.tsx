@@ -4,9 +4,11 @@ import { Activity, Radio, User, Upload, Shield, Swords } from 'lucide-react';
 interface NavbarProps {
   activeTab: 'catalog' | 'review' | 'profile' | 'live' | 'compare';
   setActiveTab: (tab: 'catalog' | 'review' | 'profile' | 'live' | 'compare') => void;
+  currentUser: string;
+  setCurrentUser: (user: string) => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
+export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, currentUser, setCurrentUser }) => {
   return (
     <header className="sticky top-0 z-50 glass-panel border-b border-slate-800 px-6 py-4">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -87,6 +89,19 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
             <Radio className="w-4 h-4 animate-pulse text-pink-300" />
             Live Spectate
           </button>
+          
+          <div className="w-px h-6 bg-slate-700 mx-2"></div>
+          
+          <div className="relative group">
+            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Your Username"
+              value={currentUser}
+              onChange={(e) => setCurrentUser(e.target.value)}
+              className="bg-slate-800/50 border border-slate-700 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 w-40 transition-all focus:w-48"
+            />
+          </div>
         </nav>
       </div>
     </header>

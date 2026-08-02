@@ -5,16 +5,16 @@ import type { GameSummary } from '../api/client';
 
 interface CatalogPageProps {
   onSelectGame: (gameId: number) => void;
-  onSelectProfile: (username: str) => void;
+  onSelectProfile: (username: string) => void;
+  currentUser?: string;
 }
-type str = string;
 
-export const CatalogPage: React.FC<CatalogPageProps> = ({ onSelectGame, onSelectProfile }) => {
+export const CatalogPage: React.FC<CatalogPageProps> = ({ onSelectGame, onSelectProfile, currentUser }) => {
   const [games, setGames] = useState<GameSummary[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [uploading, setUploading] = useState<boolean>(false);
   const [lichessUser, setLichessUser] = useState<string>('');
-  const [filterUser, setFilterUser] = useState<string>('');
+  const [filterUser, setFilterUser] = useState<string>(currentUser || '');
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   const fetchGames = async () => {
@@ -34,6 +34,12 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({ onSelectGame, onSelect
   useEffect(() => {
     fetchGames();
   }, [filterUser]);
+
+  useEffect(() => {
+    if (currentUser !== undefined) {
+      setFilterUser(currentUser);
+    }
+  }, [currentUser]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;

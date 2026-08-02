@@ -9,7 +9,16 @@ import { ComparePage } from './pages/ComparePage';
 export function App() {
   const [activeTab, setActiveTab] = useState<'catalog' | 'review' | 'profile' | 'live' | 'compare'>('catalog');
   const [selectedGameId, setSelectedGameId] = useState<number>(1);
-  const [selectedUsername, setSelectedUsername] = useState<string>('paramsavla06');
+  const [currentUser, setCurrentUser] = useState<string>(() => localStorage.getItem('chessTraceUser') || '');
+  const [selectedUsername, setSelectedUsername] = useState<string>(currentUser || 'paramsavla06');
+
+  const handleSetCurrentUser = (user: string) => {
+    setCurrentUser(user);
+    localStorage.setItem('chessTraceUser', user);
+    if (!selectedUsername || selectedUsername === 'paramsavla06') {
+      setSelectedUsername(user);
+    }
+  };
 
   // Sync activeTab with URL hash and listen to browser back/forward buttons
   useEffect(() => {
@@ -48,11 +57,20 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-[#0B0F19] text-slate-100 flex flex-col font-sans">
-      <Navbar activeTab={activeTab} setActiveTab={handleTabChange} />
+      <Navbar 
+        activeTab={activeTab} 
+        setActiveTab={handleTabChange} 
+        currentUser={currentUser}
+        setCurrentUser={handleSetCurrentUser}
+      />
 
       <main className="flex-1">
         {activeTab === 'catalog' && (
-          <CatalogPage onSelectGame={handleSelectGame} onSelectProfile={handleSelectProfile} />
+          <CatalogPage 
+            onSelectGame={handleSelectGame} 
+            onSelectProfile={handleSelectProfile}
+            currentUser={currentUser}
+          />
         )}
 
         {activeTab === 'review' && <ReviewPage gameId={selectedGameId} />}
