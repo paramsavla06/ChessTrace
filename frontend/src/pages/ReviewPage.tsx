@@ -62,8 +62,6 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [whatIfLoading, setWhatIfLoading] = useState<boolean>(false);
   const [gameMeta, setGameMeta] = useState<any>(null);
-  const [shapData, setShapData] = useState<any[]>([]);
-  const [selectedPly, setSelectedPly] = useState<number | null>(null);
 
   // Advanced Analysis State
   const [prediction, setPrediction] = useState<PredictResponse | null>(null);
@@ -372,7 +370,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
             <div className="flex items-center gap-2">
               <label className="text-xs font-mono text-slate-400">Select Game:</label>
               <select
-                value={activeGameId}
+                value={activeGameId ?? ''}
                 onChange={(e) => setActiveGameId(Number(e.target.value))}
                 className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-indigo-300 font-mono focus:outline-none focus:border-indigo-500 shadow-md cursor-pointer hover:border-indigo-400 transition-colors"
               >

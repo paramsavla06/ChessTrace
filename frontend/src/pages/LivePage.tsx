@@ -4,27 +4,6 @@ import { Chess } from 'chess.js';
 import { Radio, Zap, ArrowRightCircle } from 'lucide-react';
 import { api } from '../api/client';
 
-function fenToPositionObj(fen: string): Record<string, string> | 'start' {
-  if (!fen || fen === 'start') return 'start';
-  try {
-    const chess = new Chess(fen);
-    const board = chess.board();
-    const pos: Record<string, string> = {};
-    const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-    for (let r = 0; r < 8; r++) {
-      for (let c = 0; c < 8; c++) {
-        const piece = board[r][c];
-        if (piece) {
-          const square = `${files[c]}${8 - r}`;
-          pos[square] = `${piece.color}${piece.type.toUpperCase()}`;
-        }
-      }
-    }
-    return pos;
-  } catch (err) {
-    return 'start';
-  }
-}
 
 interface LivePageProps {
   gameId: number;
