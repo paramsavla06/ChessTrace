@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
-import { Radio, Zap } from 'lucide-react';
+import { Radio, Zap, ArrowRightCircle } from 'lucide-react';
+import api from '../lib/api';
 
 function fenToPositionObj(fen: string): Record<string, string> | 'start' {
   if (!fen || fen === 'start') return 'start';
@@ -35,6 +36,10 @@ interface LiveFrame {
   collapse_probability?: number;
   narrative_summary?: string;
   ply?: number;
+  san?: string;
+  color?: string;
+  move_number?: number;
+  uci?: string;
 }
 
 export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
@@ -44,10 +49,48 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
   const [connected, setConnected] = useState<boolean>(false);
   const [inputGameId, setInputGameId] = useState<string>('');
   const [boardOrientation, setBoardOrientation] = useState<'white' | 'black'>('white');
+  const [isExporting, setIsExporting] = useState<boolean>(false);
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const currentFrame = viewIndex === -1 ? (history[history.length - 1] || { fen: 'start' }) : history[viewIndex];
+
+  const exportToReview = async () => {
+    if (history.length === 0) return;
+    setIsExporting(true);
+    try {
+      // Build PGN from history
+      const pgnMoves = history.map(f => {
+        if (!f.san) return '';
+        if (f.color === 'white' || !f.color) return `${f.move_number || Math.ceil((f.ply || 0) / 2)}. ${f.san}`;
+        return `${f.san}`;
+      }).filter(x => x).join(' ');
+      
+      const pgnStr = `[Event "Live Spectate Export"]\n[Site "ChessTrace"]\n[Date "${new Date().toISOString().split('T')[0]}"]\n[Result "*"]\n\n${pgnMoves} *`;
+      
+      // Create File object
+      const blob = new Blob([pgnStr], { type: 'text/plain' });
+      const file = new File([blob], 'live_export.pgn', { type: 'text/plain' });
+      
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await api.post('/upload/pgn', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      if (res.data && res.data.imported > 0) {
+        // Find the newly imported game ID from the response if possible, else redirect to review
+        window.location.hash = 'review';
+      } else {
+        throw new Error("Failed to import game to database.");
+      }
+    } catch (err: any) {
+      setErrorMsg(`Export failed: ${err.message}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   useEffect(() => {
     let cleanId = inputGameId.trim();
@@ -73,16 +116,15 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
 
     if (!cleanId || cleanId.length < 8) {
       setConnected(false);
-      setErrorMsg(null);
       return;
     }
 
-    const wsUrl = `ws://localhost:8000/api/v1/ws/live/${cleanId}`;
+    setConnected(true);
+    const wsUrl = `ws://127.0.0.1:8000/api/v1/ws/live/${cleanId}`;
 
     const socket = new WebSocket(wsUrl);
 
     socket.onopen = () => {
-      setConnected(true);
       setErrorMsg(null);
       setHistory([]);
       setViewIndex(-1);
@@ -121,6 +163,28 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
     };
   }, [inputGameId, gameId]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (history.length === 0) return;
+      if (e.key === 'ArrowLeft') {
+        setViewIndex(prev => {
+          const current = prev === -1 ? history.length - 1 : prev;
+          return Math.max(0, current - 1);
+        });
+      } else if (e.key === 'ArrowRight') {
+        setViewIndex(prev => {
+          if (prev === -1) return -1;
+          const next = prev + 1;
+          return next >= history.length - 1 ? -1 : next;
+        });
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [history]);
+
+  const displayId = inputGameId.replace(/\/black|\/white|#black|#white/g, '').split('/').pop();
+
   return (
     <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
       {/* Top Bar */}
@@ -132,12 +196,22 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
           </h2>
           <p className="text-sm text-slate-400">
             {connected
-              ? `Connected to live stream for game #${inputGameId.trim().split('/').pop()}`
+              ? `Connected to live stream for game #${displayId}`
               : 'Disconnected'}
           </p>
         </div>
 
         <div className="flex gap-3">
+          {!connected && history.length > 0 && (
+            <button 
+              onClick={exportToReview}
+              disabled={isExporting}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors disabled:opacity-50"
+            >
+              {isExporting ? 'Exporting...' : 'Export to Game Review'}
+              {!isExporting && <ArrowRightCircle className="w-4 h-4" />}
+            </button>
+          )}
           <input
             type="text"
             placeholder="Enter Lichess / Local Game ID..."
