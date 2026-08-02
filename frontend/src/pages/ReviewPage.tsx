@@ -8,6 +8,7 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
+  ReferenceLine,
 } from 'recharts';
 
 function fenToPositionObj(fen: string): Record<string, string> | 'start' {
@@ -950,6 +951,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
                 />
                 <Area type="monotone" dataKey="whiteThink" name="whiteThink" stroke="#f1f5f9" strokeWidth={2} fillOpacity={0.2} fill="#f1f5f9" dot={false} />
                 <Area type="monotone" dataKey="blackThink" name="blackThink" stroke="#6366F1" strokeWidth={2} fillOpacity={0.5} fill="#6366F1" dot={false} />
+                {currentMove && <ReferenceLine x={currentMove.move_number} stroke="#ec4899" strokeWidth={2} strokeDasharray="3 3" />}
               </AreaChart>
             </ResponsiveContainer>
           </div>
