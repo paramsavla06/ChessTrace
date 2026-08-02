@@ -98,6 +98,11 @@ export interface PlayerProfileResponse {
     middlegame_accuracy_pct: number;
     endgame_accuracy_pct: number;
   };
+  time_control_accuracy: {
+    bullet_accuracy_pct: number;
+    blitz_accuracy_pct: number;
+    rapid_accuracy_pct: number;
+  };
   panic_move_count: number;
   overthink_move_count: number;
 }

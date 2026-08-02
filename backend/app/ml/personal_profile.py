@@ -41,6 +41,13 @@ class TimeManagementDistribution:
 
 
 @dataclass(slots=True, frozen=True)
+class TimeControlAccuracy:
+    bullet_accuracy_pct: float
+    blitz_accuracy_pct: float
+    rapid_accuracy_pct: float
+
+
+@dataclass(slots=True, frozen=True)
 class PhaseAccuracy:
     opening_accuracy_pct: float
     middlegame_accuracy_pct: float
@@ -55,6 +62,7 @@ class PersonalProfileFingerprint:
     tilt_signature: TiltSignature
     time_distribution: TimeManagementDistribution
     phase_accuracy: PhaseAccuracy
+    time_control_accuracy: TimeControlAccuracy
     panic_move_count: int
     overthink_move_count: int
 
@@ -237,6 +245,13 @@ def generate_personal_profile(
         endgame_time_pct=(endgame_time_sec / total_sec) * 100.0,
     )
 
+    # Compute time control accuracy heuristics
+    tc_acc = TimeControlAccuracy(
+        bullet_accuracy_pct=round(max(45.0, min(95.0, base_acc - 15.0 - (sub1m_pct * 0.5))), 1),
+        blitz_accuracy_pct=round(max(55.0, min(95.0, base_acc - 5.0 - (speedup_pct * 0.1))), 1),
+        rapid_accuracy_pct=round(max(60.0, min(98.0, base_acc + 5.0 - (overthink_pct * 0.8))), 1),
+    )
+
     return PersonalProfileFingerprint(
         player_name=player_name,
         total_games_analyzed=total_games,
@@ -244,6 +259,7 @@ def generate_personal_profile(
         tilt_signature=tilt_sig,
         time_distribution=time_dist,
         phase_accuracy=phase_acc,
+        time_control_accuracy=tc_acc,
         panic_move_count=panic_moves,
         overthink_move_count=overthink_moves,
     )

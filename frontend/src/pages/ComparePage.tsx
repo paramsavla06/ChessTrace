@@ -34,6 +34,20 @@ export const ComparePage: React.FC<ComparePageProps> = ({ currentUser }) => {
     }
   };
 
+  if (!currentUser) {
+    return (
+      <div className="max-w-4xl mx-auto px-6 py-24 text-center space-y-6">
+        <div className="w-24 h-24 bg-pink-600/20 rounded-full flex items-center justify-center mx-auto">
+          <Swords className="w-12 h-12 text-pink-400" />
+        </div>
+        <h2 className="text-3xl font-bold text-white">Enter Your Username</h2>
+        <p className="text-slate-400 max-w-lg mx-auto">
+          To compare your cognitive fingerprint against opponents, please enter your username in the top right corner first.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
       {/* Header Banner */}

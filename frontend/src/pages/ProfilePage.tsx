@@ -50,8 +50,24 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ username }) => {
   };
 
   useEffect(() => {
-    fetchProfileData();
+    if (username) {
+      fetchProfileData();
+    }
   }, [username]);
+
+  if (!username) {
+    return (
+      <div className="max-w-4xl mx-auto px-6 py-24 text-center space-y-6">
+        <div className="w-24 h-24 bg-indigo-600/20 rounded-full flex items-center justify-center mx-auto">
+          <Users className="w-12 h-12 text-indigo-400" />
+        </div>
+        <h2 className="text-3xl font-bold text-white">Enter Your Username</h2>
+        <p className="text-slate-400 max-w-lg mx-auto">
+          To generate a personal cognitive fingerprint, please enter your username in the top right corner.
+        </p>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -105,6 +121,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ username }) => {
       </div>
 
       {/* Time Control Performance Breakdown */}
+      {profile && profile.time_control_accuracy && (
       <div className="glass-panel p-6 rounded-2xl space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-white uppercase tracking-wider font-mono text-indigo-400">
@@ -116,21 +133,22 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ username }) => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-1">
             <span className="text-xs text-slate-400 font-mono">Bullet (1m - 2m)</span>
-            <p className="text-2xl font-bold text-white font-mono">78.5%</p>
+            <p className="text-2xl font-bold text-white font-mono">{profile.time_control_accuracy.bullet_accuracy_pct}%</p>
             <p className="text-[10px] text-slate-400">High speed reflex performance.</p>
           </div>
           <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-1">
             <span className="text-xs text-slate-400 font-mono">Blitz (3m - 5m)</span>
-            <p className="text-2xl font-bold text-emerald-400 font-mono">82.1%</p>
+            <p className="text-2xl font-bold text-emerald-400 font-mono">{profile.time_control_accuracy.blitz_accuracy_pct}%</p>
             <p className="text-[10px] text-emerald-400 font-semibold">Optimal balance of time & tactical accuracy.</p>
           </div>
           <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-1">
             <span className="text-xs text-slate-400 font-mono">Rapid (10m+)</span>
-            <p className="text-2xl font-bold text-indigo-400 font-mono">74.6%</p>
+            <p className="text-2xl font-bold text-indigo-400 font-mono">{profile.time_control_accuracy.rapid_accuracy_pct}%</p>
             <p className="text-[10px] text-slate-400">Slight overthinking paralysis under longer clocks.</p>
           </div>
         </div>
       </div>
+      )}
       {profile && profile.phase_accuracy && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="glass-panel p-5 rounded-2xl border-l-4 border-l-emerald-500">

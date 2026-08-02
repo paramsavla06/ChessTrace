@@ -136,6 +136,11 @@ def get_player_profile(
             "middlegame_accuracy_pct": round(profile.phase_accuracy.middlegame_accuracy_pct, 1),
             "endgame_accuracy_pct": round(profile.phase_accuracy.endgame_accuracy_pct, 1),
         },
+        "time_control_accuracy": {
+            "bullet_accuracy_pct": profile.time_control_accuracy.bullet_accuracy_pct,
+            "blitz_accuracy_pct": profile.time_control_accuracy.blitz_accuracy_pct,
+            "rapid_accuracy_pct": profile.time_control_accuracy.rapid_accuracy_pct,
+        },
         "panic_move_count": profile.panic_move_count,
         "overthink_move_count": profile.overthink_move_count,
     }
