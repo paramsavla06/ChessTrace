@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Swords, Trophy } from 'lucide-react';
 import { api } from '../api/client';
 import type { CompareResponse } from '../api/client';
@@ -12,6 +12,12 @@ export const ComparePage: React.FC<ComparePageProps> = ({ currentUser }) => {
   const [user2, setUser2] = useState<string>('');
   const [result, setResult] = useState<CompareResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (currentUser !== undefined) {
+      setUser1(currentUser);
+    }
+  }, [currentUser]);
 
   const handleCompareSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

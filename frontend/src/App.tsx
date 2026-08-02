@@ -15,9 +15,7 @@ export function App() {
   const handleSetCurrentUser = (user: string) => {
     setCurrentUser(user);
     localStorage.setItem('chessTraceUser', user);
-    if (!selectedUsername || selectedUsername === 'paramsavla06') {
-      setSelectedUsername(user);
-    }
+    setSelectedUsername(user);
   };
 
   // Sync activeTab with URL hash and listen to browser back/forward buttons
