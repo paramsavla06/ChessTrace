@@ -234,6 +234,30 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
               </div>
               <p className="text-sm text-slate-300 italic">{currentFrame.narrative_summary || 'Spectating live game stream...'}</p>
             </div>
+
+            {/* Live Review Move List */}
+            {history.length > 0 && (
+              <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-2 mt-4">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-300 mb-2">
+                  <span>Live Game Review Move List</span>
+                </div>
+                <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto custom-scrollbar">
+                  {history.map((m, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setViewIndex(i)}
+                      className={`text-xs px-2 py-1 rounded font-mono font-bold transition-colors ${
+                        (viewIndex === -1 ? i === history.length - 1 : viewIndex === i)
+                          ? 'bg-pink-500 text-white' 
+                          : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                      }`}
+                    >
+                      {m.color === 'white' || !m.color ? `${m.move_number || Math.ceil((m.ply || 0) / 2)}.` : ''} {m.san || m.uci || '...'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
