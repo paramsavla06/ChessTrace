@@ -71,7 +71,7 @@ export function App() {
           />
         )}
 
-        {activeTab === 'review' && <ReviewPage gameId={selectedGameId} />}
+        {activeTab === 'review' && <ReviewPage gameId={selectedGameId} username={currentUser} />}
 
         {activeTab === 'profile' && <ProfilePage username={selectedUsername} />}
 

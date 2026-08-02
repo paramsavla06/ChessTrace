@@ -48,12 +48,13 @@ import { api } from '../api/client';
 import type { TimelineMove, PredictResponse, WhatIfResponse, EloSimResponse } from '../api/client';
 
 interface ReviewPageProps {
-  gameId: number;
+  gameId: number | null;
+  username?: string | null;
 }
 
-export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
+export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
   const [allGames, setAllGames] = useState<any[]>([]);
-  const [activeGameId, setActiveGameId] = useState<number>(gameId);
+  const [activeGameId, setActiveGameId] = useState<number | null>(gameId);
   const [timeline, setTimeline] = useState<TimelineMove[]>([]);
   const [boardFlipped, setBoardFlipped] = useState<boolean>(false);
   // -1 = starting position (before any moves), 0..n-1 = timeline moves
@@ -61,6 +62,8 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [whatIfLoading, setWhatIfLoading] = useState<boolean>(false);
   const [gameMeta, setGameMeta] = useState<any>(null);
+  const [shapData, setShapData] = useState<any[]>([]);
+  const [selectedPly, setSelectedPly] = useState<number | null>(null);
 
   // Advanced Analysis State
   const [prediction, setPrediction] = useState<PredictResponse | null>(null);
@@ -74,7 +77,8 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
   useEffect(() => {
     const fetchGamesList = async () => {
       try {
-        const res = await api.get('/games');
+        const url = username ? `/games?username=${username}` : '/games';
+        const res = await api.get(url);
         setAllGames(res.data);
         if (res.data.length > 0 && !activeGameId) {
           setActiveGameId(res.data[0].id);
@@ -84,7 +88,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
       }
     };
     fetchGamesList();
-  }, []);
+  }, [username]);
 
   useEffect(() => {
     const targetId = activeGameId || gameId;

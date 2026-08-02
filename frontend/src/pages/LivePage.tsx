@@ -29,13 +29,22 @@ interface LivePageProps {
   gameId: number;
 }
 
+interface LiveFrame {
+  fen: string;
+  win_probability?: number;
+  collapse_probability?: number;
+  narrative_summary?: string;
+  ply?: number;
+}
+
 export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
-  const [fen, setFen] = useState<string>('start');
-  const [winProb, setWinProb] = useState<number>(0.5);
-  const [collapseProb, setCollapseProb] = useState<number>(0.1);
-  const [narrative, setNarrative] = useState<string>('Spectating live game stream...');
+  const [history, setHistory] = useState<LiveFrame[]>([]);
+  const [viewIndex, setViewIndex] = useState<number>(-1); // -1 means live (latest)
+
   const [connected, setConnected] = useState<boolean>(false);
   const [inputGameId, setInputGameId] = useState<string>('');
+
+  const currentFrame = viewIndex === -1 ? (history[history.length - 1] || { fen: 'start' }) : history[viewIndex];
 
   useEffect(() => {
     let cleanId = inputGameId.trim();
@@ -44,33 +53,40 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
       cleanId = parts[0];
     }
 
-    // Only attempt connection if it looks like a valid Lichess ID (usually 8 chars)
     if (!cleanId || cleanId.length < 8) {
       setConnected(false);
       return;
     }
 
-    // Bypass Vite proxy for WebSockets, it is notoriously flaky
     const wsUrl = `ws://localhost:8000/api/v1/ws/live/${cleanId}`;
 
     const socket = new WebSocket(wsUrl);
 
     socket.onopen = () => {
       setConnected(true);
+      setHistory([]);
+      setViewIndex(-1);
     };
 
     socket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         if (data.error) {
-          alert(`Live Spectate Error: ${data.error}\n\nNote: Lichess only allows streaming ONGOING live games. You cannot spectate a completed game.`);
+          alert(`Live Spectate Error: ${data.error}\n\nNote: Lichess only allows streaming ONGOING live games.`);
           socket.close();
           return;
         }
-        if (data.fen) setFen(data.fen);
-        if (data.win_probability !== undefined) setWinProb(data.win_probability);
-        if (data.collapse_probability !== undefined) setCollapseProb(data.collapse_probability);
-        if (data.narrative_summary) setNarrative(data.narrative_summary);
+        
+        setHistory(prev => {
+          const newHistory = [...prev];
+          const existingIdx = newHistory.findIndex(f => f.ply === data.ply);
+          if (existingIdx !== -1) {
+            newHistory[existingIdx] = data;
+          } else {
+            newHistory.push(data);
+          }
+          return newHistory.sort((a, b) => (a.ply || 0) - (b.ply || 0));
+        });
       } catch (err) {
         console.error('Failed parsing WS frame', err);
       }
@@ -114,21 +130,46 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
 
       {/* Main Spectating Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Board */}
+        {/* Board & Controls */}
         <div className="lg:col-span-5 flex flex-col justify-center gap-4">
-          <div className="glass-panel p-4 rounded-2xl w-full max-w-[460px] aspect-square flex items-center justify-center glow-pink mx-auto">
-            <Chessboard position={fen} arePiecesDraggable={false} />
+          <div className="glass-panel p-4 rounded-2xl w-full max-w-[460px] aspect-square flex items-center justify-center glow-pink mx-auto relative">
+            <Chessboard position={currentFrame.fen} arePiecesDraggable={false} />
+            
+            {viewIndex !== -1 && (
+              <div className="absolute top-2 right-2 bg-yellow-500 text-black text-xs font-bold px-2 py-1 rounded">
+                Viewing History
+              </div>
+            )}
           </div>
-          {connected && (
-            <div className="flex justify-center">
-              <a
-                href={`https://lichess.org/${inputGameId.trim().split('/').pop()}#0`}
-                target="_blank"
-                rel="noreferrer"
-                className="bg-slate-800 hover:bg-slate-700 text-white px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 border border-slate-700 transition-colors"
-              >
-                Review Game on Lichess
-              </a>
+          
+          {history.length > 0 && (
+            <div className="w-full max-w-[460px] mx-auto space-y-2">
+              <div className="flex justify-between items-center text-xs text-slate-400 font-bold px-2">
+                <button 
+                  onClick={() => setViewIndex(0)}
+                  disabled={viewIndex === 0}
+                  className="hover:text-white disabled:opacity-50"
+                >Start</button>
+                <div className="flex-1 px-4">
+                  <input
+                    type="range"
+                    min={0}
+                    max={history.length - 1}
+                    value={viewIndex === -1 ? history.length - 1 : viewIndex}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      if (val === history.length - 1) setViewIndex(-1);
+                      else setViewIndex(val);
+                    }}
+                    className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                  />
+                </div>
+                <button 
+                  onClick={() => setViewIndex(-1)}
+                  disabled={viewIndex === -1}
+                  className="hover:text-white disabled:opacity-50 text-pink-400"
+                >Live</button>
+              </div>
             </div>
           )}
         </div>
@@ -138,23 +179,23 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
           <div className="glass-panel p-6 rounded-2xl space-y-6">
             <div className="flex justify-between items-center">
               <span className="text-xs uppercase font-bold text-indigo-400">Real-Time Win Gauge</span>
-              <span className="text-2xl font-extrabold text-emerald-400">{(winProb * 100).toFixed(1)}%</span>
+              <span className="text-2xl font-extrabold text-emerald-400">{((currentFrame.win_probability ?? 0.5) * 100).toFixed(1)}%</span>
             </div>
             <div className="w-full bg-slate-900 h-4 rounded-full overflow-hidden p-0.5 border border-slate-800">
               <div
                 className="bg-gradient-to-r from-emerald-500 to-indigo-500 h-full rounded-full transition-all duration-500"
-                style={{ width: `${winProb * 100}%` }}
+                style={{ width: `${(currentFrame.win_probability ?? 0.5) * 100}%` }}
               />
             </div>
 
             <div className="flex justify-between items-center">
               <span className="text-xs uppercase font-bold text-pink-400">Collapse Risk Gauge</span>
-              <span className="text-2xl font-extrabold text-pink-400">{(collapseProb * 100).toFixed(1)}%</span>
+              <span className="text-2xl font-extrabold text-pink-400">{((currentFrame.collapse_probability ?? 0.1) * 100).toFixed(1)}%</span>
             </div>
             <div className="w-full bg-slate-900 h-4 rounded-full overflow-hidden p-0.5 border border-slate-800">
               <div
                 className="bg-gradient-to-r from-pink-500 to-rose-600 h-full rounded-full transition-all duration-500"
-                style={{ width: `${collapseProb * 100}%` }}
+                style={{ width: `${(currentFrame.collapse_probability ?? 0.1) * 100}%` }}
               />
             </div>
 
@@ -164,7 +205,7 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
                 <Zap className="w-4 h-4 text-pink-400" />
                 <span>Sub-Second Live SHAP Stream</span>
               </div>
-              <p className="text-sm text-slate-300 italic">{narrative}</p>
+              <p className="text-sm text-slate-300 italic">{currentFrame.narrative_summary || 'Spectating live game stream...'}</p>
             </div>
           </div>
         </div>
