@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>♟️ ChessTrace</h1>
+  <img src="frontend/public/ChessTraceLogo.png" alt="ChessTrace Logo" width="400">
   <h3>Human Cognition & Collapse Intelligence</h3>
 
   <p><em>Stockfish tells you the best move.<br>ChessTrace tells you what you'll actually play — and when you'll crack.</em></p>
