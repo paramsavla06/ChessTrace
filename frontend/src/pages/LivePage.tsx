@@ -60,13 +60,25 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, username }) => {
     if (history.length === 0) return;
     setIsExporting(true);
     try {
-      // Build PGN from history
-      const pgnMoves = history.map(f => {
-        if (!f.san) return '';
-        if (f.color === 'white' || !f.color) return `${f.move_number || Math.ceil((f.ply || 0) / 2)}. ${f.san}`;
-        return `${f.san}`;
-      }).filter(x => x).join(' ');
+      // Use chess.js to safely reconstruct the game and generate pure SAN moves, bypassing any buggy cached strings
+      const game = new Chess();
+      for (const frame of history) {
+        if (!frame.uci) continue;
+        try {
+          game.move({
+            from: frame.uci.substring(0, 2),
+            to: frame.uci.substring(2, 4),
+            promotion: frame.uci.length > 4 ? frame.uci[4] : undefined
+          });
+        } catch (e) {
+          console.warn("Invalid UCI move in history:", frame.uci);
+        }
+      }
       
+      const pgnMoves = game.history().reduce((acc, move, i) => {
+        if (i % 2 === 0) return acc + `${Math.floor(i/2) + 1}. ${move} `;
+        return acc + `${move} `;
+      }, '').trim();
       const whiteName = username || "LiveWhite";
       const pgnStr = `[Event "Live Spectate Export"]\n[Site "ChessTrace"]\n[Date "${new Date().toISOString().split('T')[0]}"]\n[White "${whiteName}"]\n[Black "LiveBlack"]\n[Result "*"]\n\n${pgnMoves} *`;
       
