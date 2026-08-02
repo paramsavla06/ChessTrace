@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="frontend/public/ChessTraceLogo.png" alt="ChessTrace Logo" width="400">
+  <h1>♟️ ChessTrace</h1>
   <h3>Human Cognition & Collapse Intelligence</h3>
 
   <p><em>Stockfish tells you the best move.<br>ChessTrace tells you what you'll actually play — and when you'll crack.</em></p>
@@ -7,13 +7,12 @@
   <p>
     <a href="https://chess-trace.vercel.app"><img src="https://img.shields.io/badge/Live%20Demo-chess--trace.vercel.app-blueviolet?style=for-the-badge&logo=vercel&logoColor=white" alt="Live Demo"></a>
     <a href="https://chesstrace.onrender.com/docs"><img src="https://img.shields.io/badge/API%20Docs-OpenAPI%20%2F%20Swagger-green?style=for-the-badge&logo=fastapi&logoColor=white" alt="API Docs"></a>
-    <a href="https://github.com/paramsavla06/ChessTrace"><img src="https://img.shields.io/github/stars/paramsavla06/ChessTrace?style=for-the-badge&logo=github&color=yellow" alt="GitHub Stars"></a>
-    <a href="https://github.com/paramsavla06/ChessTrace/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="License"></a>
   </p>
 
   <br/>
 
-  <img src="https://raw.githubusercontent.com/paramsavla06/ChessTrace/main/docs/assets/hero.png" alt="ChessTrace Dashboard Screenshot" width="900">
+  <img src="https://raw.githubusercontent.com/paramsavla06/ChessTrace/main/docs/assets/hero1.png" alt="ChessTrace Dashboard Screenshot" width="900">
+  <img src="https://raw.githubusercontent.com/paramsavla06/ChessTrace/main/docs/assets/hero2.png" alt="ChessTrace Dashboard Screenshot" width="900">
 
 </div>
 
