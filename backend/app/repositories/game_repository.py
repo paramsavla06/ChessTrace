@@ -49,7 +49,7 @@ class GameRepository:
                 (Game.white_player_id == Player.id) | (Game.black_player_id == Player.id),
             ).filter(Player.normalized_name == norm_name)
 
-        return query.offset(skip).limit(limit).all()
+        return query.order_by(Game.id.desc()).offset(skip).limit(limit).all()
 
     def get_unprocessed_games(self, limit: int = 100) -> Sequence[Game]:
         """Fetch games that lack move evaluations."""
