@@ -164,7 +164,9 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
           best_move_uci: (currentMove as any).best_move_uci,
         });
         setEloSimResult(res.data);
-      } catch (err) {
+      } catch (err: any) {
+        const tb = err.response?.data?.traceback;
+        if (tb) console.error("ELO SIM SERVER TRACEBACK:", tb);
         console.error('ELO Sim failed', err);
       }
     }, 400);
@@ -190,8 +192,10 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
       });
       setWhatIfResult(res.data);
     } catch (err: any) {
+      const tb = err.response?.data?.traceback;
+      if (tb) console.error("SERVER TRACEBACK:", tb);
       const errorMsg = err.response?.data?.detail || err.message || 'An unknown error occurred on the server.';
-      alert(`Evaluation failed: ${errorMsg}`);
+      alert(`Evaluation failed: ${errorMsg}\n\n${tb ? 'Check console for EXACT server traceback.' : ''}`);
     } finally {
       setWhatIfLoading(false);
     }

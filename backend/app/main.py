@@ -41,7 +41,19 @@ if BACKEND_CORS_ORIGINS:
 
 app.include_router(api_router)
 
+from fastapi import Request
+from fastapi.responses import JSONResponse
+import traceback
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    err_msg = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+    print(f"Unhandled Exception: {err_msg}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc), "traceback": err_msg},
+        headers={"Access-Control-Allow-Origin": "*"}
+    )
 @app.get("/")
 def root() -> dict[str, str]:
     """Root application greeting endpoint."""
