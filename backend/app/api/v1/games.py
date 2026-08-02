@@ -291,6 +291,9 @@ def get_game_timeline(
                                 is_sacrifice = True
                                 
                 already_winning = (best_pawns >= 1.5 if move.color.value == "white" else best_pawns <= -1.5)
+                still_winning = (val_pawns >= 1.5 if move.color.value == "white" else val_pawns <= -1.5)
+                already_losing = (best_pawns <= -1.5 if move.color.value == "white" else best_pawns >= 1.5)
+                still_losing = (val_pawns <= -1.5 if move.color.value == "white" else val_pawns >= 1.5)
                 drawable = (val_pawns >= -0.5 if move.color.value == "white" else val_pawns <= 0.5)
 
                 is_brilliant = (
@@ -309,6 +312,12 @@ def get_game_timeline(
                     and cp_loss <= 50
                 )
 
+                effective_cp_loss = cp_loss
+                if already_winning and still_winning:
+                    effective_cp_loss = cp_loss * 0.3
+                elif already_losing and still_losing:
+                    effective_cp_loss = cp_loss * 0.3
+
                 if is_book:
                     move_classification = "book"
                     classification_label = f"{move.san} is a book move"
@@ -325,23 +334,23 @@ def get_game_timeline(
                     move_classification = "best"
                     classification_label = f"{move.san} is best move"
                     best_move_label = f"{move.san} is best ({eval_score_str})"
-                elif cp_loss <= 20:
+                elif effective_cp_loss <= 20:
                     move_classification = "excellent"
                     classification_label = f"{move.san} is excellent"
                     best_move_label = f"{best_move_san or move.san} is best ({best_score_str})"
-                elif cp_loss <= 50:
+                elif effective_cp_loss <= 50:
                     move_classification = "good"
                     classification_label = f"{move.san} played"
                     best_move_label = f"{best_move_san or move.san} is best ({best_score_str})"
-                elif cp_loss <= 100:
+                elif effective_cp_loss <= 100:
                     move_classification = "inaccuracy"
                     classification_label = f"{move.san} is an inaccuracy"
                     best_move_label = f"{best_move_san or 'best move'} is best ({best_score_str})"
-                elif cp_loss <= 200:
+                elif effective_cp_loss <= 200:
                     move_classification = "mistake"
                     classification_label = f"{move.san} is a mistake"
                     best_move_label = f"{best_move_san or 'best move'} is best ({best_score_str})"
-                elif cp_loss <= 300:
+                elif effective_cp_loss <= 300:
                     move_classification = "miss"
                     classification_label = f"{move.san} is a miss"
                     best_move_label = f"{best_move_san or 'best move'} is best ({best_score_str})"

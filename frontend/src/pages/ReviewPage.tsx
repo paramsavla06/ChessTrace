@@ -124,6 +124,16 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [timeline.length]);
 
+  // Scroll active move into view in the Game Moves list
+  useEffect(() => {
+    if (currentIndex >= 0) {
+      const activeEl = document.getElementById(`move-${currentIndex}`);
+      if (activeEl) {
+        activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+  }, [currentIndex]);
+
   const currentMove = timeline[currentIndex] ?? null;  // null at index -1 (start)
 
   // Run ML Prediction on move change (skip at starting position)
@@ -541,6 +551,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
                     <div className="text-slate-500 text-right pr-2 py-0.5">{whiteMove?.move_number}.</div>
                     {whiteMove && (
                       <button 
+                        id={`move-${i * 2}`}
                         onClick={() => setCurrentIndex(i * 2)}
                         className={`text-left px-2 py-0.5 rounded transition-colors ${
                           currentIndex === i * 2 ? 'bg-indigo-600 text-white font-bold shadow-md' : 'hover:bg-slate-800 text-slate-300'
@@ -551,6 +562,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
                     )}
                     {blackMove ? (
                       <button 
+                        id={`move-${i * 2 + 1}`}
                         onClick={() => setCurrentIndex(i * 2 + 1)}
                         className={`text-left px-2 py-0.5 rounded transition-colors ${
                           currentIndex === i * 2 + 1 ? 'bg-indigo-600 text-white font-bold shadow-md' : 'hover:bg-slate-800 text-slate-300'
