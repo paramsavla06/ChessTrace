@@ -129,6 +129,8 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
   // Run ML Prediction on move change (skip at starting position)
   useEffect(() => {
     if (!currentMove) { setPrediction(null); return; }
+    
+    setPrediction(null); // Clear old prediction while waiting
 
     const timer = setTimeout(async () => {
       try {
@@ -151,6 +153,8 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
   useEffect(() => {
     if (!currentMove) { setEloSimResult(null); return; }
     
+    setEloSimResult(null); // Clear old simulation while waiting
+
     const timer = setTimeout(async () => {
       try {
         const res = await api.post<EloSimResponse>('/analysis/elo-sim', {
@@ -731,29 +735,35 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
               </div>
 
               <div className="space-y-3">
-                {eloSimResult.top_candidate_moves.map((cand, i) => (
-                  <div key={i} className="bg-slate-900/50 p-3 rounded-xl border border-slate-800 space-y-1.5 text-xs">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <span className="font-bold text-white text-sm font-mono">{cand.san}</span>
-                        <span className="text-slate-500 ml-2 font-mono">({cand.uci})</span>
-                        {cand.is_engine_top_choice && (
-                          <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">
-                            Stockfish Best
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-indigo-400 font-bold font-mono">{(cand.probability * 100).toFixed(1)}%</span>
-                    </div>
-
-                    <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-                      <div
-                        className="bg-indigo-500 h-full rounded-full transition-all"
-                        style={{ width: `${Math.min(100, cand.probability * 100)}%` }}
-                      />
-                    </div>
+                {eloSimResult.top_candidate_moves.length === 0 ? (
+                  <div className="text-slate-400 text-xs italic text-center py-2">
+                    No candidate moves found. (Game over?)
                   </div>
-                ))}
+                ) : (
+                  eloSimResult.top_candidate_moves.map((cand, i) => (
+                    <div key={i} className="bg-slate-900/50 p-3 rounded-xl border border-slate-800 space-y-1.5 text-xs">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <span className="font-bold text-white text-sm font-mono">{cand.san}</span>
+                          <span className="text-slate-500 ml-2 font-mono">({cand.uci})</span>
+                          {cand.is_engine_top_choice && (
+                            <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">
+                              Stockfish Best
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-indigo-400 font-bold font-mono">{(cand.probability * 100).toFixed(1)}%</span>
+                      </div>
+
+                      <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                        <div
+                          className="bg-indigo-500 h-full rounded-full transition-all"
+                          style={{ width: `${Math.min(100, cand.probability * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
