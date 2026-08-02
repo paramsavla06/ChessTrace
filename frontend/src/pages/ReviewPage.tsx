@@ -186,7 +186,8 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
       });
       setWhatIfResult(res.data);
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Invalid alternative UCI move!');
+      const errorMsg = err.response?.data?.detail || err.message || 'An unknown error occurred on the server.';
+      alert(`Evaluation failed: ${errorMsg}`);
     } finally {
       setWhatIfLoading(false);
     }
