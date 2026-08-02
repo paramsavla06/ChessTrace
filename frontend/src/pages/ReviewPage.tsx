@@ -401,11 +401,19 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
             {/* Vertical Evaluation Bar + visible score */}
             {(() => {
               const rawEval = prediction ? (prediction.win_probability * 2 - 1) * 3.5 : 0.25;
-              const evalScore = (currentMove as any)?.eval_cp !== undefined && (currentMove as any)?.eval_cp !== null
-                ? ((currentMove as any).eval_cp / 100.0)
+              const evalCp = (currentMove as any)?.eval_cp;
+              const evalScore = evalCp !== undefined && evalCp !== null
+                ? (evalCp / 100.0)
                 : rawEval;
-              const whitePct = Math.max(8, Math.min(92, 50 + (evalScore * 10)));
-              const evalDisplay = `${evalScore >= 0 ? '+' : ''}${evalScore.toFixed(2)}`;
+              
+              let whitePct;
+              if (evalCp !== undefined && evalCp !== null && Math.abs(evalCp) > 100000) {
+                whitePct = evalCp > 0 ? 100 : 0;
+              } else {
+                whitePct = Math.max(8, Math.min(92, 50 + (evalScore * 10)));
+              }
+
+              const evalDisplay = (currentMove as any)?.eval_score || `${evalScore >= 0 ? '+' : ''}${evalScore.toFixed(2)}`;
 
               return (
                 <div className="flex flex-col items-center gap-1">

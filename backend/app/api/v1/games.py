@@ -152,11 +152,12 @@ def get_game_timeline(
                 best_move_uci = ev_db.best_move
 
                 # played_eval_cp from THIS move's DB eval (normalized to White POV)
+                after_board = chess.Board(move.fen)
                 if ev_db.score_cp is not None:
-                    after_board = chess.Board(move.fen)
                     played_eval_cp = ev_db.score_cp if after_board.turn == chess.WHITE else -ev_db.score_cp
                 elif ev_db.mate is not None:
-                    played_eval_cp = 200000 if ev_db.mate > 0 else -200000
+                    white_mate = ev_db.mate if after_board.turn == chess.WHITE else -ev_db.mate
+                    played_eval_cp = (200000 - abs(white_mate)) if white_mate > 0 else -(200000 - abs(white_mate))
 
                 # best_eval_cp from PREVIOUS move's DB eval
                 if idx > 0:
@@ -167,7 +168,9 @@ def get_game_timeline(
                             prev_after_board = chess.Board(prev_move_obj.fen)
                             best_eval_cp = prev_ev.score_cp if prev_after_board.turn == chess.WHITE else -prev_ev.score_cp
                         elif prev_ev.mate is not None:
-                            best_eval_cp = 200000 if prev_ev.mate > 0 else -200000
+                            prev_after_board = chess.Board(prev_move_obj.fen)
+                            white_mate = prev_ev.mate if prev_after_board.turn == chess.WHITE else -prev_ev.mate
+                            best_eval_cp = (200000 - abs(white_mate)) if white_mate > 0 else -(200000 - abs(white_mate))
                 else:
                     best_eval_cp = 0
 
@@ -177,7 +180,7 @@ def get_game_timeline(
                     ev_before = evaluator.evaluate(prev_board, move_number=move.move_number, depth=10)
                     raw_before = ev_before.cp_score
                     if raw_before is None and ev_before.mate_score is not None:
-                        raw_before = 200000 if ev_before.mate_score > 0 else -200000
+                        raw_before = (200000 - abs(ev_before.mate_score)) if ev_before.mate_score > 0 else -(200000 - abs(ev_before.mate_score))
                     if raw_before is not None:
                         best_eval_cp = raw_before if prev_board.turn == chess.WHITE else -raw_before
                     if ev_before.best_move:
@@ -187,7 +190,7 @@ def get_game_timeline(
                     ev_after = evaluator.evaluate(after_board, move_number=move.move_number, depth=10)
                     raw_after = ev_after.cp_score
                     if raw_after is None and ev_after.mate_score is not None:
-                        raw_after = 200000 if ev_after.mate_score > 0 else -200000
+                        raw_after = (200000 - abs(ev_after.mate_score)) if ev_after.mate_score > 0 else -(200000 - abs(ev_after.mate_score))
                     if raw_after is not None:
                         played_eval_cp = raw_after if after_board.turn == chess.WHITE else -raw_after
                 except Exception:
@@ -209,10 +212,21 @@ def get_game_timeline(
 
             # Calculate eval score & move classification using Chess.com official thresholds
             if eval_cp is not None and best_eval_cp is not None:
-                val_pawns = round(eval_cp / 100.0, 2)
-                best_pawns = round(best_eval_cp / 100.0, 2)
-                eval_score_str = f"+{val_pawns:.2f}" if val_pawns >= 0 else f"{val_pawns:.2f}"
-                best_score_str = f"+{best_pawns:.2f}" if best_pawns >= 0 else f"{best_pawns:.2f}"
+                if abs(eval_cp) > 100000:
+                    mate_in_val = 200000 - abs(eval_cp)
+                    eval_score_str = f"M{mate_in_val}" if eval_cp > 0 else f"-M{mate_in_val}"
+                    val_pawns = 2000.0 if eval_cp > 0 else -2000.0
+                else:
+                    val_pawns = round(eval_cp / 100.0, 2)
+                    eval_score_str = f"+{val_pawns:.2f}" if val_pawns >= 0 else f"{val_pawns:.2f}"
+
+                if abs(best_eval_cp) > 100000:
+                    mate_in_best = 200000 - abs(best_eval_cp)
+                    best_score_str = f"M{mate_in_best}" if best_eval_cp > 0 else f"-M{mate_in_best}"
+                    best_pawns = 2000.0 if best_eval_cp > 0 else -2000.0
+                else:
+                    best_pawns = round(best_eval_cp / 100.0, 2)
+                    best_score_str = f"+{best_pawns:.2f}" if best_pawns >= 0 else f"{best_pawns:.2f}"
 
                 if move.color.value == "white":
                     cp_loss = best_eval_cp - eval_cp
@@ -306,8 +320,12 @@ def get_game_timeline(
                     best_move_label = f"{best_move_san or 'best move'} is best ({best_score_str})"
 
             elif eval_cp is not None:
-                val_pawns = round(eval_cp / 100.0, 2)
-                eval_score_str = f"+{val_pawns:.2f}" if val_pawns >= 0 else f"{val_pawns:.2f}"
+                if abs(eval_cp) > 100000:
+                    mate_in = 200000 - abs(eval_cp)
+                    eval_score_str = f"M{mate_in}" if eval_cp > 0 else f"-M{mate_in}"
+                else:
+                    val_pawns = round(eval_cp / 100.0, 2)
+                    eval_score_str = f"+{val_pawns:.2f}" if val_pawns >= 0 else f"{val_pawns:.2f}"
                 move_classification = "good"
                 classification_label = f"{move.san} played"
                 best_move_label = f"{best_move_san or move.san} is best ({eval_score_str})"
