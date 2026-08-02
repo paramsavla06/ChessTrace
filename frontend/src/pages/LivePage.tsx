@@ -87,16 +87,18 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-      {/* Top Banner */}
-      <div className="glass-panel p-6 rounded-2xl flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Radio className={`w-6 h-6 ${connected ? 'text-pink-500 animate-pulse' : 'text-slate-500'}`} />
-          <div>
-            <h1 className="text-2xl font-bold text-white">Live Spectate Room</h1>
-            <p className="text-xs text-slate-400">
-              {connected ? `Connected to live stream for game #${inputGameId}` : 'Disconnected'}
-            </p>
-          </div>
+      {/* Top Bar */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-bold flex items-center gap-2 text-white">
+            <Radio className="w-6 h-6 text-pink-500" />
+            Live Spectate Room
+          </h2>
+          <p className="text-sm text-slate-400">
+            {connected
+              ? `Connected to live stream for game #${inputGameId.trim().split('/').pop()}`
+              : 'Disconnected'}
+          </p>
         </div>
 
         <div className="flex gap-3">
@@ -113,10 +115,22 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
       {/* Main Spectating Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Board */}
-        <div className="lg:col-span-5 flex justify-center">
+        <div className="lg:col-span-5 flex flex-col justify-center gap-4">
           <div className="glass-panel p-4 rounded-2xl w-full max-w-[460px] aspect-square flex items-center justify-center glow-pink mx-auto">
-            <Chessboard position={fenToPositionObj(fen)} />
+            <Chessboard position={fen} arePiecesDraggable={false} />
           </div>
+          {connected && (
+            <div className="flex justify-center">
+              <a
+                href={`https://lichess.org/${inputGameId.trim().split('/').pop()}#0`}
+                target="_blank"
+                rel="noreferrer"
+                className="bg-slate-800 hover:bg-slate-700 text-white px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 border border-slate-700 transition-colors"
+              >
+                Review Game on Lichess
+              </a>
+            </div>
+          )}
         </div>
 
         {/* Real-Time ML Gauges */}
