@@ -388,14 +388,16 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
                   </span>
                   <div>
                     <div className={`text-xs font-black font-mono ${meta.textColor}`}>{meta.label}</div>
-                    <div className="text-[11px] text-slate-400 font-mono">{(currentMove as any).classification_label || `${currentMove.san} played`}</div>
+                    <div className="text-[11px] text-slate-400 font-mono">{currentMove.san} played</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`text-sm font-extrabold font-mono ${meta.textColor}`}>{(currentMove as any).eval_score || '+0.25'}</span>
-                  <div className="text-[11px] font-bold font-mono text-emerald-300 bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20">
-                    {(currentMove as any).best_move_label || `${(currentMove as any).best_move_san || 'best'} is best`}
-                  </div>
+                  {!['best', 'brilliant', 'great', 'book'].includes(cls) && (
+                    <div className="text-[11px] font-bold font-mono text-emerald-300 bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20">
+                      {(currentMove as any).best_move_label || `${(currentMove as any).best_move_san || 'best'} is best`}
+                    </div>
+                  )}
                 </div>
               </div>
             );
