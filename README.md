@@ -295,6 +295,12 @@ Full interactive docs: **[chesstrace.onrender.com/docs](https://chesstrace.onren
 | `GET` | `/api/v1/analysis/profile/{username}` | Personal cognitive fingerprint |
 | `GET` | `/api/v1/analysis/elo-sim` | ELO human move simulation |
 | `GET` | `/api/v1/analysis/compare/{u1}/{u2}` | Head-to-head cognitive comparison |
+| `GET` | `/api/v1/analysis/archetype/{username}` | K-Means archetype classification |
+| `GET` | `/api/v1/analysis/similarity/{username}` | Cosine similarity player matching |
+| `GET` | `/api/v1/analysis/patterns/{username}` | Cross-game recurring pattern detector |
+| `GET` | `/api/v1/analysis/anomalies/{game_id}` | Game anomaly & blunder detection |
+| `GET` | `/api/v1/analysis/openings/{username}` | ECO opening health report |
+| `GET` | `/api/v1/analysis/brilliances/{username}` | Brilliancy Hall of Fame |
 | `WS` | `/api/v1/ws/live/{game_id}` | Real-time WebSocket spectating stream |
 
 ---
