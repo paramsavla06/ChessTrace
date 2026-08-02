@@ -166,6 +166,30 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
     return () => clearTimeout(timer);
   }, [currentIndex, selectedElo, currentMove]);
 
+  const runWhatIf = async (
+    baseFen: string,
+    actualMove: TimelineMove,
+    altMoveStr: string
+  ) => {
+    setWhatIfLoading(true);
+    try {
+      const res = await api.post<WhatIfResponse>('/analysis/what-if', {
+        fen: baseFen,
+        played_move_uci: actualMove.uci,
+        alternative_move_uci: altMoveStr.trim(),
+        think_time_sec: actualMove.think_time_sec,
+        time_remaining_sec: actualMove.time_remaining_sec,
+        eval_cp: (actualMove as any).eval_cp,
+      });
+      setWhatIfResult(res.data);
+    } catch (err: any) {
+      const errorMsg = err.response?.data?.detail || err.message || 'An unknown error occurred on the server.';
+      alert(`Evaluation failed: ${errorMsg}`);
+    } finally {
+      setWhatIfLoading(false);
+    }
+  };
+
   const handleWhatIfSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentMove || !altMoveInput.trim() || whatIfLoading) return;
@@ -174,22 +198,42 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
       ? timeline[currentIndex - 1].fen
       : 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
-    setWhatIfLoading(true);
+    await runWhatIf(prevFen, currentMove, altMoveInput);
+  };
+
+  const onPieceDrop = (sourceSquare: string, targetSquare: string, piece: string) => {
+    const fen = currentMove ? currentMove.fen : 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+    const chess = new Chess(fen);
+    
     try {
-      const res = await api.post<WhatIfResponse>('/analysis/what-if', {
-        fen: prevFen,
-        played_move_uci: currentMove.uci,
-        alternative_move_uci: altMoveInput.trim(),
-        think_time_sec: currentMove.think_time_sec,
-        time_remaining_sec: currentMove.time_remaining_sec,
-        eval_cp: (currentMove as any).eval_cp,
+      const moveObj = chess.move({
+        from: sourceSquare,
+        to: targetSquare,
+        promotion: 'q',
       });
-      setWhatIfResult(res.data);
-    } catch (err: any) {
-      const errorMsg = err.response?.data?.detail || err.message || 'An unknown error occurred on the server.';
-      alert(`Evaluation failed: ${errorMsg}`);
-    } finally {
-      setWhatIfLoading(false);
+      
+      if (!moveObj) return false;
+
+      const nextIndex = currentIndex + 1;
+      const actualNextMove = nextIndex < timeline.length ? timeline[nextIndex] : null;
+
+      if (actualNextMove) {
+        if (moveObj.lan !== actualNextMove.uci && moveObj.san !== actualNextMove.san) {
+          // They played an alternative move. Step forward and run what-if.
+          setCurrentIndex(nextIndex);
+          setAltMoveInput(moveObj.san);
+          runWhatIf(fen, actualNextMove, moveObj.san);
+        } else {
+          // They played the exact move from the game.
+          setCurrentIndex(nextIndex);
+          setAltMoveInput('');
+          setWhatIfResult(null);
+        }
+      }
+      return true;
+    } catch (e) {
+      // Illegal move or wrong turn
+      return false;
     }
   };
 
@@ -395,6 +439,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
               <Chessboard
                 position={fenToPositionObj(currentMove ? currentMove.fen : 'start')}
                 boardOrientation={boardFlipped ? 'black' : 'white'}
+                onPieceDrop={onPieceDrop}
                 customBoardStyle={{
                   borderRadius: '12px',
                   boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
