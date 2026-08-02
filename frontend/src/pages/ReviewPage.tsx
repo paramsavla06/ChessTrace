@@ -435,7 +435,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
             })()}
 
             {/* Interactive Chessboard */}
-            <div className="glass-panel p-4 rounded-2xl w-full max-w-[440px] aspect-square flex items-center justify-center glow-indigo">
+            <div className="bg-slate-900/40 border border-slate-800 shadow-xl p-4 rounded-2xl w-full max-w-[440px] aspect-square flex items-center justify-center glow-indigo">
               <Chessboard
                 position={fenToPositionObj(currentMove ? currentMove.fen : 'start')}
                 boardOrientation={boardFlipped ? 'black' : 'white'}
@@ -579,7 +579,9 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
                     <div className="text-slate-300 font-mono mt-0.5">
                       {(whatIfResult.played_move as any).eval_cp != null
                         ? `${((whatIfResult.played_move as any).eval_cp / 100).toFixed(2)} eval`
-                        : ''} · {(whatIfResult.played_move.win_probability * 100).toFixed(1)}% win
+                        : ''} · {(
+                          (boardFlipped ? 1 - whatIfResult.played_move.win_probability : whatIfResult.played_move.win_probability) * 100
+                        ).toFixed(1)}% win
                     </div>
                   </div>
                   <div className="bg-slate-800/50 p-3 rounded-lg">
@@ -588,7 +590,9 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
                     <div className="text-slate-300 font-mono mt-0.5">
                       {(whatIfResult.alternative_move as any).eval_cp != null
                         ? `${((whatIfResult.alternative_move as any).eval_cp / 100).toFixed(2)} eval`
-                        : ''} · {(whatIfResult.alternative_move.win_probability * 100).toFixed(1)}% win
+                        : ''} · {(
+                          (boardFlipped ? 1 - whatIfResult.alternative_move.win_probability : whatIfResult.alternative_move.win_probability) * 100
+                        ).toFixed(1)}% win
                     </div>
                   </div>
                 </div>

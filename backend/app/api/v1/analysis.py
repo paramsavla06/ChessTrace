@@ -314,6 +314,9 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
 
     win_diff = pred_alt.win_probability - pred_played.win_probability
     collapse_diff = pred_alt.collapse_probability - pred_played.collapse_probability
+    
+    # Evaluate delta from the perspective of the player whose turn it is
+    player_win_diff = win_diff if board.turn == chess.WHITE else -win_diff
 
     # --- Build rich recommendation ---
     played_wp = round(pred_played.win_probability * 100, 1)
@@ -321,13 +324,13 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
     played_eval_str = f"{played_eval_cp / 100:+.2f}" if played_eval_cp is not None else "N/A"
     alt_eval_str = f"{alt_eval_cp / 100:+.2f}" if alt_eval_cp is not None else "N/A"
 
-    if win_diff > 0.08:
+    if player_win_diff > 0.08:
         rec = f"🟢 {alt_san} is significantly better! ({alt_eval_str} vs {played_eval_str})"
-    elif win_diff > 0.03:
+    elif player_win_diff > 0.03:
         rec = f"🟡 {alt_san} is slightly better ({alt_eval_str} vs {played_eval_str})"
-    elif win_diff > -0.03:
+    elif player_win_diff > -0.03:
         rec = f"⚖️ Both moves are roughly equal ({played_san}: {played_eval_str}, {alt_san}: {alt_eval_str})"
-    elif win_diff > -0.08:
+    elif player_win_diff > -0.08:
         rec = f"🟡 {played_san} was slightly better than {alt_san} ({played_eval_str} vs {alt_eval_str})"
     else:
         rec = f"🔴 {played_san} was significantly better than {alt_san} ({played_eval_str} vs {alt_eval_str})"
@@ -348,7 +351,7 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
             "collapse_probability": round(pred_alt.collapse_probability, 4),
         },
         "probability_divergence": {
-            "win_probability_delta": round(win_diff, 4),
+            "win_probability_delta": round(player_win_diff, 4),
             "collapse_probability_delta": round(collapse_diff, 4),
             "recommendation": rec,
         },
