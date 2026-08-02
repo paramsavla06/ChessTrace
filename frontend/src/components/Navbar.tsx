@@ -33,9 +33,11 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, current
           onClick={() => setActiveTab('catalog')}
           className="flex items-center gap-3 cursor-pointer group"
         >
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-pink-500 flex items-center justify-center glow-indigo group-hover:scale-105 transition-transform">
-            <Shield className="w-6 h-6 text-white" />
-          </div>
+          <img 
+            src="/ChessTraceLogo.png" 
+            alt="ChessTrace Logo" 
+            className="w-11 h-11 rounded-2xl group-hover:scale-105 transition-transform shadow-lg shadow-indigo-500/20 object-cover" 
+          />
           <div>
             <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-indigo-400 bg-clip-text text-transparent">
               ChessTrace
