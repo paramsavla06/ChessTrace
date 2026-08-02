@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Radio, User, Upload, Shield, Swords } from 'lucide-react';
+import { Activity, Radio, User, Upload, Swords } from 'lucide-react';
 
 interface NavbarProps {
   activeTab: 'catalog' | 'review' | 'profile' | 'live' | 'compare';
