@@ -625,8 +625,8 @@ def compare_players(username1: str, username2: str, db: Session = Depends(get_db
     profile2 = generate_personal_profile(username2, games2)
 
     archetype_engine = PlayerArchetypeClassifier()
-    arch1 = archetype_engine.classify_archetype(profile1)
-    arch2 = archetype_engine.classify_archetype(profile2)
+    arch1 = archetype_engine.classify_profile(profile1)
+    arch2 = archetype_engine.classify_profile(profile2)
 
     p1_tilt = profile1.tilt_signature.tilt_speedup_percentage
     p2_tilt = profile2.tilt_signature.tilt_speedup_percentage
