@@ -43,6 +43,7 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
 
   const [connected, setConnected] = useState<boolean>(false);
   const [inputGameId, setInputGameId] = useState<string>('');
+  const [boardOrientation, setBoardOrientation] = useState<'white' | 'black'>('white');
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -50,10 +51,25 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
 
   useEffect(() => {
     let cleanId = inputGameId.trim();
-    if (cleanId.includes('lichess.org/')) {
-      const parts = cleanId.split('lichess.org/')[1].split('/');
-      cleanId = parts[0];
+    let orientation: 'white' | 'black' = 'white';
+    
+    // Parse /black or /white from the end of the URL
+    if (cleanId.endsWith('/black') || cleanId.endsWith('#black')) {
+      orientation = 'black';
+      cleanId = cleanId.replace(/\/black|#black$/, '');
+    } else if (cleanId.endsWith('/white') || cleanId.endsWith('#white')) {
+      cleanId = cleanId.replace(/\/white|#white$/, '');
     }
+
+    if (cleanId.includes('lichess.org/')) {
+      const parts = cleanId.split('lichess.org/')[1].split(/[/#]/);
+      cleanId = parts[0];
+      if (parts.length > 1 && parts[1] === 'black') {
+        orientation = 'black';
+      }
+    }
+    
+    setBoardOrientation(orientation);
 
     if (!cleanId || cleanId.length < 8) {
       setConnected(false);
@@ -144,7 +160,7 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
         {/* Board & Controls */}
         <div className="lg:col-span-5 flex flex-col justify-center gap-4">
           <div className="glass-panel p-4 rounded-2xl w-full max-w-[460px] aspect-square flex items-center justify-center glow-pink mx-auto relative">
-            <Chessboard position={currentFrame.fen} arePiecesDraggable={false} />
+            <Chessboard position={currentFrame.fen} boardOrientation={boardOrientation} arePiecesDraggable={false} />
             
             {viewIndex !== -1 && (
               <div className="absolute top-2 right-2 bg-yellow-500 text-black text-xs font-bold px-2 py-1 rounded">
