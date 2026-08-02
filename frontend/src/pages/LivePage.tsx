@@ -35,7 +35,7 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
   const [collapseProb, setCollapseProb] = useState<number>(0.1);
   const [narrative, setNarrative] = useState<string>('Spectating live game stream...');
   const [connected, setConnected] = useState<boolean>(false);
-  const [inputGameId, setInputGameId] = useState<string>(gameId.toString());
+  const [inputGameId, setInputGameId] = useState<string>('');
 
   useEffect(() => {
     let cleanId = inputGameId.trim();
@@ -44,8 +44,14 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
       cleanId = parts[0];
     }
 
+    // Only attempt connection if it looks like a valid Lichess ID (usually 8 chars)
+    if (!cleanId || cleanId.length < 8) {
+      setConnected(false);
+      return;
+    }
+
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${wsProtocol}//${window.location.host}/api/v1/ws/live/${cleanId || gameId}`;
+    const wsUrl = `${wsProtocol}//${window.location.host}/api/v1/ws/live/${cleanId}`;
 
     const socket = new WebSocket(wsUrl);
 
