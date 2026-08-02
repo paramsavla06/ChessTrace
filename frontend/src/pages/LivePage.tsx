@@ -112,7 +112,6 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, username }) => {
       return;
     }
 
-    setConnected(true);
     // Build the WebSocket URL dynamically:
     // - In development, Vite proxies /api to localhost:8000 so we use the relative ws: path
     // - In production (Vercel), VITE_API_URL points to the Render backend (https://...)
@@ -136,6 +135,7 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, username }) => {
     const socket = new WebSocket(wsUrl);
 
     socket.onopen = () => {
+      setConnected(true);
       setErrorMsg(null);
       setHistory([]);
       setViewIndex(-1);
