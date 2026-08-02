@@ -10,7 +10,8 @@
   [role="button"],
   [type="button"],
   [type="submit"],
-  [type="reset"] {
+  [type="reset"],
+  select {
     cursor: pointer;
   }
 }
