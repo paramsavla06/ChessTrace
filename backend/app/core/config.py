@@ -24,6 +24,8 @@ DATABASE_URL: str = _db_url
 STOCKFISH_PATH: str = os.getenv("STOCKFISH_PATH", "./stockfish_bin")
 LICHESS_API_TOKEN: str = os.getenv("LICHESS_API_TOKEN", "")
 
+_extra_origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
+
 BACKEND_CORS_ORIGINS: list[str] = [
     "http://localhost:3000",
     "http://localhost:5173",
@@ -31,5 +33,6 @@ BACKEND_CORS_ORIGINS: list[str] = [
     "https://chess-trace.vercel.app",
     "https://chesstrace.onrender.com",
     os.getenv("FRONTEND_URL", ""),
+    *_extra_origins,
 ]
 BACKEND_CORS_ORIGINS = [o for o in BACKEND_CORS_ORIGINS if o]  # filter empty
