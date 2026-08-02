@@ -821,16 +821,19 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
             const wPct = (wCount / whiteTotalMoves) * 100;
             const bPct = (bCount / blackTotalMoves) * 100;
 
-            // Find the first occurrence index in the full timeline
-            const firstIdx = timeline.findIndex(
-              (m) => (m as any).move_classification === mt.key
-            );
-            const isClickable = firstIdx !== -1;
+            const wFirstIdx = timeline.findIndex((m) => m.color === 'white' && (m as any).move_classification === mt.key);
+            const bFirstIdx = timeline.findIndex((m) => m.color === 'black' && (m as any).move_classification === mt.key);
 
-            const handleRowClick = () => {
-              if (isClickable) {
-                setCurrentIndex(firstIdx);
-                // Scroll the board into view
+            const handleWhiteClick = () => {
+              if (wFirstIdx !== -1) {
+                setCurrentIndex(wFirstIdx);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
+            };
+
+            const handleBlackClick = () => {
+              if (bFirstIdx !== -1) {
+                setCurrentIndex(bFirstIdx);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }
             };
@@ -838,16 +841,14 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
             return (
               <div
                 key={mt.key}
-                onClick={handleRowClick}
-                className={`grid grid-cols-[1fr_auto_auto_auto_1fr] items-center gap-2 py-1.5 px-2 rounded-xl transition-all ${
-                  isClickable
-                    ? 'cursor-pointer hover:bg-slate-800/50 group'
-                    : 'opacity-40 cursor-default'
-                }`}
-                title={isClickable ? `Jump to first ${mt.label} move` : `No ${mt.label} moves`}
+                className="grid grid-cols-[1fr_auto_auto_auto_1fr] items-center gap-2 py-1.5 px-2 rounded-xl"
               >
-                {/* White side: bar + count (right-aligned) */}
-                <div className="flex items-center justify-end gap-2">
+                {/* White side */}
+                <div 
+                  className={`flex items-center justify-end gap-2 group ${wFirstIdx !== -1 ? 'cursor-pointer hover:bg-slate-800/80 rounded-lg py-1 px-2 transition-colors' : 'opacity-40'}`}
+                  onClick={handleWhiteClick}
+                  title={wFirstIdx !== -1 ? `Jump to White's first ${mt.label}` : ''}
+                >
                   {wCount > 0 && (
                     <span className={`text-sm font-extrabold font-mono ${mt.textColor}`}>{wCount}</span>
                   )}
@@ -863,25 +864,23 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
 
                 {/* Label */}
                 <div className="w-[72px] text-center flex items-center justify-center gap-1">
-                  <span className="text-xs font-semibold text-slate-400 group-hover:text-slate-200 transition-colors">{mt.label}</span>
+                  <span className="text-xs font-semibold text-slate-400">{mt.label}</span>
                 </div>
 
                 {/* Icon — center */}
-                <div className={`w-8 h-8 flex items-center justify-center rounded-full text-xs font-black flex-shrink-0 ${mt.bgColor} ${mt.textColor} border ${mt.borderColor} ${isClickable ? 'group-hover:scale-110 transition-transform' : ''}`}>
+                <div className={`w-8 h-8 flex items-center justify-center rounded-full text-xs font-black flex-shrink-0 ${mt.bgColor} ${mt.textColor} border ${mt.borderColor}`}>
                   {mt.icon}
                 </div>
 
-                {/* Right label — show "→ move N" tooltip on hover when clickable */}
-                <div className="w-[72px] text-center">
-                  {isClickable && (
-                    <span className="text-[10px] text-slate-600 group-hover:text-slate-400 font-mono transition-colors">
-                      #{firstIdx + 1}
-                    </span>
-                  )}
-                </div>
+                {/* Spacer */}
+                <div className="w-[72px] text-center" />
 
-                {/* Black side: bar + count (left-aligned) */}
-                <div className="flex items-center justify-start gap-2">
+                {/* Black side */}
+                <div 
+                  className={`flex items-center justify-start gap-2 group ${bFirstIdx !== -1 ? 'cursor-pointer hover:bg-slate-800/80 rounded-lg py-1 px-2 transition-colors' : 'opacity-40'}`}
+                  onClick={handleBlackClick}
+                  title={bFirstIdx !== -1 ? `Jump to Black's first ${mt.label}` : ''}
+                >
                   <div className="flex-1 max-w-[140px] h-2 rounded-full overflow-hidden bg-slate-800/40">
                     {bCount > 0 && (
                       <div
