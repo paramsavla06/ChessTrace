@@ -11,8 +11,8 @@
 
   <br/>
 
-  <img src="https://raw.githubusercontent.com/paramsavla06/ChessTrace/main/docs/assets/hero1.png" alt="ChessTrace Dashboard Screenshot" width="900">
-  <img src="https://raw.githubusercontent.com/paramsavla06/ChessTrace/main/docs/assets/hero2.png" alt="ChessTrace Dashboard Screenshot" width="900">
+  <img src="docs/assets/hero1.png" alt="ChessTrace Dashboard Screenshot" width="900">
+  <img src="docs/assets/hero2.png" alt="ChessTrace Dashboard Screenshot" width="900">
 
 </div>
 
