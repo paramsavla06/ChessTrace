@@ -10,7 +10,7 @@ export function App() {
   const [activeTab, setActiveTab] = useState<'catalog' | 'review' | 'profile' | 'live' | 'compare'>('catalog');
   const [selectedGameId, setSelectedGameId] = useState<number>(1);
   const [currentUser, setCurrentUser] = useState<string>(() => localStorage.getItem('chessTraceUser') || '');
-  const [selectedUsername, setSelectedUsername] = useState<string>(currentUser || 'paramsavla06');
+  const [selectedUsername, setSelectedUsername] = useState<string>(currentUser || '');
 
   const handleSetCurrentUser = (user: string) => {
     setCurrentUser(user);
