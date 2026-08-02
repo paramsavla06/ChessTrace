@@ -87,6 +87,8 @@ async def stream_live_game(websocket: WebSocket, game_id: str) -> None:
                     try:
                         chess_move = chess.Move.from_uci(new_uci)
                         if chess_move in board.legal_moves:
+                            # Calculate SAN BEFORE pushing to the board
+                            calculated_san = board.san(chess_move)
                             board.push(chess_move)
                         else:
                             logger.error("Illegal move received from stream: %s", new_uci)
@@ -118,7 +120,7 @@ async def stream_live_game(websocket: WebSocket, game_id: str) -> None:
                         move_number=move_number,
                         ply=ply,
                         color=active_color,
-                        san=board.san(chess_move) if chess_move in board.legal_moves else new_uci,
+                        san=calculated_san,
                         uci=new_uci,
                         fen=board.fen(),
                         clock_before=previous_clock,
