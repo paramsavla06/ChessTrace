@@ -3,9 +3,13 @@ import { Swords, Trophy } from 'lucide-react';
 import { api } from '../api/client';
 import type { CompareResponse } from '../api/client';
 
-export const ComparePage: React.FC = () => {
-  const [user1, setUser1] = useState<string>('paramsavla06');
-  const [user2, setUser2] = useState<string>('PlayerB');
+interface ComparePageProps {
+  currentUser?: string;
+}
+
+export const ComparePage: React.FC<ComparePageProps> = ({ currentUser }) => {
+  const [user1, setUser1] = useState<string>(currentUser || '');
+  const [user2, setUser2] = useState<string>('');
   const [result, setResult] = useState<CompareResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 

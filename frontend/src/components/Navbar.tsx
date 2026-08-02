@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Activity, Radio, User, Upload, Shield, Swords } from 'lucide-react';
 
 interface NavbarProps {
@@ -9,6 +9,22 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, currentUser, setCurrentUser }) => {
+  const [inputValue, setInputValue] = useState(currentUser);
+
+  useEffect(() => {
+    setInputValue(currentUser);
+  }, [currentUser]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      setCurrentUser(inputValue);
+      e.currentTarget.blur();
+    }
+  };
+
+  const handleBlur = () => {
+    setCurrentUser(inputValue);
+  };
   return (
     <header className="sticky top-0 z-50 glass-panel border-b border-slate-800 px-6 py-4">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -97,8 +113,10 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, current
             <input
               type="text"
               placeholder="Your Username"
-              value={currentUser}
-              onChange={(e) => setCurrentUser(e.target.value)}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onBlur={handleBlur}
               className="bg-slate-800/50 border border-slate-700 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 w-40 transition-all focus:w-48"
             />
           </div>

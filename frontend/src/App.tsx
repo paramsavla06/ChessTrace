@@ -77,7 +77,7 @@ export function App() {
 
         {activeTab === 'profile' && <ProfilePage username={selectedUsername} />}
 
-        {activeTab === 'compare' && <ComparePage />}
+        {activeTab === 'compare' && <ComparePage currentUser={currentUser} />}
 
         {activeTab === 'live' && <LivePage gameId={selectedGameId} />}
       </main>
