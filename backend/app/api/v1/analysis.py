@@ -324,13 +324,19 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
     alt_wp = round(pred_alt.win_probability * 100, 1)
     if played_eval_cp is not None and abs(played_eval_cp) > 100000:
         mate_in = 200000 - abs(played_eval_cp)
-        played_eval_str = f"M{mate_in}" if played_eval_cp > 0 else f"-M{mate_in}"
+        if mate_in == 0:
+            played_eval_str = "1-0" if played_eval_cp > 0 else "0-1"
+        else:
+            played_eval_str = f"M{mate_in}" if played_eval_cp > 0 else f"-M{mate_in}"
     else:
         played_eval_str = f"{played_eval_cp / 100:+.2f}" if played_eval_cp is not None else "N/A"
         
     if alt_eval_cp is not None and abs(alt_eval_cp) > 100000:
         mate_in = 200000 - abs(alt_eval_cp)
-        alt_eval_str = f"M{mate_in}" if alt_eval_cp > 0 else f"-M{mate_in}"
+        if mate_in == 0:
+            alt_eval_str = "1-0" if alt_eval_cp > 0 else "0-1"
+        else:
+            alt_eval_str = f"M{mate_in}" if alt_eval_cp > 0 else f"-M{mate_in}"
     else:
         alt_eval_str = f"{alt_eval_cp / 100:+.2f}" if alt_eval_cp is not None else "N/A"
     

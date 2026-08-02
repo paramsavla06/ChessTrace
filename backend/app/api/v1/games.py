@@ -214,7 +214,10 @@ def get_game_timeline(
             if eval_cp is not None and best_eval_cp is not None:
                 if abs(eval_cp) > 100000:
                     mate_in_val = 200000 - abs(eval_cp)
-                    eval_score_str = f"M{mate_in_val}" if eval_cp > 0 else f"-M{mate_in_val}"
+                    if mate_in_val == 0:
+                        eval_score_str = "1-0" if eval_cp > 0 else "0-1"
+                    else:
+                        eval_score_str = f"M{mate_in_val}" if eval_cp > 0 else f"-M{mate_in_val}"
                     val_pawns = 2000.0 if eval_cp > 0 else -2000.0
                 else:
                     val_pawns = round(eval_cp / 100.0, 2)
@@ -222,7 +225,10 @@ def get_game_timeline(
 
                 if abs(best_eval_cp) > 100000:
                     mate_in_best = 200000 - abs(best_eval_cp)
-                    best_score_str = f"M{mate_in_best}" if best_eval_cp > 0 else f"-M{mate_in_best}"
+                    if mate_in_best == 0:
+                        best_score_str = "1-0" if best_eval_cp > 0 else "0-1"
+                    else:
+                        best_score_str = f"M{mate_in_best}" if best_eval_cp > 0 else f"-M{mate_in_best}"
                     best_pawns = 2000.0 if best_eval_cp > 0 else -2000.0
                 else:
                     best_pawns = round(best_eval_cp / 100.0, 2)
@@ -322,7 +328,10 @@ def get_game_timeline(
             elif eval_cp is not None:
                 if abs(eval_cp) > 100000:
                     mate_in = 200000 - abs(eval_cp)
-                    eval_score_str = f"M{mate_in}" if eval_cp > 0 else f"-M{mate_in}"
+                    if mate_in == 0:
+                        eval_score_str = "1-0" if eval_cp > 0 else "0-1"
+                    else:
+                        eval_score_str = f"M{mate_in}" if eval_cp > 0 else f"-M{mate_in}"
                 else:
                     val_pawns = round(eval_cp / 100.0, 2)
                     eval_score_str = f"+{val_pawns:.2f}" if val_pawns >= 0 else f"{val_pawns:.2f}"
