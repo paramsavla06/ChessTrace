@@ -923,7 +923,21 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
         ) : (
           <div className="h-48 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+              <AreaChart 
+                data={chartData} 
+                margin={{ top: 4, right: 8, bottom: 0, left: 0 }}
+                onClick={(e: any) => {
+                  if (e && e.activeLabel) {
+                    const moveNumber = Number(e.activeLabel);
+                    const idx = timeline.findIndex(m => m.move_number === moveNumber);
+                    if (idx !== -1) {
+                      setCurrentIndex(idx);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                  }
+                }}
+                style={{ cursor: 'pointer' }}
+              >
                 <defs>
                   <linearGradient id="thinkColor" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#6366F1" stopOpacity={0.8} />
