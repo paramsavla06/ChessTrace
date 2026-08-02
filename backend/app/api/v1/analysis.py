@@ -249,7 +249,7 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
             played_eval_cp = req.eval_cp  # fallback to cached eval from timeline
             
             try:
-                ev = evaluator.evaluate(board_played, move_number=1, depth=16)
+                ev = evaluator.evaluate(board_played, move_number=1, depth=20)
                 raw = ev.cp_score
                 if raw is None and ev.mate_score is not None:
                     raw = (200000 - abs(ev.mate_score)) if ev.mate_score > 0 else -(200000 - abs(ev.mate_score))
@@ -270,7 +270,7 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
                 alt_eval_cp = None
                 
                 try:
-                    ev = evaluator.evaluate(board_alt, move_number=1, depth=16)
+                    ev = evaluator.evaluate(board_alt, move_number=1, depth=20)
                     raw = ev.cp_score
                     if raw is None and ev.mate_score is not None:
                         raw = (200000 - abs(ev.mate_score)) if ev.mate_score > 0 else -(200000 - abs(ev.mate_score))
