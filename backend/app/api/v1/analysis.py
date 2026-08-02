@@ -328,15 +328,15 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
     persp_str = req.perspective.capitalize()
 
     if player_win_diff > 0.08:
-        rec = f"🟢 {alt_san} is significantly better for {persp_str}! ({alt_eval_str} vs {played_eval_str})"
+        rec = f"🟢 {alt_san} is significantly better for {persp_str} than {played_san}! ({alt_eval_str} vs {played_eval_str})"
     elif player_win_diff > 0.03:
-        rec = f"🟡 {alt_san} is slightly better for {persp_str} ({alt_eval_str} vs {played_eval_str})"
+        rec = f"🟡 {alt_san} is slightly better for {persp_str} than {played_san} ({alt_eval_str} vs {played_eval_str})"
     elif player_win_diff > -0.03:
-        rec = f"⚖️ Both moves are roughly equal ({played_san}: {played_eval_str}, {alt_san}: {alt_eval_str})"
+        rec = f"⚖️ Both moves are roughly equal ({alt_san}: {alt_eval_str}, {played_san}: {played_eval_str})"
     elif player_win_diff > -0.08:
-        rec = f"🟡 {played_san} was slightly better for {persp_str} than {alt_san} ({played_eval_str} vs {alt_eval_str})"
+        rec = f"🟡 {alt_san} is slightly worse for {persp_str} than {played_san} ({alt_eval_str} vs {played_eval_str})"
     else:
-        rec = f"🔴 {played_san} was significantly better for {persp_str} than {alt_san} ({played_eval_str} vs {alt_eval_str})"
+        rec = f"🔴 {alt_san} is significantly worse for {persp_str} than {played_san} ({alt_eval_str} vs {played_eval_str})"
 
     return {
         "played_move": {
