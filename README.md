@@ -43,20 +43,20 @@ Real players have clocks. They panic. They rush. They tilt after blunders. They 
 
 ## Why ChessTrace Is Different
 
-| Feature | Chess.com | Lichess | Stockfish | **ChessTrace** |
-|---|:---:|:---:|:---:|:---:|
-| Move classification | ✓ | ✓ | ✓ | ✓ |
-| ELO-adjusted classification | ✗ | ✗ | ✗ | **✓** |
-| Human move prediction at ELO | ✗ | ✗ | ✗ | **✓** |
-| Move time as ML feature | ✗ | ✗ | ✗ | **✓** |
-| Time pressure collapse modeling | ✗ | ✗ | ✗ | **✓** |
-| Cognitive tilt detection | ✗ | ✗ | ✗ | **✓** |
-| Personal weakness fingerprint | ✗ | ✗ | ✗ | **✓** |
-| Cross-game pattern detection | ✗ | ✗ | ✗ | **✓** |
-| Real-time collapse probability | ✗ | ✗ | ✗ | **✓** |
-| Counterfactual what-if analysis | ✗ | ✗ | ✗ | **✓** |
-| Live WebSocket spectating + ML | ✗ | ✗ | ✗ | **✓** |
-| SHAP plain-English explanation | ✗ | ✗ | ✗ | **✓** |
+| Feature | Chess.com | Lichess | Stockfish | **Maia Chess** | **ChessTrace** |
+|---|:---:|:---:|:---:|:---:|:---:|
+| Move classification | ✓ | ✓ | ✓ | ✗ | **✓** |
+| ELO-adjusted classification | ✗ | ✗ | ✗ | ✓ | **✓** |
+| Human move prediction at ELO | ✗ | ✗ | ✗ | ✓ | **✓** |
+| Move time as ML feature | ✗ | ✗ | ✗ | ✗ | **✓** |
+| Time pressure collapse modeling | ✗ | ✗ | ✗ | ✗ | **✓** |
+| Cognitive tilt detection | ✗ | ✗ | ✗ | ✗ | **✓** |
+| Personal weakness fingerprint | ✗ | ✗ | ✗ | ✗ | **✓** |
+| Cross-game pattern detection | ✗ | ✗ | ✗ | ✗ | **✓** |
+| Real-time collapse probability | ✗ | ✗ | ✗ | ✗ | **✓** |
+| Counterfactual what-if analysis | ✗ | ✗ | ✗ | ✗ | **✓** |
+| Live WebSocket spectating + ML | ✗ | ✗ | ✗ | ✗ | **✓** |
+| SHAP plain-English explanation | ✗ | ✗ | ✗ | ✗ | **✓** |
 
 > Inspired by [Maia Chess](https://maiachess.com) (Cornell + Microsoft Research) — extended with time pressure modeling, personal cognitive profiling, and a complete product interface.
 
@@ -85,6 +85,24 @@ Real players have clocks. They panic. They rush. They tilt after blunders. They 
 - K-Means archetype clustering across complete game history
 - Isolation Forest brilliancy and anomaly detection
 - Cosine similarity grandmaster style matching
+
+### 🏆 Brilliancy Hall of Fame
+
+- Scans complete game history using an **Isolation Forest** anomaly detector
+- Filters for statistically extraordinary moves combining high time pressure, complex board states, and high engine evaluation gains
+- Showcases the top 5 most brilliant unique career moves
+
+### 📖 Opening Health Repertoire
+
+- Groups historical performance by ECO code and opening name
+- Tracks the evaluation delta from opening to move 20 to detect middlegame deterioration
+- Flags lines that score well initially but result in highly lost middlegame positions
+
+### 🔄 Cross-Game Pattern Detector
+
+- Scans across all imported games to find recurring tactical blunders (e.g., "Missed Knight Forks", "Back Rank Mates")
+- Quantifies frequency and impact severity for each mistake pattern
+- Directly links to **custom Lichess Puzzle Training** tailored to those exact weaknesses
 
 ### 📡 Live Game Spectating
 
