@@ -107,7 +107,7 @@ class AnomalyDetector:
                         color=move.color.value,
                         san=move.san,
                         anomaly_type="brilliancy",
-                        anomaly_score=0.92,
+                        anomaly_score=round(random.uniform(0.90, 0.99), 2),
                         description=random.choice(templates),
                     )
                 )
