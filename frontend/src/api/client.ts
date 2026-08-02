@@ -159,6 +159,7 @@ export interface BrilliancyResponse {
     white_player: string;
     black_player: string;
     move_number: number;
+    ply: number;
     san: string;
     anomaly_score: number;
     description: string;

@@ -379,14 +379,20 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ username }) => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {brilliances.top_brilliances.map((b, i) => (
-              <div key={i} className="bg-slate-900/60 p-4 rounded-xl border border-amber-500/30 space-y-2 text-xs">
+              <a 
+                key={i} 
+                href={`/?gameId=${b.game_id}&ply=${b.ply}#review`}
+                target="_blank"
+                rel="noreferrer"
+                className="bg-slate-900/60 p-4 rounded-xl border border-amber-500/30 space-y-2 text-xs block hover:bg-slate-800 transition-colors"
+              >
                 <div className="flex justify-between items-center">
                   <span className="font-bold text-amber-400 font-mono">Move {b.move_number}. {b.san}</span>
                   <span className="text-slate-400 font-mono">Score: {b.anomaly_score.toFixed(2)}</span>
                 </div>
                 <p className="text-slate-300 italic">"{b.description}"</p>
                 <p className="text-slate-500 text-[10px]">{b.white_player} vs {b.black_player}</p>
-              </div>
+              </a>
             ))}
           </div>
         </div>

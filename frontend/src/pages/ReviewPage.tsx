@@ -100,7 +100,16 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
 
         const timelineRes = await api.get<TimelineMove[]>(`/games/${targetId}/timeline`);
         setTimeline(timelineRes.data);
-        setCurrentIndex(-1);
+        
+        const params = new URLSearchParams(window.location.search);
+        const plyStr = params.get('ply');
+        if (plyStr) {
+          const targetPly = parseInt(plyStr);
+          const idx = timelineRes.data.findIndex(m => m.ply === targetPly);
+          setCurrentIndex(idx !== -1 ? idx : -1);
+        } else {
+          setCurrentIndex(-1);
+        }
       } catch (err) {
         console.error('Failed loading game review data', err);
       } finally {

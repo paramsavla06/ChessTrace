@@ -8,7 +8,11 @@ import { ComparePage } from './pages/ComparePage';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<'catalog' | 'review' | 'profile' | 'live' | 'compare'>('catalog');
-  const [selectedGameId, setSelectedGameId] = useState<number>(1);
+  const [selectedGameId, setSelectedGameId] = useState<number>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('gameId');
+    return id ? parseInt(id) : 1;
+  });
   const [currentUser, setCurrentUser] = useState<string>(() => localStorage.getItem('chessTraceUser') || '');
   const [selectedUsername, setSelectedUsername] = useState<string>(currentUser || '');
 
@@ -24,6 +28,8 @@ export function App() {
       const hash = window.location.hash.replace('#', '');
       if (hash === 'catalog' || hash === 'review' || hash === 'profile' || hash === 'live' || hash === 'compare') {
         setActiveTab(hash as any);
+      } else if (window.location.search.includes('gameId=')) {
+        setActiveTab('review');
       } else {
         setActiveTab('catalog');
       }

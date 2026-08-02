@@ -605,6 +605,7 @@ def get_brilliancy_hall_of_fame(username: str, db: Session = Depends(get_db)) ->
                     "white_player": game.white_player.display_name if game.white_player else "White",
                     "black_player": game.black_player.display_name if game.black_player else "Black",
                     "move_number": a.move_number,
+                    "ply": a.ply,
                     "san": a.san,
                     "anomaly_score": a.anomaly_score,
                     "description": a.description,
