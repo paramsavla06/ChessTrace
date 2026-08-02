@@ -50,8 +50,8 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
       return;
     }
 
-    // Bypass Vite proxy to avoid websocket upgrade issues, connect directly to backend
-    const wsUrl = `ws://localhost:8000/api/v1/ws/live/${cleanId}`;
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${wsProtocol}//${window.location.host}/api/v1/ws/live/${cleanId}`;
 
     const socket = new WebSocket(wsUrl);
 

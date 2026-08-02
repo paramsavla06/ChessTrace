@@ -31,6 +31,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+# Instantiate ML models globally so they don't block the event loop on every connection
+predictor = WinCollapsePredictor()
+explainer = ShapExplainer(predictor)
+
 @router.websocket("/ws/live/{game_id}")
 async def stream_live_game(websocket: WebSocket, game_id: str) -> None:
     """
@@ -42,9 +46,6 @@ async def stream_live_game(websocket: WebSocket, game_id: str) -> None:
     """
     await websocket.accept()
     logger.info("WebSocket client connected for live spectating game ID '%s'", game_id)
-
-    predictor = WinCollapsePredictor()
-    explainer = ShapExplainer(predictor)
 
     try:
         # Stream live PGN/NDJSON from Lichess API

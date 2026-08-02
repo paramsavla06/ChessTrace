@@ -41,6 +41,10 @@ if BACKEND_CORS_ORIGINS:
 
 app.include_router(api_router)
 
+# Mount websocket directly on app to avoid APIRouter prefix/nesting bugs
+from app.api.v1 import live_ws
+app.include_router(live_ws.router, prefix="/api/v1")
+
 from fastapi import Request
 from fastapi.responses import JSONResponse
 import traceback
