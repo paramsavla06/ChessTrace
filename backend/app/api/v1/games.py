@@ -254,17 +254,37 @@ def get_game_timeline(
                 is_sacrifice = False
                 if played_uci_obj:
                     is_attacked = prev_board.is_attacked_by(not prev_board.turn, played_uci_obj.to_square)
-                    if is_capture:
-                        from_piece = prev_board.piece_at(played_uci_obj.from_square)
-                        to_piece = prev_board.piece_at(played_uci_obj.to_square)
-                        piece_values = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 0}
-                        if from_piece and to_piece:
-                            our_val = piece_values.get(from_piece.piece_type, 0)
-                            their_val = piece_values.get(to_piece.piece_type, 0)
-                            is_sacrifice = (our_val > their_val) and is_attacked
-                    else:
-                        is_sacrifice = is_attacked
+                    is_defended = prev_board.is_attacked_by(prev_board.turn, played_uci_obj.to_square)
+                    
+                    piece_values = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 0}
+                    moved_piece = prev_board.piece_at(played_uci_obj.from_square)
+                    moved_val = piece_values.get(moved_piece.piece_type, 0) if moved_piece else 0
 
+                    if is_attacked:
+                        attackers = prev_board.attackers(not prev_board.turn, played_uci_obj.to_square)
+                        min_attacker_val = 9
+                        for sq in attackers:
+                            atk_piece = prev_board.piece_at(sq)
+                            if atk_piece:
+                                atk_val = piece_values.get(atk_piece.piece_type, 0)
+                                if atk_val < min_attacker_val:
+                                    min_attacker_val = atk_val
+                                    
+                        if is_capture:
+                            captured_piece = prev_board.piece_at(played_uci_obj.to_square)
+                            captured_val = piece_values.get(captured_piece.piece_type, 0) if captured_piece else 0
+                            
+                            # If we sacrifice more value than we capture (e.g. Queen takes defended pawn)
+                            if moved_val > captured_val:
+                                if not is_defended or moved_val > (min_attacker_val + captured_val):
+                                    is_sacrifice = True
+                        else:
+                            # Not a capture
+                            if not is_defended:
+                                is_sacrifice = True
+                            elif moved_val > min_attacker_val:
+                                is_sacrifice = True
+                                
                 already_winning = (best_pawns >= 1.5 if move.color.value == "white" else best_pawns <= -1.5)
                 drawable = (val_pawns >= -0.5 if move.color.value == "white" else val_pawns <= 0.5)
 
