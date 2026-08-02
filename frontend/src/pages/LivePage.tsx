@@ -44,6 +44,8 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
   const [connected, setConnected] = useState<boolean>(false);
   const [inputGameId, setInputGameId] = useState<string>('');
 
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
   const currentFrame = viewIndex === -1 ? (history[history.length - 1] || { fen: 'start' }) : history[viewIndex];
 
   useEffect(() => {
@@ -55,6 +57,7 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
 
     if (!cleanId || cleanId.length < 8) {
       setConnected(false);
+      setErrorMsg(null);
       return;
     }
 
@@ -64,6 +67,7 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
 
     socket.onopen = () => {
       setConnected(true);
+      setErrorMsg(null);
       setHistory([]);
       setViewIndex(-1);
     };
@@ -72,7 +76,7 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
       try {
         const data = JSON.parse(event.data);
         if (data.error) {
-          alert(`Live Spectate Error: ${data.error}\n\nNote: Lichess only allows streaming ONGOING live games.`);
+          setErrorMsg(data.error);
           socket.close();
           return;
         }
@@ -127,6 +131,13 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
           />
         </div>
       </div>
+
+      {errorMsg && (
+        <div className="bg-red-500/20 border border-red-500/50 text-red-400 px-4 py-3 rounded-xl text-sm flex justify-between items-center">
+          <p>{errorMsg}</p>
+          <button onClick={() => setErrorMsg(null)} className="text-red-400 hover:text-white font-bold ml-4">✕</button>
+        </div>
+      )}
 
       {/* Main Spectating Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
