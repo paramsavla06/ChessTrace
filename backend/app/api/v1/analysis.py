@@ -47,6 +47,7 @@ class WhatIfRequest(BaseModel):
     time_remaining_sec: float = 120.0
     initial_clock_seconds: int = 300
     eval_cp: float | None = None
+    perspective: str = "white"  # "white" or "black"
 
 
 class EloSimRequest(BaseModel):
@@ -315,8 +316,8 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
     win_diff = pred_alt.win_probability - pred_played.win_probability
     collapse_diff = pred_alt.collapse_probability - pred_played.collapse_probability
     
-    # Evaluate delta from the perspective of the player whose turn it is
-    player_win_diff = win_diff if board.turn == chess.WHITE else -win_diff
+    # Evaluate delta from the requested perspective
+    player_win_diff = win_diff if req.perspective == "white" else -win_diff
 
     # --- Build rich recommendation ---
     played_wp = round(pred_played.win_probability * 100, 1)

@@ -180,6 +180,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
         think_time_sec: actualMove.think_time_sec,
         time_remaining_sec: actualMove.time_remaining_sec,
         eval_cp: (actualMove as any).eval_cp,
+        perspective: boardFlipped ? 'black' : 'white',
       });
       setWhatIfResult(res.data);
     } catch (err: any) {
