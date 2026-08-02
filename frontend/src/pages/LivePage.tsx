@@ -317,7 +317,7 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, username }) => {
                 <Zap className="w-4 h-4 text-pink-400" />
                 <span>Sub-Second Live SHAP Stream</span>
               </div>
-              <p className="text-sm text-slate-300 italic">{currentFrame.narrative_summary || 'Spectating live game stream...'}</p>
+              <p className="text-sm text-slate-300 italic leading-relaxed">{currentFrame.narrative_summary || 'Spectating live game stream...'}</p>
             </div>
 
             {/* Live Review Move List */}

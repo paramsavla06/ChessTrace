@@ -173,6 +173,20 @@ export const ComparePage: React.FC<ComparePageProps> = ({ currentUser }) => {
               </div>
             </div>
           </div>
+
+          {/* Verdict Card */}
+          <div className="mt-6 glass-panel p-6 rounded-2xl bg-gradient-to-r from-indigo-900/40 via-purple-900/40 to-pink-900/40 border border-white/10 text-center shadow-2xl">
+            <h3 className="text-xl font-bold text-white mb-2 flex items-center justify-center gap-2">
+              <Swords className="w-6 h-6 text-pink-400" />
+              Verdict: Who Collapses First?
+            </h3>
+            <p className="text-slate-300">
+              {result.head_to_head_summary.tilt_vulnerability_winner === "Equal pressure resilience"
+                ? "Both players show equal resilience under pressure."
+                : <><strong className="text-pink-400">{result.head_to_head_summary.tilt_vulnerability_winner}</strong> is statistically more likely to collapse under time pressure and tilt after a blunder.</>
+              }
+            </p>
+          </div>
         </div>
       )}
     </div>

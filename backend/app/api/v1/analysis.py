@@ -612,10 +612,19 @@ def get_brilliancy_hall_of_fame(username: str, db: Session = Depends(get_db)) ->
 
     all_brilliances.sort(key=lambda b: b["anomaly_score"], reverse=True)
 
+    unique_game_brilliances = []
+    seen_games = set()
+    for b in all_brilliances:
+        if b["game_id"] not in seen_games:
+            seen_games.add(b["game_id"])
+            unique_game_brilliances.append(b)
+            if len(unique_game_brilliances) == 5:
+                break
+
     return {
         "username": username,
         "total_brilliances_found": len(all_brilliances),
-        "top_brilliances": all_brilliances[:5],
+        "top_brilliances": unique_game_brilliances,
     }
 
 
