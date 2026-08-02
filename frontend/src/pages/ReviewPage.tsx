@@ -943,7 +943,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
             No think time data available for this game (clock times may not have been recorded)
           </div>
         ) : (
-          <div className="h-48 w-full">
+          <div className="h-48 w-full cursor-pointer">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart 
                 data={chartData} 
