@@ -56,7 +56,6 @@ class StockfishEngine:
                 {
                     "Threads": threads,
                     "Hash": hash_mb,
-                    "Use NNUE": False,
                 }
             )
         except Exception as exc:
