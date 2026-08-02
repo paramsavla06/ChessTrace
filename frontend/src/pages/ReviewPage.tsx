@@ -442,6 +442,10 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
                 position={fenToPositionObj(currentMove ? currentMove.fen : 'start')}
                 boardOrientation={boardFlipped ? 'black' : 'white'}
                 onPieceDrop={onPieceDrop}
+                customSquareStyles={currentMove?.uci ? {
+                  [currentMove.uci.substring(0, 2)]: { backgroundColor: 'rgba(255, 255, 0, 0.4)' },
+                  [currentMove.uci.substring(2, 4)]: { backgroundColor: 'rgba(255, 255, 0, 0.4)' },
+                } : {}}
                 customBoardStyle={{
                   borderRadius: '12px',
                   boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
