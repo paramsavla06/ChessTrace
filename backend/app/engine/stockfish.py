@@ -88,6 +88,18 @@ class StockfishEngine:
         """
         return self._engine.analyse(board, chess.engine.Limit(depth=depth, time=2.0))
     
+    def analyse_multipv(
+		self,
+		board: chess.Board,
+		*,
+		depth: int = DEFAULT_DEPTH,
+        multipv: int = 5,
+	) -> list[chess.engine.InfoDict]:
+        """
+        Analyse a position returning multiple principal variations.
+        """
+        return self._engine.analyse(board, chess.engine.Limit(depth=depth, time=2.0), multipv=multipv)
+    
     @property
     def version(self) -> str:
         """Return the name/version of the running engine."""
