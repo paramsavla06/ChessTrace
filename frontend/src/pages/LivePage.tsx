@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
 import { Radio, Zap, ArrowRightCircle } from 'lucide-react';
-import api from '../lib/api';
+import { api } from '../api/client';
 
 function fenToPositionObj(fen: string): Record<string, string> | 'start' {
   if (!fen || fen === 'start') return 'start';
