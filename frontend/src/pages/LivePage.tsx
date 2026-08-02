@@ -118,14 +118,21 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, username }) => {
     // - In production (Vercel), VITE_API_URL points to the Render backend (https://...)
     //   so we swap https:// -> wss:// or http:// -> ws://
     const apiBase = import.meta.env.VITE_API_URL as string | undefined;
-    let wsBase: string;
+    let wsUrl: string;
     if (apiBase) {
-      wsBase = apiBase.replace(/^https/, 'wss').replace(/^http/, 'ws');
+      const wsBase = apiBase.replace(/^https/, 'wss').replace(/^http/, 'ws');
+      // If VITE_API_URL already contains /api/v1, don't duplicate it
+      if (wsBase.endsWith('/api/v1') || wsBase.endsWith('/api/v1/')) {
+        const baseWithoutSlash = wsBase.endsWith('/') ? wsBase.slice(0, -1) : wsBase;
+        wsUrl = `${baseWithoutSlash}/ws/live/${cleanId}`;
+      } else {
+        const baseWithSlash = wsBase.endsWith('/') ? wsBase : `${wsBase}/`;
+        wsUrl = `${baseWithSlash}api/v1/ws/live/${cleanId}`;
+      }
     } else {
       const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-      wsBase = `${proto}://${window.location.host}`;
+      wsUrl = `${proto}://${window.location.host}/api/v1/ws/live/${cleanId}`;
     }
-    const wsUrl = `${wsBase}/api/v1/ws/live/${cleanId}`;
     const socket = new WebSocket(wsUrl);
 
     socket.onopen = () => {
