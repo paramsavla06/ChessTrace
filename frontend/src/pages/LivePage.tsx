@@ -62,6 +62,11 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
     socket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        if (data.error) {
+          alert(`Live Spectate Error: ${data.error}\n\nNote: Lichess only allows streaming ONGOING live games. You cannot spectate a completed game.`);
+          socket.close();
+          return;
+        }
         if (data.fen) setFen(data.fen);
         if (data.win_probability !== undefined) setWinProb(data.win_probability);
         if (data.collapse_probability !== undefined) setCollapseProb(data.collapse_probability);
