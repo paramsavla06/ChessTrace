@@ -252,7 +252,7 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
                 ev = evaluator.evaluate(board_played, move_number=1, depth=16)
                 raw = ev.cp_score
                 if raw is None and ev.mate_score is not None:
-                    raw = 200000 if ev.mate_score > 0 else -200000
+                    raw = (200000 - abs(ev.mate_score)) if ev.mate_score > 0 else -(200000 - abs(ev.mate_score))
                 if raw is not None:
                     # score.relative is from the NEXT side-to-move's perspective.
                     # Normalize to White's perspective (positive = good for White):
@@ -273,7 +273,7 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
                     ev = evaluator.evaluate(board_alt, move_number=1, depth=16)
                     raw = ev.cp_score
                     if raw is None and ev.mate_score is not None:
-                        raw = 200000 if ev.mate_score > 0 else -200000
+                        raw = (200000 - abs(ev.mate_score)) if ev.mate_score > 0 else -(200000 - abs(ev.mate_score))
                     if raw is not None:
                         alt_eval_cp = -raw if board_alt.turn == chess.BLACK else raw
                 except Exception:
@@ -322,8 +322,17 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
     # --- Build rich recommendation ---
     played_wp = round(pred_played.win_probability * 100, 1)
     alt_wp = round(pred_alt.win_probability * 100, 1)
-    played_eval_str = f"{played_eval_cp / 100:+.2f}" if played_eval_cp is not None else "N/A"
-    alt_eval_str = f"{alt_eval_cp / 100:+.2f}" if alt_eval_cp is not None else "N/A"
+    if played_eval_cp is not None and abs(played_eval_cp) > 100000:
+        mate_in = 200000 - abs(played_eval_cp)
+        played_eval_str = f"M{mate_in}" if played_eval_cp > 0 else f"-M{mate_in}"
+    else:
+        played_eval_str = f"{played_eval_cp / 100:+.2f}" if played_eval_cp is not None else "N/A"
+        
+    if alt_eval_cp is not None and abs(alt_eval_cp) > 100000:
+        mate_in = 200000 - abs(alt_eval_cp)
+        alt_eval_str = f"M{mate_in}" if alt_eval_cp > 0 else f"-M{mate_in}"
+    else:
+        alt_eval_str = f"{alt_eval_cp / 100:+.2f}" if alt_eval_cp is not None else "N/A"
     
     persp_str = req.perspective.capitalize()
 
@@ -343,6 +352,7 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
             "uci": played_move.uci(),
             "san": played_san,
             "eval_cp": played_eval_cp,
+            "eval_str": played_eval_str,
             "win_probability": round(pred_played.win_probability, 4),
             "collapse_probability": round(pred_played.collapse_probability, 4),
         },
@@ -350,6 +360,7 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
             "uci": alt_move.uci(),
             "san": alt_san,
             "eval_cp": alt_eval_cp,
+            "eval_str": alt_eval_str,
             "win_probability": round(pred_alt.win_probability, 4),
             "collapse_probability": round(pred_alt.collapse_probability, 4),
         },

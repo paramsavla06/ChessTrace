@@ -592,8 +592,8 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
                     <div className="text-[10px] text-slate-500 uppercase font-semibold">Played Move</div>
                     <div className="text-sm font-bold text-white mt-1">{(whatIfResult.played_move as any).san || whatIfResult.played_move.uci}</div>
                     <div className="text-slate-300 font-mono mt-0.5">
-                      {(whatIfResult.played_move as any).eval_cp != null
-                        ? `${((whatIfResult.played_move as any).eval_cp / 100).toFixed(2)} eval`
+                      {(whatIfResult.played_move as any).eval_str != null
+                        ? `${(whatIfResult.played_move as any).eval_str} eval`
                         : ''} · {(
                           (boardFlipped ? 1 - whatIfResult.played_move.win_probability : whatIfResult.played_move.win_probability) * 100
                         ).toFixed(1)}% win
@@ -603,8 +603,8 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
                     <div className="text-[10px] text-slate-500 uppercase font-semibold">Alternative Move</div>
                     <div className="text-sm font-bold text-white mt-1">{(whatIfResult.alternative_move as any).san || whatIfResult.alternative_move.uci}</div>
                     <div className="text-slate-300 font-mono mt-0.5">
-                      {(whatIfResult.alternative_move as any).eval_cp != null
-                        ? `${((whatIfResult.alternative_move as any).eval_cp / 100).toFixed(2)} eval`
+                      {(whatIfResult.alternative_move as any).eval_str != null
+                        ? `${(whatIfResult.alternative_move as any).eval_str} eval`
                         : ''} · {(
                           (boardFlipped ? 1 - whatIfResult.alternative_move.win_probability : whatIfResult.alternative_move.win_probability) * 100
                         ).toFixed(1)}% win
