@@ -28,6 +28,7 @@ function fenToPositionObj(fen: string): Record<string, string> | 'start' {
 
 interface LivePageProps {
   gameId: number;
+  username?: string | null;
 }
 
 interface LiveFrame {
@@ -42,7 +43,7 @@ interface LiveFrame {
   uci?: string;
 }
 
-export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
+export const LivePage: React.FC<LivePageProps> = ({ gameId, username }) => {
   const [history, setHistory] = useState<LiveFrame[]>([]);
   const [viewIndex, setViewIndex] = useState<number>(-1); // -1 means live (latest)
 
@@ -66,7 +67,8 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
         return `${f.san}`;
       }).filter(x => x).join(' ');
       
-      const pgnStr = `[Event "Live Spectate Export"]\n[Site "ChessTrace"]\n[Date "${new Date().toISOString().split('T')[0]}"]\n[Result "*"]\n\n${pgnMoves} *`;
+      const whiteName = username || "LiveWhite";
+      const pgnStr = `[Event "Live Spectate Export"]\n[Site "ChessTrace"]\n[Date "${new Date().toISOString().split('T')[0]}"]\n[White "${whiteName}"]\n[Black "LiveBlack"]\n[Result "*"]\n\n${pgnMoves} *`;
       
       // Create File object
       const blob = new Blob([pgnStr], { type: 'text/plain' });
@@ -121,7 +123,6 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
 
     setConnected(true);
     const wsUrl = `ws://127.0.0.1:8000/api/v1/ws/live/${cleanId}`;
-
     const socket = new WebSocket(wsUrl);
 
     socket.onopen = () => {
@@ -202,7 +203,7 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId }) => {
         </div>
 
         <div className="flex gap-3">
-          {!connected && history.length > 0 && (
+          {history.length > 0 && (
             <button 
               onClick={exportToReview}
               disabled={isExporting}
