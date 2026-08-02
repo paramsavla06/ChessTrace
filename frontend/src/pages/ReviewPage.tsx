@@ -68,6 +68,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
   const [eloSimResult, setEloSimResult] = useState<EloSimResponse | null>(null);
   const [altMoveInput, setAltMoveInput] = useState<string>('');
   const [selectedElo, setSelectedElo] = useState<string>('1600-1800');
+  const boardContainerRef = React.useRef<HTMLDivElement>(null);
 
   // Load available games list
   useEffect(() => {
@@ -437,7 +438,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
             })()}
 
             {/* Interactive Chessboard */}
-            <div className="bg-slate-900/40 border border-slate-800 shadow-xl p-4 rounded-2xl w-full max-w-[440px] aspect-square flex items-center justify-center glow-indigo">
+            <div ref={boardContainerRef} className="bg-slate-900/40 border border-slate-800 shadow-xl p-4 rounded-2xl w-full max-w-[440px] aspect-square flex items-center justify-center glow-indigo">
               <Chessboard
                 position={fenToPositionObj(currentMove ? currentMove.fen : 'start')}
                 boardOrientation={boardFlipped ? 'black' : 'white'}
@@ -827,14 +828,14 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
             const handleWhiteClick = () => {
               if (wFirstIdx !== -1) {
                 setCurrentIndex(wFirstIdx);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                boardContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }
             };
 
             const handleBlackClick = () => {
               if (bFirstIdx !== -1) {
                 setCurrentIndex(bFirstIdx);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                boardContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }
             };
 
@@ -932,7 +933,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId }) => {
                     const idx = timeline.findIndex(m => m.move_number === moveNumber);
                     if (idx !== -1) {
                       setCurrentIndex(idx);
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                      boardContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }
                   }
                 }}
