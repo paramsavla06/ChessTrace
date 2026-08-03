@@ -678,9 +678,11 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800">
-                  <p className="text-xs text-slate-400 uppercase font-semibold">Win Probability</p>
+                  <p className="text-xs text-slate-400 uppercase font-semibold">
+                    Win Probability ({boardFlipped ? 'Black' : 'White'})
+                  </p>
                   <p className="text-3xl font-extrabold text-emerald-400 mt-1">
-                    {(prediction.win_probability * 100).toFixed(1)}%
+                    {((boardFlipped ? 1 - prediction.win_probability : prediction.win_probability) * 100).toFixed(1)}%
                   </p>
                   <p className="text-[10px] text-slate-500 mt-1 font-mono">
                     {prediction.win_probability > 0.6 ? '▲ White is winning' :
@@ -690,7 +692,9 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
                 </div>
 
                 <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800">
-                  <p className="text-xs text-slate-400 uppercase font-semibold">Collapse Risk</p>
+                  <p className="text-xs text-slate-400 uppercase font-semibold">
+                    Collapse Risk ({currentMove?.color === 'white' ? 'White' : 'Black'})
+                  </p>
                   <p className={`text-3xl font-extrabold mt-1 ${
                     prediction.collapse_probability > 0.6 ? 'text-red-400' :
                     prediction.collapse_probability > 0.35 ? 'text-orange-400' : 'text-green-400'
