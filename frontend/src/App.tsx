@@ -51,6 +51,9 @@ export function App() {
 
   const handleSelectGame = (gameId: number) => {
     setSelectedGameId(gameId);
+    const url = new URL(window.location.href);
+    url.searchParams.set('gameId', gameId.toString());
+    window.history.replaceState({}, '', url);
     handleTabChange('review');
   };
 
