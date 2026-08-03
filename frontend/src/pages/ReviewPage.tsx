@@ -380,7 +380,15 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
               <label className="text-xs font-mono text-slate-400">Select Game:</label>
               <select
                 value={activeGameId ?? ''}
-                onChange={(e) => setActiveGameId(Number(e.target.value))}
+                onChange={(e) => {
+                  const newId = Number(e.target.value);
+                  setActiveGameId(newId);
+                  const url = new URL(window.location.href);
+                  url.searchParams.set('gameId', newId.toString());
+                  // Remove ply if it exists so we don't jump into the middle of the new game
+                  url.searchParams.delete('ply');
+                  window.history.replaceState({}, '', url);
+                }}
                 className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-indigo-300 font-mono focus:outline-none focus:border-indigo-500 shadow-md cursor-pointer hover:border-indigo-400 transition-colors"
               >
                 {allGames.map((g) => (
