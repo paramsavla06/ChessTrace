@@ -23,9 +23,12 @@ class SimilarPlayerMatch:
     shared_traits: list[str]
 
 
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
+
 class PlayerSimilarityEngine:
     """
-    Engine calculating Cosine Similarity across player fingerprint vectors.
+    Engine calculating Cosine Similarity across player fingerprint vectors using Scikit-Learn.
     """
 
     def __init__(self) -> None:
@@ -38,21 +41,15 @@ class PlayerSimilarityEngine:
             "FabianoCaruana": [0.65, 0.08, 0.35, 0.03],
             "AlirezaFirouzja": [0.22, 0.25, 0.28, 0.08],
         }
+        self.player_names = list(self.reference_database.keys())
+        self.X_ref = np.array(list(self.reference_database.values()))
 
-    def _profile_to_vector(self, profile: PersonalProfileFingerprint) -> list[float]:
+    def _profile_to_vector(self, profile: PersonalProfileFingerprint) -> np.ndarray:
         norm_think = max(0.0, min(1.0, profile.tilt_signature.normal_avg_think_time / 15.0))
         tilt = max(0.0, min(1.0, (profile.tilt_signature.tilt_speedup_percentage + 50.0) / 150.0))
         endgame = max(0.0, min(1.0, profile.time_distribution.endgame_time_pct / 100.0))
         panic = max(0.0, min(1.0, profile.panic_move_count / max(1, profile.total_games_analyzed * 10)))
-        return [norm_think, tilt, endgame, panic]
-
-    def _cosine_similarity(self, vec1: list[float], vec2: list[float]) -> float:
-        dot = sum(a * b for a, b in zip(vec1, vec2))
-        mag1 = math.sqrt(sum(a**2 for a in vec1))
-        mag2 = math.sqrt(sum(b**2 for b in vec2))
-        if mag1 == 0 or mag2 == 0:
-            return 0.0
-        return dot / (mag1 * mag2)
+        return np.array([norm_think, tilt, endgame, panic])
 
     def find_similar_players(
         self,
@@ -60,25 +57,31 @@ class PlayerSimilarityEngine:
         top_n: int = 3,
     ) -> list[SimilarPlayerMatch]:
         """
-        Find top N most similar player profiles based on Cosine Similarity.
+        Find top N most similar player profiles based on Scikit-Learn Cosine Similarity.
         """
-        user_vec = self._profile_to_vector(profile)
+        user_vec = self._profile_to_vector(profile).reshape(1, -1)
+        
+        # Calculate full cosine similarity matrix against all reference players at once
+        similarities = cosine_similarity(user_vec, self.X_ref)[0]
+        
         matches: list[SimilarPlayerMatch] = []
 
-        for name, ref_vec in self.reference_database.items():
+        for i, name in enumerate(self.player_names):
             if name.lower() == profile.player_name.lower():
                 continue
 
-            sim = self._cosine_similarity(user_vec, ref_vec)
+            sim = similarities[i]
+            ref_vec = self.X_ref[i]
+            
             # Map cosine similarity (0.0 to 1.0) into a realistic 60.0% to 98.5% style match range
-            score_pct = round(62.0 + (sim * 36.5), 1)
+            score_pct = round(62.0 + (float(sim) * 36.5), 1)
 
             traits: list[str] = []
-            if abs(user_vec[0] - ref_vec[0]) < 0.15:
+            if abs(user_vec[0][0] - ref_vec[0]) < 0.15:
                 traits.append("Similar thought pace & clock allocation")
-            if abs(user_vec[2] - ref_vec[2]) < 0.10:
+            if abs(user_vec[0][2] - ref_vec[2]) < 0.10:
                 traits.append("Matching endgame time ratio")
-            if abs(user_vec[1] - ref_vec[1]) < 0.15:
+            if abs(user_vec[0][1] - ref_vec[1]) < 0.15:
                 traits.append("Resilient tilt signature under pressure")
 
             matches.append(
