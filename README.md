@@ -218,9 +218,9 @@ Real players have clocks. They panic. They rush. They tilt after blunders. They 
 
 - Aggregates features across a player's complete game history
 - Computes accuracy degradation curves, tilt signatures, phase accuracies, panic reflex counters, and overthink coefficients
-- **K-Means clustering** for playing archetype classification
+- **K-Means clustering** (Scikit-Learn) for mathematically assigning playing archetype classification over 4D feature vectors
 - **Isolation Forest** for brilliancy and blunder anomaly detection
-- **Cosine similarity** for grandmaster style matching
+- **Cosine similarity** matrix calculation for 0-100% grandmaster style matching across the database
 
 ---
 
