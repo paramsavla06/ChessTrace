@@ -25,7 +25,7 @@ interface LiveFrame {
   black_player?: string;
 }
 
-export const LivePage: React.FC<LivePageProps> = ({ gameId, username, onSelectGame }) => {
+export const LivePage: React.FC<LivePageProps> = ({ gameId, onSelectGame }) => {
   const [history, setHistory] = useState<LiveFrame[]>([]);
   const [viewIndex, setViewIndex] = useState<number>(-1); // -1 means live (latest)
 
