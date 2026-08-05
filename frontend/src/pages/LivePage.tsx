@@ -75,7 +75,7 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, username }) => {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       
-      if (res.data && res.data.imported > 0) {
+      if (res.data && (res.data.imported > 0 || res.data.skipped > 0)) {
         const gameIds = res.data.game_ids;
         if (gameIds && gameIds.length > 0) {
           window.location.href = `/?gameId=${gameIds[0]}#review`;

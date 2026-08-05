@@ -91,6 +91,9 @@ class ImportService:
 
                 if self._game_exists(game_hash):
                     summary.skipped += 1
+                    existing_game = self.session.query(Game).filter(Game.pgn_hash == game_hash).first()
+                    if existing_game:
+                        summary.game_ids.append(existing_game.id)
                     continue
 
                 try:
