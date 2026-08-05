@@ -20,6 +20,8 @@ interface LiveFrame {
   color?: string;
   move_number?: number;
   uci?: string;
+  white_player?: string;
+  black_player?: string;
 }
 
 export const LivePage: React.FC<LivePageProps> = ({ gameId, username }) => {
@@ -58,8 +60,9 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, username }) => {
         if (i % 2 === 0) return acc + `${Math.floor(i/2) + 1}. ${move} `;
         return acc + `${move} `;
       }, '').trim();
-      const whiteName = username || "LiveWhite";
-      const pgnStr = `[Event "Live Spectate Export"]\n[Site "ChessTrace"]\n[Date "${new Date().toISOString().split('T')[0]}"]\n[White "${whiteName}"]\n[Black "LiveBlack"]\n[Result "*"]\n\n${pgnMoves} *`;
+      const whiteName = currentFrame.white_player || "White";
+      const blackName = currentFrame.black_player || "Black";
+      const pgnStr = `[Event "Live Spectate Export"]\n[Site "ChessTrace"]\n[Date "${new Date().toISOString().split('T')[0]}"]\n[White "${whiteName}"]\n[Black "${blackName}"]\n[Result "*"]\n\n${pgnMoves} *`;
       
       // Create File object
       const blob = new Blob([pgnStr], { type: 'text/plain' });
@@ -196,6 +199,11 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, username }) => {
 
   const displayId = inputGameId.replace(/\/black|\/white|#black|#white/g, '').split('/').pop();
 
+  const whitePlayerName = currentFrame.white_player || "White";
+  const blackPlayerName = currentFrame.black_player || "Black";
+  const topPlayer = boardOrientation === 'white' ? blackPlayerName : whitePlayerName;
+  const bottomPlayer = boardOrientation === 'white' ? whitePlayerName : blackPlayerName;
+
   return (
     <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
       {/* Top Bar */}
@@ -243,7 +251,12 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, username }) => {
       {/* Main Spectating Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Board & Controls */}
-        <div className="lg:col-span-5 flex flex-col justify-center gap-4">
+        <div className="lg:col-span-5 flex flex-col justify-center gap-2">
+          {/* Top Player Name */}
+          <div className="w-full max-w-[460px] mx-auto flex justify-between items-center px-4 py-1 text-slate-400 font-mono text-xs">
+            <span className="font-bold text-slate-300">{topPlayer}</span>
+          </div>
+
           <div className="glass-panel p-4 rounded-2xl w-full max-w-[460px] aspect-square flex items-center justify-center glow-pink mx-auto relative">
             <Chessboard position={currentFrame.fen} boardOrientation={boardOrientation} arePiecesDraggable={false} />
             
@@ -252,6 +265,11 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, username }) => {
                 Viewing History
               </div>
             )}
+          </div>
+
+          {/* Bottom Player Name */}
+          <div className="w-full max-w-[460px] mx-auto flex justify-between items-center px-4 py-1 text-slate-400 font-mono text-xs">
+            <span className="font-bold text-slate-300">{bottomPlayer}</span>
           </div>
           
           {history.length > 0 && (

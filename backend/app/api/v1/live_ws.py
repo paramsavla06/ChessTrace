@@ -67,6 +67,8 @@ async def stream_live_game(websocket: WebSocket, game_id: str) -> None:
                 previous_clock: int | None = None
                 prev_white_moves: list[Move] = []
                 prev_black_moves: list[Move] = []
+                white_player = "White"
+                black_player = "Black"
 
                 async for line in response.aiter_lines():
                     if not line.strip():
@@ -76,6 +78,17 @@ async def stream_live_game(websocket: WebSocket, game_id: str) -> None:
                         data = json.loads(line)
                     except json.JSONDecodeError:
                         continue
+
+                    # Extract player names if metadata is present in this block
+                    if "players" in data:
+                        players_data = data.get("players", {})
+                        if isinstance(players_data, dict):
+                            w_user = players_data.get("white", {})
+                            if isinstance(w_user, dict):
+                                white_player = w_user.get("user", {}).get("name") or w_user.get("name") or white_player
+                            b_user = players_data.get("black", {})
+                            if isinstance(b_user, dict):
+                                black_player = b_user.get("user", {}).get("name") or b_user.get("name") or black_player
 
                     # Check if this line has a move
                     # The Lichess spectator stream sends {"fen": "...", "lm": "e2e4", "wc": 180, "bc": 180}
@@ -150,6 +163,8 @@ async def stream_live_game(websocket: WebSocket, game_id: str) -> None:
                         "color": active_color.value,
                         "uci": new_uci,
                         "fen": board.fen(),
+                        "white_player": white_player,
+                        "black_player": black_player,
                         # ML Predictions
                         "win_probability": round(pred.win_probability, 4),
                         "collapse_probability": round(pred.collapse_probability, 4),
