@@ -132,6 +132,8 @@ class ImportService:
                     self.session.add(parsed.game)
 
                     self.session.flush()
+                    if parsed.game.id:
+                        summary.game_ids.append(parsed.game.id)
 
                     for move in parsed.moves:
                         move.game = parsed.game

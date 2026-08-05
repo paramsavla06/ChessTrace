@@ -76,8 +76,13 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, username }) => {
       });
       
       if (res.data && res.data.imported > 0) {
-        // Find the newly imported game ID from the response if possible, else redirect to review
-        window.location.hash = 'review';
+        const gameIds = res.data.game_ids;
+        if (gameIds && gameIds.length > 0) {
+          window.location.href = `/?gameId=${gameIds[0]}#review`;
+        } else {
+          window.location.hash = 'review';
+        }
+        window.location.reload();
       } else {
         throw new Error("Failed to import game to database.");
       }

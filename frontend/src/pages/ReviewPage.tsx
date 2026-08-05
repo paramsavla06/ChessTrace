@@ -98,6 +98,22 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
         const metaRes = await api.get(`/games/${targetId}`);
         setGameMeta(metaRes.data);
 
+        // Ensure the active game is always in the dropdown list even if filtered out by username
+        setAllGames(prev => {
+          if (prev.some(g => g.id === metaRes.data.id)) return prev;
+          const mappedGame = {
+            id: metaRes.data.id,
+            white_player: typeof metaRes.data.white_player === 'object' && metaRes.data.white_player
+              ? (metaRes.data.white_player.display_name || metaRes.data.white_player.username || "White")
+              : (metaRes.data.white_player || "White"),
+            black_player: typeof metaRes.data.black_player === 'object' && metaRes.data.black_player
+              ? (metaRes.data.black_player.display_name || metaRes.data.black_player.username || "Black")
+              : (metaRes.data.black_player || "Black"),
+            result: metaRes.data.result || "*"
+          };
+          return [mappedGame, ...prev];
+        });
+
         const timelineRes = await api.get<TimelineMove[]>(`/games/${targetId}/timeline`);
         setTimeline(timelineRes.data);
         
