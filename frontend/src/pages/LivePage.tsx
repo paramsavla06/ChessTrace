@@ -8,6 +8,7 @@ import { api } from '../api/client';
 interface LivePageProps {
   gameId: number;
   username?: string | null;
+  onSelectGame?: (gameId: number) => void;
 }
 
 interface LiveFrame {
@@ -24,7 +25,7 @@ interface LiveFrame {
   black_player?: string;
 }
 
-export const LivePage: React.FC<LivePageProps> = ({ gameId, username }) => {
+export const LivePage: React.FC<LivePageProps> = ({ gameId, username, onSelectGame }) => {
   const [history, setHistory] = useState<LiveFrame[]>([]);
   const [viewIndex, setViewIndex] = useState<number>(-1); // -1 means live (latest)
 
@@ -77,12 +78,11 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, username }) => {
       
       if (res.data && (res.data.imported > 0 || res.data.skipped > 0)) {
         const gameIds = res.data.game_ids;
-        if (gameIds && gameIds.length > 0) {
-          window.location.href = `/?gameId=${gameIds[0]}#review`;
+        if (gameIds && gameIds.length > 0 && onSelectGame) {
+          onSelectGame(gameIds[0]);
         } else {
           window.location.hash = 'review';
         }
-        window.location.reload();
       } else {
         throw new Error("Failed to import game to database.");
       }

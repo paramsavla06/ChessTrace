@@ -86,7 +86,13 @@ export function App() {
 
         {activeTab === 'compare' && <ComparePage currentUser={currentUser} />}
 
-        {activeTab === 'live' && <LivePage gameId={selectedGameId} username={currentUser} />}
+        {activeTab === 'live' && (
+          <LivePage 
+            gameId={selectedGameId} 
+            username={currentUser} 
+            onSelectGame={handleSelectGame} 
+          />
+        )}
       </main>
 
       <footer className="glass-panel border-t border-slate-800/80 py-6 text-center text-xs text-slate-500 font-mono">
