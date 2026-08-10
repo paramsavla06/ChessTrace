@@ -43,6 +43,7 @@ import {
   AlertTriangle,
   Sparkles,
   FlipVertical2,
+  User,
 } from 'lucide-react';
 import { api } from '../api/client';
 import type { TimelineMove, PredictResponse, WhatIfResponse, EloSimResponse } from '../api/client';
@@ -505,23 +506,112 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
               );
             })()}
 
-            {/* Interactive Chessboard */}
-            <div ref={boardContainerRef} className="bg-slate-900/40 border border-slate-800 shadow-xl p-4 rounded-2xl w-full max-w-[440px] aspect-square flex items-center justify-center glow-indigo">
-              <Chessboard
-                position={fenToPositionObj(currentMove ? currentMove.fen : 'start')}
-                boardOrientation={boardFlipped ? 'black' : 'white'}
-                onPieceDrop={onPieceDrop}
-                customSquareStyles={currentMove?.uci ? {
-                  [currentMove.uci.substring(0, 2)]: { backgroundColor: 'rgba(255, 255, 0, 0.4)' },
-                  [currentMove.uci.substring(2, 4)]: { backgroundColor: 'rgba(255, 255, 0, 0.4)' },
-                } : {}}
-                customBoardStyle={{
-                  borderRadius: '12px',
-                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
-                }}
-              />
+            {/* Chessboard Area */}
+            <div className="flex flex-col gap-3 w-full max-w-[440px]">
+              
+              {/* Top Player (Opponent) */}
+              <div className="flex items-center justify-between bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-2.5 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded bg-slate-800 flex items-center justify-center border border-slate-700 shadow-inner">
+                    <User className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-semibold text-slate-200 text-sm">
+                      {boardFlipped ? (gameMeta?.white_player || 'White') : (gameMeta?.black_player || 'Black')}
+                    </span>
+                    <span className="text-xs text-slate-500 font-mono">
+                      {boardFlipped ? gameMeta?.white_elo : gameMeta?.black_elo}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className="text-[10px] text-slate-500 font-semibold mb-0.5 uppercase tracking-wider">{gameMeta?.time_control || 'Standard'}</span>
+                  <div className="bg-slate-950 px-3 py-1 rounded border border-slate-800 shadow-inner font-mono text-lg font-bold text-slate-300 min-w-[85px] text-center">
+                    {(() => {
+                      // Find most recent clock for the top player
+                      const targetColor = boardFlipped ? 'white' : 'black';
+                      let clock = null;
+                      for (let i = currentIndex; i >= 0; i--) {
+                        if (timeline[i]?.color === targetColor) {
+                          clock = timeline[i].time_remaining_sec;
+                          break;
+                        }
+                      }
+                      if (clock === null) {
+                        const tc = gameMeta?.time_control || '';
+                        clock = parseInt(tc.split('+')[0]) || null;
+                      }
+                      
+                      if (clock === null) return '--:--';
+                      const m = Math.floor(clock / 60);
+                      const s = Math.floor(clock % 60);
+                      const ms = (clock % 1).toFixed(1).substring(2);
+                      return clock < 10 ? `${m}:${s.toString().padStart(2, '0')}.${ms}` : `${m}:${s.toString().padStart(2, '0')}`;
+                    })()}
+                  </div>
+                </div>
+              </div>
+
+              {/* Interactive Chessboard */}
+              <div ref={boardContainerRef} className="bg-slate-900/40 border border-slate-800 shadow-xl p-4 rounded-2xl aspect-square flex items-center justify-center glow-indigo relative z-10">
+                <Chessboard
+                  position={fenToPositionObj(currentMove ? currentMove.fen : 'start')}
+                  boardOrientation={boardFlipped ? 'black' : 'white'}
+                  onPieceDrop={onPieceDrop}
+                  customSquareStyles={currentMove?.uci ? {
+                    [currentMove.uci.substring(0, 2)]: { backgroundColor: 'rgba(255, 255, 0, 0.4)' },
+                    [currentMove.uci.substring(2, 4)]: { backgroundColor: 'rgba(255, 255, 0, 0.4)' },
+                  } : {}}
+                  customBoardStyle={{
+                    borderRadius: '12px',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+                  }}
+                />
+              </div>
+
+              {/* Bottom Player (You) */}
+              <div className="flex items-center justify-between bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-2.5 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded bg-slate-800 flex items-center justify-center border border-slate-700 shadow-inner">
+                    <User className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-semibold text-slate-200 text-sm">
+                      {boardFlipped ? (gameMeta?.black_player || 'Black') : (gameMeta?.white_player || 'White')}
+                    </span>
+                    <span className="text-xs text-slate-500 font-mono">
+                      {boardFlipped ? gameMeta?.black_elo : gameMeta?.white_elo}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex flex-col items-end">
+                  <div className="bg-slate-950 px-3 py-1 rounded border border-slate-800 shadow-inner font-mono text-lg font-bold text-slate-300 min-w-[85px] text-center mt-3">
+                    {(() => {
+                      // Find most recent clock for the bottom player
+                      const targetColor = boardFlipped ? 'black' : 'white';
+                      let clock = null;
+                      for (let i = currentIndex; i >= 0; i--) {
+                        if (timeline[i]?.color === targetColor) {
+                          clock = timeline[i].time_remaining_sec;
+                          break;
+                        }
+                      }
+                      if (clock === null) {
+                        const tc = gameMeta?.time_control || '';
+                        clock = parseInt(tc.split('+')[0]) || null;
+                      }
+                      
+                      if (clock === null) return '--:--';
+                      const m = Math.floor(clock / 60);
+                      const s = Math.floor(clock % 60);
+                      const ms = (clock % 1).toFixed(1).substring(2);
+                      return clock < 10 ? `${m}:${s.toString().padStart(2, '0')}.${ms}` : `${m}:${s.toString().padStart(2, '0')}`;
+                    })()}
+                  </div>
+                </div>
+              </div>
+
             </div>
-          </div>
 
           {/* Stepper Controls */}
           <div className="glass-panel p-4 rounded-2xl flex items-center justify-between">
