@@ -117,7 +117,10 @@ def generate_personal_profile(
         prior_thinks: list[float] = []
 
         for move in game.moves:
+            # Opponent's move: only check if they captured our material
             if move.color != player_color:
+                if move.is_capture:
+                    material_loss_flag = True
                 continue
 
             all_player_moves.append(move)
@@ -142,13 +145,10 @@ def generate_personal_profile(
             elif clock_sec > 0.0:
                 bucket_sub1m.append(think_sec)
 
-            # Check tilt (move played after losing material)
+            # Check tilt (this is the player's first move after the opponent captured their material)
             if material_loss_flag:
                 post_loss_moves.append(move)
                 material_loss_flag = False
-
-            if move.is_capture:
-                material_loss_flag = True
 
             # Detect panic (think time < 30% of running average) vs overthink (> 3x running average)
             if prior_thinks:
