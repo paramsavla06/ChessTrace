@@ -241,8 +241,8 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({ onSelectGame, onSelect
                       <div className="flex items-center gap-2">
                         <span className="truncate">{g.event || 'Standard Game'}</span>
                         {g.black_player === 'LiveBlack' && (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-400 border border-rose-500/30 whitespace-nowrap">
-                            Live Export
+                          <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 whitespace-nowrap">
+                            Chess.com Import
                           </span>
                         )}
                       </div>
