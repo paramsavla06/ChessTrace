@@ -32,7 +32,7 @@ class LichessService:
         self,
         username: str,
         *,
-        max_games: int = 50,
+        max_games: int = 500,
     ) -> ImportSummary:
         """
         Download games for a Lichess user and import them into the database.

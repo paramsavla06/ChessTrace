@@ -49,7 +49,7 @@ def upload_pgn_file(
 @router.post("/upload/lichess/{username}", response_model=ImportSummary, summary="Fetch Lichess user games")
 def fetch_lichess_games(
     username: str,
-    max_games: int = 50,
+    max_games: int = 500,
     db: Session = Depends(get_db),
 ) -> ImportSummary:
     """
