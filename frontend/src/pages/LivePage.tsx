@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
-import { Radio, Zap, ArrowRightCircle } from 'lucide-react';
+import { Radio, Zap, ArrowRightCircle, User } from 'lucide-react';
 import { api } from '../api/client';
 
 
@@ -23,6 +23,7 @@ interface LiveFrame {
   uci?: string;
   white_player?: string;
   black_player?: string;
+  time_remaining_sec?: number;
 }
 
 export const LivePage: React.FC<LivePageProps> = ({ gameId, onSelectGame }) => {
@@ -257,9 +258,42 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, onSelectGame }) => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Board & Controls */}
         <div className="lg:col-span-5 flex flex-col justify-center gap-2">
-          {/* Top Player Name */}
-          <div className="w-full max-w-[460px] mx-auto flex justify-between items-center px-4 py-1 text-slate-400 font-mono text-xs">
-            <span className="font-bold text-slate-300">{topPlayer}</span>
+          {/* Top Player (Opponent) */}
+          <div className="flex items-center justify-between bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-2.5 shadow-sm w-full max-w-[460px] mx-auto">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded bg-slate-800 flex items-center justify-center border border-slate-700 shadow-inner">
+                <User className="w-4 h-4 text-slate-400" />
+              </div>
+              <div className="flex flex-col">
+                <span className="font-semibold text-slate-200 text-sm">
+                  {topPlayer}
+                </span>
+                <span className="text-xs text-slate-500 font-mono">
+                  Live
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-col items-end">
+              <span className="text-[10px] text-slate-500 font-semibold mb-0.5 uppercase tracking-wider">Live</span>
+              <div className="bg-slate-950 px-3 py-1 rounded border border-slate-800 shadow-inner font-mono text-lg font-bold text-slate-300 min-w-[85px] text-center">
+                {(() => {
+                  const targetColor = boardOrientation === 'white' ? 'black' : 'white';
+                  let clock = null;
+                  const activeIndex = viewIndex === -1 ? history.length - 1 : viewIndex;
+                  for (let i = activeIndex; i >= 0; i--) {
+                    if (history[i]?.color === targetColor) {
+                      clock = history[i].time_remaining_sec;
+                      break;
+                    }
+                  }
+                  if (clock == null) return '--:--';
+                  const m = Math.floor(clock / 60);
+                  const s = Math.floor(clock % 60);
+                  const ms = (clock % 1).toFixed(1).substring(2);
+                  return clock < 10 ? `${m}:${s.toString().padStart(2, '0')}.${ms}` : `${m}:${s.toString().padStart(2, '0')}`;
+                })()}
+              </div>
+            </div>
           </div>
 
           <div className="glass-panel p-4 rounded-2xl w-full max-w-[460px] aspect-square flex items-center justify-center glow-pink mx-auto relative">
@@ -272,9 +306,41 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, onSelectGame }) => {
             )}
           </div>
 
-          {/* Bottom Player Name */}
-          <div className="w-full max-w-[460px] mx-auto flex justify-between items-center px-4 py-1 text-slate-400 font-mono text-xs">
-            <span className="font-bold text-slate-300">{bottomPlayer}</span>
+          {/* Bottom Player (You) */}
+          <div className="flex items-center justify-between bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-2.5 shadow-sm w-full max-w-[460px] mx-auto">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded bg-slate-800 flex items-center justify-center border border-slate-700 shadow-inner">
+                <User className="w-4 h-4 text-slate-400" />
+              </div>
+              <div className="flex flex-col">
+                <span className="font-semibold text-slate-200 text-sm">
+                  {bottomPlayer}
+                </span>
+                <span className="text-xs text-slate-500 font-mono">
+                  Live
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-col items-end">
+              <div className="bg-slate-950 px-3 py-1 rounded border border-slate-800 shadow-inner font-mono text-lg font-bold text-slate-300 min-w-[85px] text-center mt-3">
+                {(() => {
+                  const targetColor = boardOrientation;
+                  let clock = null;
+                  const activeIndex = viewIndex === -1 ? history.length - 1 : viewIndex;
+                  for (let i = activeIndex; i >= 0; i--) {
+                    if (history[i]?.color === targetColor) {
+                      clock = history[i].time_remaining_sec;
+                      break;
+                    }
+                  }
+                  if (clock == null) return '--:--';
+                  const m = Math.floor(clock / 60);
+                  const s = Math.floor(clock % 60);
+                  const ms = (clock % 1).toFixed(1).substring(2);
+                  return clock < 10 ? `${m}:${s.toString().padStart(2, '0')}.${ms}` : `${m}:${s.toString().padStart(2, '0')}`;
+                })()}
+              </div>
+            </div>
           </div>
           
           {history.length > 0 && (

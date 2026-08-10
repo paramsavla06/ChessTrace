@@ -612,6 +612,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
               </div>
 
             </div>
+          </div>
 
           {/* Stepper Controls */}
           <div className="glass-panel p-4 rounded-2xl flex items-center justify-between">
