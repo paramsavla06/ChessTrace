@@ -26,6 +26,8 @@
 
 ## 🎥 Demo
 
+[![ChessTrace Demo](https://img.youtube.com/vi/QUP6ZHaxRJU/0.jpg)](https://www.youtube.com/watch?v=QUP6ZHaxRJU)
+
 🔴 **Live at:** [chess-trace.vercel.app](https://chess-trace.vercel.app)  
 📖 **API Docs:** [chesstrace.onrender.com/docs](https://chesstrace.onrender.com/docs)
 
