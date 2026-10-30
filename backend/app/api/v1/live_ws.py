@@ -45,11 +45,12 @@ async def stream_live_game(websocket: WebSocket, game_id: str) -> None:
     and SHAP explainability narrative generation per move.
     """
     await websocket.accept()
-    logger.info("WebSocket client connected for live spectating game ID '%s'", game_id)
+    clean_game_id = game_id.strip()[:8]
+    logger.info("WebSocket client connected for live spectating game ID '%s'", clean_game_id)
 
     try:
         # Stream live PGN/NDJSON from Lichess API
-        url = f"https://lichess.org/api/stream/game/{game_id}"
+        url = f"https://lichess.org/api/stream/game/{clean_game_id}"
 
         async with httpx.AsyncClient(timeout=None) as client:
             async with client.stream("GET", url) as response:
@@ -90,10 +91,28 @@ async def stream_live_game(websocket: WebSocket, game_id: str) -> None:
                             if isinstance(b_user, dict):
                                 black_player = b_user.get("user", {}).get("name") or b_user.get("name") or black_player
 
-                    # Check if this line has a move
-                    # The Lichess spectator stream sends {"fen": "...", "lm": "e2e4", "wc": 180, "bc": 180}
+                    # Send initial frame before first move if fen is present
                     new_uci = data.get("lm")
-                    
+                    if ply == 0 and not new_uci and "fen" in data:
+                        initial_frame = {
+                            "game_id": clean_game_id,
+                            "ply": 0,
+                            "move_number": 0,
+                            "color": "white",
+                            "uci": "",
+                            "fen": data.get("fen", board.fen()),
+                            "white_player": white_player,
+                            "black_player": black_player,
+                            "white_clock": data.get("wc"),
+                            "black_clock": data.get("bc"),
+                            "win_probability": 0.5,
+                            "collapse_probability": 0.1,
+                            "time_pressure_risk_multiplier": 1.0,
+                            "narrative_summary": "Spectating live game stream...",
+                        }
+                        await websocket.send_json(initial_frame)
+                        continue
+
                     if not new_uci:
                         continue
                         
@@ -157,7 +176,7 @@ async def stream_live_game(websocket: WebSocket, game_id: str) -> None:
                     exp = explainer.explain(pos_feats, time_feats)
 
                     frame = {
-                        "game_id": game_id,
+                        "game_id": clean_game_id,
                         "ply": ply,
                         "move_number": move_number,
                         "color": active_color.value,
@@ -165,6 +184,8 @@ async def stream_live_game(websocket: WebSocket, game_id: str) -> None:
                         "fen": board.fen(),
                         "white_player": white_player,
                         "black_player": black_player,
+                        "white_clock": data.get("wc"),
+                        "black_clock": data.get("bc"),
                         # ML Predictions
                         "win_probability": round(pred.win_probability, 4),
                         "collapse_probability": round(pred.collapse_probability, 4),
@@ -187,6 +208,11 @@ async def stream_live_game(websocket: WebSocket, game_id: str) -> None:
                         prev_black_moves.append(move_obj)
 
                     previous_clock = clock_after
+
+                # Game stream finished (game concluded or completed)
+                logger.info("Live stream completed for game ID '%s'", clean_game_id)
+                while True:
+                    await asyncio.sleep(60)
 
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected for game ID '%s'", game_id)

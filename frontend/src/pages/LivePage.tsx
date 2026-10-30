@@ -26,6 +26,31 @@ interface LiveFrame {
   time_remaining_sec?: number;
 }
 
+export function extractLichessGame(input: string): { gameId: string; orientation: 'white' | 'black' } {
+  const trimmed = input.trim();
+  let orientation: 'white' | 'black' = 'white';
+  if (/\/black(\b|[?#])|#black/i.test(trimmed)) {
+    orientation = 'black';
+  } else if (/\/white(\b|[?#])|#white/i.test(trimmed)) {
+    orientation = 'white';
+  }
+
+  // 1. URL pattern: matches lichess.org/game/SctiUgDc or lichess.org/SctiUgDc, with any protocol
+  const urlMatch = trimmed.match(/lichess\.org\/(?:game\/(?:export\/)?)?([a-zA-Z0-9]{8})/i);
+  if (urlMatch) {
+    return { gameId: urlMatch[1], orientation };
+  }
+
+  // 2. Raw 8-char or 12-char ID pattern
+  const idMatch = trimmed.match(/\b([a-zA-Z0-9]{8})(?:[a-zA-Z0-9]{4})?\b/);
+  if (idMatch) {
+    return { gameId: idMatch[1], orientation };
+  }
+
+  const clean = trimmed.replace(/[^a-zA-Z0-9]/g, '');
+  return { gameId: clean.slice(0, 8), orientation };
+}
+
 export const LivePage: React.FC<LivePageProps> = ({ gameId, onSelectGame }) => {
   const [history, setHistory] = useState<LiveFrame[]>([]);
   const [viewIndex, setViewIndex] = useState(-1);
@@ -80,19 +105,7 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, onSelectGame }) => {
   };
 
   useEffect(() => {
-    let cleanId = inputGameId.trim();
-    let orientation: 'white' | 'black' = 'white';
-    if (cleanId.endsWith('/black') || cleanId.endsWith('#black')) {
-      orientation = 'black';
-      cleanId = cleanId.replace(/\/black|#black$/, '');
-    } else if (cleanId.endsWith('/white') || cleanId.endsWith('#white')) {
-      cleanId = cleanId.replace(/\/white|#white$/, '');
-    }
-    if (cleanId.includes('lichess.org/')) {
-      const parts = cleanId.split('lichess.org/')[1].split(/[/#]/);
-      cleanId = parts[0];
-      if (parts.length > 1 && parts[1] === 'black') orientation = 'black';
-    }
+    const { gameId: cleanId, orientation } = extractLichessGame(inputGameId);
     setBoardOrientation(orientation);
     if (!cleanId || cleanId.length < 8) { setConnected(false); return; }
 
@@ -151,6 +164,11 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, onSelectGame }) => {
   };
 
   const getPlayerClock = (color: 'white' | 'black') => {
+    const activeFrame = viewIndex === -1 ? history[history.length - 1] : history[viewIndex];
+    if (activeFrame) {
+      if (color === 'white' && (activeFrame as any).white_clock != null) return (activeFrame as any).white_clock;
+      if (color === 'black' && (activeFrame as any).black_clock != null) return (activeFrame as any).black_clock;
+    }
     const activeIndex = viewIndex === -1 ? history.length - 1 : viewIndex;
     for (let i = activeIndex; i >= 0; i--) {
       if (history[i]?.color === color) return history[i].time_remaining_sec;
@@ -162,7 +180,7 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, onSelectGame }) => {
   const blackPlayerName = currentFrame.black_player || 'Black';
   const topPlayer = boardOrientation === 'white' ? blackPlayerName : whitePlayerName;
   const bottomPlayer = boardOrientation === 'white' ? whitePlayerName : blackPlayerName;
-  const displayId = inputGameId.replace(/\/black|\/white|#black|#white/g, '').split('/').pop();
+  const displayId = extractLichessGame(inputGameId).gameId || inputGameId;
 
   return (
     <div className="space-y-5">
