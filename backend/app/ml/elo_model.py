@@ -21,8 +21,7 @@ from app.ml.collapse_model import WinCollapsePredictor
 
 logger = logging.getLogger(__name__)
 
-BASE_PROJECT_DIR = Path(__file__).resolve().parents[3]
-WEIGHTS_DIR = BASE_PROJECT_DIR / "backend/app/ml/weights"
+WEIGHTS_DIR = Path(__file__).resolve().parent / "weights"
 
 
 @dataclass
@@ -112,9 +111,28 @@ class EloSimulatorManager:
             except Exception as exc:
                 logger.warning("Stockfish ELO multipv analysis failed: %s", exc)
 
-        # Fallback to legal moves if engine failed
+        # Fallback to intelligent tactical/positional move ranking if engine is unavailable
         if not engine_top_moves:
-            engine_top_moves = list(board.legal_moves)[:5]
+            def _rank_move(m: chess.Move) -> float:
+                score = 0.0
+                if board.is_capture(m):
+                    target_p = board.piece_at(m.to_square)
+                    attacker_p = board.piece_at(m.from_square)
+                    t_val = {1: 1, 2: 3, 3: 3, 4: 5, 5: 9, 6: 0}.get(target_p.piece_type if target_p else 1, 1)
+                    a_val = {1: 1, 2: 3, 3: 3, 4: 5, 5: 9, 6: 0}.get(attacker_p.piece_type if attacker_p else 1, 1)
+                    score += 10.0 + (t_val * 2.0) - (a_val * 0.5)
+                if board.gives_check(m):
+                    score += 4.0
+                if m.to_square in [chess.D4, chess.E4, chess.D5, chess.E5]:
+                    score += 3.0
+                elif m.to_square in [chess.C3, chess.F3, chess.C6, chess.F6]:
+                    score += 2.0
+                if m.promotion:
+                    score += 15.0
+                return score
+
+            sorted_moves = sorted(legal_moves, key=_rank_move, reverse=True)
+            engine_top_moves = sorted_moves[:5]
 
         candidates: list[CandidateMovePrediction] = []
         

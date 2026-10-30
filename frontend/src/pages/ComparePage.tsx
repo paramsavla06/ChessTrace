@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Swords, Trophy } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Swords, Trophy, Loader2, TrendingDown, Clock, Zap } from 'lucide-react';
 import { api } from '../api/client';
 import type { CompareResponse } from '../api/client';
 
@@ -8,21 +9,18 @@ interface ComparePageProps {
 }
 
 export const ComparePage: React.FC<ComparePageProps> = ({ currentUser }) => {
-  const [user1, setUser1] = useState<string>(currentUser || '');
-  const [user2, setUser2] = useState<string>('');
+  const [user1, setUser1] = useState(currentUser || '');
+  const [user2, setUser2] = useState('');
   const [result, setResult] = useState<CompareResponse | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (currentUser !== undefined) {
-      setUser1(currentUser);
-    }
+    if (currentUser !== undefined) setUser1(currentUser);
   }, [currentUser]);
 
   const handleCompareSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user1.trim() || !user2.trim()) return;
-
     setLoading(true);
     try {
       const res = await api.get<CompareResponse>(`/analysis/compare/${user1.trim()}/${user2.trim()}`);
@@ -37,158 +35,200 @@ export const ComparePage: React.FC<ComparePageProps> = ({ currentUser }) => {
 
   if (!currentUser) {
     return (
-      <div className="max-w-4xl mx-auto px-6 py-24 text-center space-y-6">
-        <div className="w-24 h-24 bg-pink-600/20 rounded-full flex items-center justify-center mx-auto">
-          <Swords className="w-12 h-12 text-pink-400" />
+      <div className="flex flex-col items-center justify-center py-32 gap-6 text-center">
+        <div
+          className="w-20 h-20 rounded-full flex items-center justify-center"
+          style={{ background: 'rgba(232,182,106,0.1)', border: '1px solid rgba(232,182,106,0.2)' }}
+        >
+          <Swords className="w-10 h-10" style={{ color: 'var(--ct-gold)' }} />
         </div>
-        <h2 className="text-3xl font-bold text-white">Enter Your Username</h2>
-        <p className="text-slate-400 max-w-lg mx-auto">
-          To compare your cognitive fingerprint against opponents, please enter your username in the top right corner first.
-        </p>
+        <div>
+          <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--ct-text-primary)' }}>
+            Enter Your Username
+          </h2>
+          <p className="text-sm max-w-md" style={{ color: 'var(--ct-text-muted)' }}>
+            To compare cognitive fingerprints, enter your username in the top navigation bar first.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-      {/* Header Banner */}
-      <div className="glass-panel p-6 rounded-2xl flex flex-wrap items-center justify-between gap-6">
-        <div className="flex items-center gap-3">
-          <div className="p-3 rounded-xl bg-gradient-to-tr from-pink-600 to-indigo-600 text-white shadow-lg shadow-pink-600/30">
-            <Swords className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-extrabold text-white">Head-to-Head Comparison</h1>
-            <p className="text-sm text-slate-400 mt-1">
-              Compare cognitive signatures, tilt resilience, and collapse vulnerability side-by-side
-            </p>
-          </div>
-        </div>
+    <div className="space-y-6">
+      {/* ── Header ───────────────────────────────────────────── */}
+      <div>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--ct-text-primary)' }}>
+          Head-to-Head Comparison
+        </h1>
+        <p className="text-sm mt-1" style={{ color: 'var(--ct-text-muted)' }}>
+          Compare cognitive signatures, tilt resilience, and collapse vulnerability side-by-side.
+        </p>
+      </div>
 
-        <form onSubmit={handleCompareSubmit} className="flex flex-wrap gap-3 items-center">
-          <input
-            type="text"
-            placeholder="Player 1..."
-            value={user1}
-            onChange={(e) => setUser1(e.target.value)}
-            className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 w-36"
-          />
-          <span className="text-xs font-bold text-pink-400">VS</span>
-          <input
-            type="text"
-            placeholder="Player 2..."
-            value={user2}
-            onChange={(e) => setUser2(e.target.value)}
-            className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 w-36"
-          />
+      {/* ── Compare Form ─────────────────────────────────────── */}
+      <div className="glass-panel rounded-2xl p-6">
+        <form onSubmit={handleCompareSubmit} className="flex flex-wrap items-end gap-4">
+          <div className="flex-1 min-w-[160px]">
+            <label className="text-xs uppercase font-semibold tracking-wider mb-2 block" style={{ color: 'var(--ct-text-muted)' }}>
+              Player 1
+            </label>
+            <input
+              type="text"
+              placeholder="Username…"
+              value={user1}
+              onChange={(e) => setUser1(e.target.value)}
+              className="input-app w-full"
+            />
+          </div>
+
+          <div className="flex items-center pb-2">
+            <span className="text-xl font-black" style={{ color: 'var(--ct-gold)' }}>VS</span>
+          </div>
+
+          <div className="flex-1 min-w-[160px]">
+            <label className="text-xs uppercase font-semibold tracking-wider mb-2 block" style={{ color: 'var(--ct-text-muted)' }}>
+              Player 2
+            </label>
+            <input
+              type="text"
+              placeholder="Username…"
+              value={user2}
+              onChange={(e) => setUser2(e.target.value)}
+              className="input-app w-full"
+            />
+          </div>
+
           <button
             type="submit"
-            disabled={loading}
-            className="bg-gradient-to-r from-pink-600 to-indigo-600 hover:from-pink-500 hover:to-indigo-500 text-white px-5 py-2 rounded-xl font-medium text-xs transition-all shadow-lg shadow-pink-600/20 disabled:opacity-50"
+            disabled={loading || !user1.trim() || !user2.trim()}
+            className="btn-gold disabled:opacity-50"
           >
-            {loading ? 'Comparing...' : 'Compare Fingerprints'}
+            {loading ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> Comparing…</>
+            ) : (
+              <><Swords className="w-4 h-4" /> Compare Fingerprints</>
+            )}
           </button>
         </form>
       </div>
 
-      {/* Comparison Grid */}
-      {result && (
-        <div className="space-y-6">
-          {/* Battle Summary Verdict */}
-          <div className="glass-panel p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-indigo-500/30 text-center space-y-2">
-            <span className="text-xs uppercase font-bold text-indigo-400 tracking-wider flex items-center justify-center gap-1.5">
-              <Trophy className="w-4 h-4 text-amber-400" />
-              Pressure Resilience Analysis
-            </span>
-            <h2 className="text-2xl font-bold text-white">
-              Who Collapses First Under Time Pressure?
-            </h2>
-            <p className="text-sm text-indigo-300 font-semibold italic">
-              {result.head_to_head_summary.comparison_verdict}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Player 1 Card */}
-            <div className="glass-panel p-6 rounded-2xl space-y-4 border-l-4 border-l-indigo-500">
-              <div className="flex justify-between items-center">
-                <h3 className="text-2xl font-bold text-white">{result.player1.username}</h3>
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                  {result.player1.archetype}
-                </span>
+      {/* ── Results ──────────────────────────────────────────── */}
+      <AnimatePresence>
+        {result && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            className="space-y-5"
+          >
+            {/* Verdict Banner */}
+            <div
+              className="glass-panel rounded-2xl px-6 py-5 text-center space-y-2"
+              style={{ borderColor: 'rgba(232,182,106,0.15)' }}
+            >
+              <div className="flex items-center justify-center gap-2 text-xs uppercase font-bold tracking-wider" style={{ color: 'var(--ct-gold)' }}>
+                <Trophy className="w-4 h-4" />
+                Pressure Resilience Analysis
               </div>
-
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-                  <span className="text-slate-400">Normal Think Pace</span>
-                  <p className="text-lg font-bold text-white mt-1">
-                    {result.player1.normal_think_pace_sec.toFixed(2)}s
-                  </p>
-                </div>
-                <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-                  <span className="text-slate-400">Post-Blunder Pace</span>
-                  <p className="text-lg font-bold text-rose-400 mt-1">
-                    {result.player1.post_blunder_pace_sec.toFixed(2)}s
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 text-xs flex justify-between items-center">
-                <span className="text-slate-300">Tilt Speedup Factor</span>
-                <span className="font-bold text-rose-400">
-                  {result.player1.tilt_speedup_pct.toFixed(1)}% speedup
-                </span>
-              </div>
+              <h2 className="text-xl font-bold" style={{ color: 'var(--ct-text-primary)' }}>
+                Who Collapses First Under Time Pressure?
+              </h2>
+              <p className="text-sm italic max-w-lg mx-auto" style={{ color: 'var(--ct-text-secondary)' }}>
+                {result.head_to_head_summary.comparison_verdict}
+              </p>
             </div>
 
-            {/* Player 2 Card */}
-            <div className="glass-panel p-6 rounded-2xl space-y-4 border-l-4 border-l-pink-500">
-              <div className="flex justify-between items-center">
-                <h3 className="text-2xl font-bold text-white">{result.player2.username}</h3>
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-pink-500/20 text-pink-300 border border-pink-500/30">
-                  {result.player2.archetype}
-                </span>
-              </div>
+            {/* Player Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {[
+                { player: result.player1, accent: 'var(--ct-gold)', borderAccent: 'rgba(232,182,106,0.4)' },
+                { player: result.player2, accent: '#A5ADC6', borderAccent: 'rgba(165,173,198,0.3)' },
+              ].map(({ player, accent, borderAccent }) => (
+                <div
+                  key={player.username}
+                  className="glass-panel rounded-2xl p-5 space-y-4"
+                  style={{ borderLeft: `3px solid ${accent}` }}
+                >
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-xl font-bold" style={{ color: 'var(--ct-text-primary)' }}>
+                      {player.username}
+                    </h3>
+                    <span
+                      className="px-3 py-1 rounded-full text-xs font-bold"
+                      style={{
+                        background: `${accent}18`,
+                        color: accent,
+                        border: `1px solid ${borderAccent}`,
+                      }}
+                    >
+                      {player.archetype}
+                    </span>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-                  <span className="text-slate-400">Normal Think Pace</span>
-                  <p className="text-lg font-bold text-white mt-1">
-                    {result.player2.normal_think_pace_sec.toFixed(2)}s
-                  </p>
-                </div>
-                <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-                  <span className="text-slate-400">Post-Blunder Pace</span>
-                  <p className="text-lg font-bold text-pink-400 mt-1">
-                    {result.player2.post_blunder_pace_sec.toFixed(2)}s
-                  </p>
-                </div>
-              </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { icon: <Clock className="w-4 h-4" />, label: 'Normal Think Pace', value: `${player.normal_think_pace_sec.toFixed(2)}s`, color: 'var(--ct-text-primary)' },
+                      { icon: <TrendingDown className="w-4 h-4" />, label: 'Post-Blunder Pace', value: `${player.post_blunder_pace_sec.toFixed(2)}s`, color: '#EF4444' },
+                    ].map((stat) => (
+                      <div
+                        key={stat.label}
+                        className="rounded-xl p-3"
+                        style={{ background: 'var(--ct-navy)', border: '1px solid rgba(255,255,255,0.05)' }}
+                      >
+                        <div className="flex items-center gap-1.5 mb-1" style={{ color: 'var(--ct-text-muted)' }}>
+                          {stat.icon}
+                          <span className="text-xs">{stat.label}</span>
+                        </div>
+                        <p className="text-xl font-bold font-mono" style={{ color: stat.color }}>
+                          {stat.value}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
 
-              <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 text-xs flex justify-between items-center">
-                <span className="text-slate-300">Tilt Speedup Factor</span>
-                <span className="font-bold text-pink-400">
-                  {result.player2.tilt_speedup_pct.toFixed(1)}% speedup
-                </span>
-              </div>
+                  <div
+                    className="flex justify-between items-center px-4 py-3 rounded-xl text-sm"
+                    style={{ background: 'var(--ct-navy)', border: '1px solid rgba(255,255,255,0.05)' }}
+                  >
+                    <div className="flex items-center gap-2" style={{ color: 'var(--ct-text-muted)' }}>
+                      <Zap className="w-4 h-4" />
+                      <span>Tilt Speedup</span>
+                    </div>
+                    <span className="font-bold font-mono" style={{ color: '#EF4444' }}>
+                      {player.tilt_speedup_pct.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
 
-          {/* Verdict Card */}
-          <div className="mt-6 glass-panel p-6 rounded-2xl bg-gradient-to-r from-indigo-900/40 via-purple-900/40 to-pink-900/40 border border-white/10 text-center shadow-2xl">
-            <h3 className="text-xl font-bold text-white mb-2 flex items-center justify-center gap-2">
-              <Swords className="w-6 h-6 text-pink-400" />
-              Verdict: Who Collapses First?
-            </h3>
-            <p className="text-slate-300">
-              {result.head_to_head_summary.tilt_vulnerability_winner === "Equal pressure resilience"
-                ? "Both players show equal resilience under pressure."
-                : <><strong className="text-pink-400">{result.head_to_head_summary.tilt_vulnerability_winner}</strong> is statistically more likely to collapse under time pressure and tilt after a blunder.</>
-              }
-            </p>
-          </div>
-        </div>
-      )}
+            {/* Final Verdict */}
+            <div
+              className="glass-panel rounded-2xl p-6 text-center space-y-3"
+              style={{ borderColor: 'rgba(232,182,106,0.2)' }}
+            >
+              <h3 className="text-base font-bold flex items-center justify-center gap-2" style={{ color: 'var(--ct-text-primary)' }}>
+                <Swords className="w-5 h-5" style={{ color: 'var(--ct-gold)' }} />
+                Verdict: Who Collapses First?
+              </h3>
+              <p style={{ color: 'var(--ct-text-secondary)' }}>
+                {result.head_to_head_summary.tilt_vulnerability_winner === 'Equal pressure resilience'
+                  ? 'Both players show equal resilience under pressure.'
+                  : (
+                    <>
+                      <strong style={{ color: 'var(--ct-gold)' }}>
+                        {result.head_to_head_summary.tilt_vulnerability_winner}
+                      </strong>{' '}
+                      is statistically more likely to collapse under time pressure and tilt after a blunder.
+                    </>
+                  )}
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

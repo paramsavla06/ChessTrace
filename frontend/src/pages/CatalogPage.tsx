@@ -1,5 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { Upload, Download, Database, Play, User, Search, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Upload,
+  Download,
+  Database,
+  Play,
+  User,
+  Search,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  FileText,
+} from 'lucide-react';
 import { api } from '../api/client';
 import type { GameSummary } from '../api/client';
 
@@ -9,13 +21,35 @@ interface CatalogPageProps {
   currentUser?: string;
 }
 
-export const CatalogPage: React.FC<CatalogPageProps> = ({ onSelectGame, onSelectProfile, currentUser }) => {
+function ResultBadge({ result }: { result: string }) {
+  const cfg =
+    result === '1-0'
+      ? { text: '1-0', cls: 'text-[#E8B66A] bg-[#E8B66A]/10 border-[#E8B66A]/20' }
+      : result === '0-1'
+      ? { text: '0-1', cls: 'text-[#A5ADC6] bg-[#A5ADC6]/10 border-[#A5ADC6]/20' }
+      : { text: '½-½', cls: 'text-[#30C670] bg-[#30C670]/10 border-[#30C670]/20' };
+  return (
+    <span
+      className={`px-2.5 py-0.5 rounded-md text-xs font-bold font-mono border ${cfg.cls}`}
+    >
+      {cfg.text}
+    </span>
+  );
+}
+
+export const CatalogPage: React.FC<CatalogPageProps> = ({
+  onSelectGame,
+  onSelectProfile,
+  currentUser,
+}) => {
   const [games, setGames] = useState<GameSummary[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [uploading, setUploading] = useState<boolean>(false);
-  const [lichessUser, setLichessUser] = useState<string>('');
-  const [filterUser, setFilterUser] = useState<string>(currentUser || '');
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [lichessUser, setLichessUser] = useState('');
+  const [filterUser, setFilterUser] = useState(currentUser || '');
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchGames = async () => {
     setLoading(true);
@@ -24,58 +58,58 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({ onSelectGame, onSelect
         params: filterUser ? { username: filterUser } : {},
       });
       setGames(response.data);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed fetching games', err);
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => { fetchGames(); }, [filterUser]);
   useEffect(() => {
-    fetchGames();
-  }, [filterUser]);
-
-  useEffect(() => {
-    if (currentUser !== undefined) {
-      setFilterUser(currentUser);
-    }
+    if (currentUser !== undefined) setFilterUser(currentUser);
   }, [currentUser]);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-    const file = e.target.files[0];
+  const uploadFile = async (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-
     setUploading(true);
     setMessage(null);
-
     try {
       const response = await api.post('/upload/pgn', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setMessage({
-        text: `Successfully imported ${response.data.imported} games (${response.data.skipped} skipped).`,
+        text: `Successfully imported ${response.data.imported} game${response.data.imported !== 1 ? 's' : ''} (${response.data.skipped} skipped).`,
         type: 'success',
       });
       fetchGames();
     } catch (err: any) {
-      setMessage({
-        text: err.response?.data?.detail || 'Failed importing PGN file.',
-        type: 'error',
-      });
+      setMessage({ text: err.response?.data?.detail || 'Failed importing PGN file.', type: 'error' });
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.[0]) return;
+    uploadFile(e.target.files[0]);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && (file.name.endsWith('.pgn') || file.name.endsWith('.txt'))) {
+      uploadFile(file);
     }
   };
 
   const handleLichessFetch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!lichessUser.trim()) return;
-
     setUploading(true);
     setMessage(null);
-
     try {
       const response = await api.post(`/upload/lichess/${lichessUser.trim()}?max_games=50`);
       setMessage({
@@ -95,198 +129,359 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({ onSelectGame, onSelect
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-8 space-y-8 font-sans">
-      {/* First-Time User Onboarding Banner */}
-      <div className="glass-panel p-6 rounded-2xl bg-gradient-to-r from-indigo-950/60 via-slate-900 to-slate-900 border border-indigo-500/30 flex flex-wrap items-center justify-between gap-6">
-        <div className="space-y-2 max-w-3xl">
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-bold font-mono border border-indigo-500/30">
-              Welcome to ChessTrace
-            </span>
-            <span className="text-xs text-slate-400 font-mono">• Human Cognition & Collapse Intelligence</span>
-          </div>
-          <h2 className="text-xl font-extrabold text-white">
-            Analyze Time Pressure, Blunder Collapse Risks, and Cognitive Fingerprints
-          </h2>
-          <p className="text-xs text-slate-300">
-            ChessTrace combines Stockfish 18 evaluations with 8 XGBoost ML models trained on 500k+ move plies to decode human time-stress behavior, SHAP plain-English explanations, counterfactual what-if branches, and grandmaster style matches.
-          </p>
-        </div>
-
-        <button
-          onClick={() => onSelectGame(1)}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 text-white font-bold text-xs transition-all shadow-lg shadow-indigo-600/30"
-        >
-          <Play className="w-4 h-4 fill-white" />
-          <span>Launch Demo Game Review</span>
-        </button>
+    <div className="space-y-6">
+      {/* ── Page Header ──────────────────────────────────────── */}
+      <div>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--ct-text-primary)', fontFamily: 'var(--font-sans)' }}>
+          Import &amp; Catalog
+        </h1>
+        <p className="text-sm mt-1" style={{ color: 'var(--ct-text-muted)' }}>
+          Upload PGN files or fetch from Lichess to analyze your games.
+        </p>
       </div>
-      {/* Header Notification */}
-      {message && (
-        <div
-          className={`p-4 rounded-xl flex items-center gap-3 border ${
-            message.type === 'success'
-              ? 'bg-emerald-950/40 border-emerald-800 text-emerald-300'
-              : 'bg-rose-950/40 border-rose-800 text-rose-300'
-          }`}
-        >
-          <AlertCircle className="w-5 h-5 flex-shrink-0" />
-          <p className="text-sm font-medium">{message.text}</p>
-        </div>
-      )}
 
-      {/* Top Controls Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* PGN Drag & Drop */}
-        <div className="glass-panel p-6 rounded-2xl flex flex-col justify-between space-y-4">
+      {/* ── Status Message ───────────────────────────────────── */}
+      <AnimatePresence>
+        {message && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.25 }}
+            className={`flex items-start gap-3 px-5 py-4 rounded-xl border text-sm ${
+              message.type === 'success'
+                ? 'bg-[#30C670]/8 border-[#30C670]/20 text-[#30C670]'
+                : 'bg-[#DC2626]/8 border-[#DC2626]/20 text-[#EF4444]'
+            }`}
+          >
+            {message.type === 'success' ? (
+              <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-0.5" />
+            ) : (
+              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+            )}
+            <p>{message.text}</p>
+            <button
+              onClick={() => setMessage(null)}
+              className="ml-auto text-current opacity-60 hover:opacity-100 transition-opacity"
+            >
+              ✕
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Import Controls ──────────────────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {/* PGN Upload */}
+        <div className="glass-panel rounded-2xl p-6 space-y-4">
           <div className="flex items-center gap-3">
-            <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
-              <Upload className="w-6 h-6" />
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ background: 'rgba(232,182,106,0.1)', border: '1px solid rgba(232,182,106,0.2)' }}
+            >
+              <FileText className="w-5 h-5" style={{ color: 'var(--ct-gold)' }} />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-white">Upload PGN File</h2>
-              <p className="text-sm text-slate-400">Upload standalone PGN files with clock timestamps (%clk)</p>
+              <h2 className="text-sm font-semibold" style={{ color: 'var(--ct-text-primary)' }}>
+                Upload PGN File
+              </h2>
+              <p className="text-xs" style={{ color: 'var(--ct-text-muted)' }}>
+                Supports multi-game PGN files with clock timestamps
+              </p>
             </div>
           </div>
 
-          <label className="border-2 border-dashed border-slate-700 hover:border-indigo-500 rounded-xl p-6 text-center cursor-pointer transition-colors block bg-slate-900/30">
-            <input type="file" accept=".pgn,.txt" onChange={handleFileUpload} className="hidden" />
-            <p className="text-sm text-slate-300 font-medium">
-              {uploading ? 'Processing PGN dataset...' : 'Click to browse or drop PGN file here'}
-            </p>
-            <p className="text-xs text-slate-500 mt-1">Supports multi-game PGN files</p>
-          </label>
+          <div
+            role="button"
+            tabIndex={0}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            onClick={() => !uploading && fileInputRef.current?.click()}
+            onKeyDown={(e) => e.key === 'Enter' && !uploading && fileInputRef.current?.click()}
+            className={`rounded-xl p-8 text-center cursor-pointer transition-all duration-200 border-2 border-dashed ${
+              dragOver
+                ? 'border-[#E8B66A]/60 bg-[#E8B66A]/5'
+                : 'border-white/[0.08] hover:border-[#E8B66A]/30 hover:bg-white/[0.02]'
+            }`}
+            aria-label="Upload PGN file"
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pgn,.txt"
+              onChange={handleFileUpload}
+              className="hidden"
+              disabled={uploading}
+            />
+            {uploading ? (
+              <div className="flex flex-col items-center gap-3">
+                <Loader2
+                  className="w-8 h-8 animate-spin"
+                  style={{ color: 'var(--ct-gold)' }}
+                />
+                <p className="text-sm font-medium" style={{ color: 'var(--ct-text-secondary)' }}>
+                  Processing PGN dataset…
+                </p>
+              </div>
+            ) : (
+              <>
+                <Upload className="w-8 h-8 mx-auto mb-3" style={{ color: 'var(--ct-text-muted)' }} />
+                <p className="text-sm font-medium" style={{ color: 'var(--ct-text-secondary)' }}>
+                  Click to browse or drag &amp; drop
+                </p>
+                <p className="text-xs mt-1" style={{ color: 'var(--ct-text-muted)' }}>
+                  .pgn or .txt files accepted
+                </p>
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Lichess Auto-Import */}
-        <div className="glass-panel p-6 rounded-2xl flex flex-col justify-between space-y-4">
+        {/* Lichess Import */}
+        <div className="glass-panel rounded-2xl p-6 space-y-4">
           <div className="flex items-center gap-3">
-            <div className="p-3 rounded-xl bg-pink-500/10 border border-pink-500/20 text-pink-400">
-              <Download className="w-6 h-6" />
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ background: 'rgba(165,173,198,0.1)', border: '1px solid rgba(165,173,198,0.15)' }}
+            >
+              <Download className="w-5 h-5" style={{ color: 'var(--ct-text-secondary)' }} />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-white">Import from Lichess</h2>
-              <p className="text-sm text-slate-400">Auto-fetch public game history with clock data</p>
+              <h2 className="text-sm font-semibold" style={{ color: 'var(--ct-text-primary)' }}>
+                Import from Lichess
+              </h2>
+              <p className="text-xs" style={{ color: 'var(--ct-text-muted)' }}>
+                Auto-fetch public game history with clock data (up to 50 games)
+              </p>
             </div>
           </div>
 
-          <form onSubmit={handleLichessFetch} className="flex gap-3">
+          <form onSubmit={handleLichessFetch} className="space-y-3">
             <input
               type="text"
               placeholder="Lichess username (e.g. MagnusCarlsen)"
               value={lichessUser}
               onChange={(e) => setLichessUser(e.target.value)}
-              className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+              className="input-app w-full"
             />
             <button
               type="submit"
-              disabled={uploading}
-              className="bg-gradient-to-r from-pink-600 to-indigo-600 hover:from-pink-500 hover:to-indigo-500 text-white px-5 py-2.5 rounded-xl font-medium text-sm transition-all shadow-lg shadow-pink-600/20 disabled:opacity-50"
+              disabled={uploading || !lichessUser.trim()}
+              className="btn-gold w-full justify-center disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {uploading ? 'Fetching...' : 'Fetch'}
+              {uploading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Fetching…
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4" />
+                  Fetch Games
+                </>
+              )}
             </button>
           </form>
+
+          {/* Demo Game Button */}
+          <button
+            onClick={() => onSelectGame(1)}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200"
+            style={{
+              background: 'rgba(232,182,106,0.06)',
+              border: '1px solid rgba(232,182,106,0.15)',
+              color: 'var(--ct-gold)',
+            }}
+          >
+            <Play className="w-4 h-4 fill-current" />
+            Open Demo Game Review
+          </button>
         </div>
       </div>
 
-      {/* Catalog Table */}
-      <div className="glass-panel p-6 rounded-2xl space-y-6">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      {/* ── Games Catalog ────────────────────────────────────── */}
+      <div className="glass-panel rounded-2xl overflow-hidden">
+        {/* Catalog Header */}
+        <div
+          className="px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b"
+          style={{ borderColor: 'rgba(255,255,255,0.05)' }}
+        >
           <div className="flex items-center gap-3">
-            <Database className="w-5 h-5 text-indigo-400" />
-            <h2 className="text-lg font-semibold text-white">Stored Games Catalog</h2>
-            <span className="bg-slate-800 text-slate-300 text-xs px-2.5 py-1 rounded-full font-medium">
-              {games.length} games
+            <Database className="w-4 h-4" style={{ color: 'var(--ct-gold)' }} />
+            <span className="text-sm font-semibold" style={{ color: 'var(--ct-text-primary)' }}>
+              Stored Games
+            </span>
+            <span
+              className="px-2.5 py-0.5 rounded-md text-xs font-bold font-mono"
+              style={{
+                background: 'rgba(232,182,106,0.1)',
+                color: 'var(--ct-gold)',
+                border: '1px solid rgba(232,182,106,0.2)',
+              }}
+            >
+              {games.length}
             </span>
           </div>
 
-          <div className="relative w-full md:w-64">
-            <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-500" />
+          <div className="relative w-full sm:w-56">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5"
+              style={{ color: 'var(--ct-text-muted)' }}
+            />
             <input
               type="text"
-              placeholder="Filter by player..."
+              placeholder="Filter by player…"
               value={filterUser}
               onChange={(e) => setFilterUser(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+              className="input-app pl-9 w-full text-xs"
             />
           </div>
         </div>
 
+        {/* Catalog Content */}
         {loading ? (
-          <div className="py-12 text-center text-slate-500 text-sm">Loading games catalog...</div>
+          <div className="py-16 flex flex-col items-center gap-4">
+            <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--ct-gold)' }} />
+            <p className="text-sm" style={{ color: 'var(--ct-text-muted)' }}>
+              Loading game catalog…
+            </p>
+          </div>
         ) : games.length === 0 ? (
-          <div className="py-12 text-center text-slate-500 text-sm">
-            No games stored in database. Upload a PGN or import from Lichess above!
+          <div className="py-16 text-center space-y-3">
+            <Database className="w-12 h-12 mx-auto opacity-20" style={{ color: 'var(--ct-text-muted)' }} />
+            <p className="text-sm font-medium" style={{ color: 'var(--ct-text-secondary)' }}>
+              No games found
+            </p>
+            <p className="text-xs" style={{ color: 'var(--ct-text-muted)' }}>
+              {filterUser ? `No games found for "${filterUser}". Try a different filter.` : 'Upload a PGN or import from Lichess above.'}
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-300">
-              <thead className="bg-slate-900/60 text-xs uppercase text-slate-400 border-b border-slate-800">
-                <tr>
-                  <th className="py-3.5 px-4 font-semibold">ID</th>
-                  <th className="py-3.5 px-4 font-semibold">Event</th>
-                  <th className="py-3.5 px-4 font-semibold">White</th>
-                  <th className="py-3.5 px-4 font-semibold">Black</th>
-                  <th className="py-3.5 px-4 font-semibold">Result</th>
-                  <th className="py-3.5 px-4 font-semibold">TC</th>
-                  <th className="py-3.5 px-4 font-semibold">Moves</th>
-                  <th className="py-3.5 px-4 font-semibold text-right">Actions</th>
+            <table className="w-full text-sm">
+              <thead>
+                <tr
+                  className="text-xs uppercase tracking-wider"
+                  style={{
+                    background: 'rgba(255,255,255,0.02)',
+                    color: 'var(--ct-text-muted)',
+                    borderBottom: '1px solid rgba(255,255,255,0.05)',
+                  }}
+                >
+                  <th className="px-5 py-3 text-left font-semibold">ID</th>
+                  <th className="px-5 py-3 text-left font-semibold">Event</th>
+                  <th className="px-5 py-3 text-left font-semibold">White</th>
+                  <th className="px-5 py-3 text-left font-semibold">Black</th>
+                  <th className="px-5 py-3 text-left font-semibold">Result</th>
+                  <th className="px-5 py-3 text-left font-semibold">TC</th>
+                  <th className="px-5 py-3 text-left font-semibold">Moves</th>
+                  <th className="px-5 py-3 text-right font-semibold">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/50">
-                {games.map((g) => (
-                  <tr key={g.id} className="hover:bg-slate-800/30 transition-colors">
-                    <td className="py-3.5 px-4 text-xs font-mono text-slate-400">#{g.id}</td>
-                    <td className="py-3.5 px-4 font-medium text-white truncate max-w-[180px]">
+              <tbody>
+                {games.map((g, i) => (
+                  <motion.tr
+                    key={g.id}
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2, delay: Math.min(i * 0.03, 0.4) }}
+                    className="group transition-colors duration-150"
+                    style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background = 'rgba(255,255,255,0.025)')
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = 'transparent')
+                    }
+                  >
+                    <td className="px-5 py-3.5">
+                      <span
+                        className="text-xs font-mono"
+                        style={{ color: 'var(--ct-text-muted)' }}
+                      >
+                        #{g.id}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2">
-                        <span className="truncate">{g.event || 'Standard Game'}</span>
+                        <span
+                          className="font-medium truncate max-w-[160px]"
+                          style={{ color: 'var(--ct-text-primary)' }}
+                        >
+                          {g.event || 'Standard Game'}
+                        </span>
                         {g.event === 'Live Spectate Export' && (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-400 border border-rose-500/30 whitespace-nowrap">
-                            Live Export
+                          <span className="text-[10px] px-1.5 py-0.5 rounded font-bold border"
+                            style={{ background: 'rgba(236,72,153,0.1)', color: '#f472b6', borderColor: 'rgba(236,72,153,0.25)' }}>
+                            Live
                           </span>
                         )}
                         {g.site === 'Chess.com' && (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 whitespace-nowrap">
-                            Chess.com Import
+                          <span className="text-[10px] px-1.5 py-0.5 rounded font-bold border"
+                            style={{ background: 'rgba(48,198,112,0.1)', color: '#30C670', borderColor: 'rgba(48,198,112,0.25)' }}>
+                            Chess.com
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="py-3.5 px-4">
+                    <td className="px-5 py-3.5">
                       <button
                         onClick={() => g.white_player && onSelectProfile(g.white_player)}
-                        className="hover:text-indigo-400 hover:underline flex items-center gap-1.5"
+                        className="flex items-center gap-1.5 transition-colors duration-150 group/player"
+                        style={{ color: 'var(--ct-text-secondary)' }}
                       >
-                        <User className="w-3.5 h-3.5 text-slate-500" />
-                        {g.white_player || 'White'}
-                        {g.white_elo && <span className="text-xs text-slate-500">({g.white_elo})</span>}
+                        <User className="w-3.5 h-3.5 opacity-50" />
+                        <span className="group-hover/player:text-[#E8B66A] transition-colors">
+                          {g.white_player || 'White'}
+                        </span>
+                        {g.white_elo && (
+                          <span className="text-xs" style={{ color: 'var(--ct-text-muted)' }}>
+                            ({g.white_elo})
+                          </span>
+                        )}
                       </button>
                     </td>
-                    <td className="py-3.5 px-4">
+                    <td className="px-5 py-3.5">
                       <button
                         onClick={() => g.black_player && onSelectProfile(g.black_player)}
-                        className="hover:text-indigo-400 hover:underline flex items-center gap-1.5"
+                        className="flex items-center gap-1.5 transition-colors duration-150 group/player"
+                        style={{ color: 'var(--ct-text-secondary)' }}
                       >
-                        <User className="w-3.5 h-3.5 text-slate-500" />
-                        {g.black_player || 'Black'}
-                        {g.black_elo && <span className="text-xs text-slate-500">({g.black_elo})</span>}
+                        <User className="w-3.5 h-3.5 opacity-50" />
+                        <span className="group-hover/player:text-[#E8B66A] transition-colors">
+                          {g.black_player || 'Black'}
+                        </span>
+                        {g.black_elo && (
+                          <span className="text-xs" style={{ color: 'var(--ct-text-muted)' }}>
+                            ({g.black_elo})
+                          </span>
+                        )}
                       </button>
                     </td>
-                    <td className="py-3.5 px-4 font-mono text-xs font-semibold text-indigo-300">
-                      {g.result}
+                    <td className="px-5 py-3.5">
+                      <ResultBadge result={g.result} />
                     </td>
-                    <td className="py-3.5 px-4 text-xs text-slate-400">{g.time_control || 'Blitz'}</td>
-                    <td className="py-3.5 px-4 text-xs text-slate-400">{g.move_count}</td>
-                    <td className="py-3.5 px-4 text-right">
+                    <td className="px-5 py-3.5">
+                      <span className="text-xs font-mono" style={{ color: 'var(--ct-text-muted)' }}>
+                        {g.time_control || 'Blitz'}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span className="text-xs font-mono" style={{ color: 'var(--ct-text-muted)' }}>
+                        {g.move_count}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 text-right">
                       <button
                         onClick={() => onSelectGame(g.id)}
-                        className="inline-flex items-center gap-1.5 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-all border border-indigo-500/30"
+                        className="btn-gold py-1.5 px-3 text-xs"
                       >
-                        <Play className="w-3.5 h-3.5" />
+                        <Play className="w-3.5 h-3.5 fill-current" />
                         Review
                       </button>
                     </td>
-                  </tr>
+                  </motion.tr>
                 ))}
               </tbody>
             </table>

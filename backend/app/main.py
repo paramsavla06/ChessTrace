@@ -62,3 +62,10 @@ async def global_exception_handler(request: Request, exc: Exception):
 def root() -> dict[str, str]:
     """Root application greeting endpoint."""
     return {"message": f"Welcome to {PROJECT_NAME} API. Access API docs at /docs."}
+
+
+if __name__ == "__main__":
+    import os
+    import uvicorn
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=False)

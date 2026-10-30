@@ -63,6 +63,23 @@ class ExplanationResult:
     top_negative_factors: list[FeatureImpact]
 
 
+_SHARED_TREE_EXPLAINER: shap.TreeExplainer | None = None
+
+
+def get_shared_tree_explainer(model: Any) -> shap.TreeExplainer | None:
+    """Return globally cached SHAP TreeExplainer instance to avoid costly re-instantiation per request."""
+    global _SHARED_TREE_EXPLAINER
+    if _SHARED_TREE_EXPLAINER is not None:
+        return _SHARED_TREE_EXPLAINER
+    if model is not None:
+        try:
+            _SHARED_TREE_EXPLAINER = shap.TreeExplainer(model)
+            logger.info("Initialized shared SHAP TreeExplainer successfully.")
+        except Exception as exc:
+            logger.warning("Could not initialize SHAP TreeExplainer: %s", exc)
+    return _SHARED_TREE_EXPLAINER
+
+
 class ShapExplainer:
     """
     SHAP TreeExplainer wrapper providing natural language predictions explanations.
@@ -70,13 +87,38 @@ class ShapExplainer:
 
     def __init__(self, predictor: WinCollapsePredictor) -> None:
         self.predictor = predictor
-        self._tree_explainer: shap.TreeExplainer | None = None
+        self._tree_explainer: shap.TreeExplainer | None = (
+            get_shared_tree_explainer(predictor.model)
+            if predictor.model is not None
+            else None
+        )
 
-        if predictor.model is not None:
-            try:
-                self._tree_explainer = shap.TreeExplainer(predictor.model)
-            except Exception as exc:
-                logger.warning("Could not initialize SHAP TreeExplainer: %s", exc)
+    def _heuristic_shap(self, X: pd.DataFrame) -> np.ndarray:
+        """Heuristic SHAP proxy when TreeExplainer is unavailable."""
+        shap_values = np.zeros(len(FEATURE_COLUMNS))
+        for idx, col in enumerate(FEATURE_COLUMNS):
+            val = float(X[col].iloc[0])
+            if col == "material_balance":
+                shap_values[idx] = val * 0.12
+            elif col == "white_center_control":
+                shap_values[idx] = val * 0.04
+            elif col == "black_center_control":
+                shap_values[idx] = -val * 0.04
+            elif col == "white_mobility":
+                shap_values[idx] = (val - 15.0) * 0.01
+            elif col == "black_mobility":
+                shap_values[idx] = -(val - 15.0) * 0.01
+            elif col == "white_pawn_shield":
+                shap_values[idx] = (val - 2.0) * 0.05
+            elif col == "black_pawn_shield":
+                shap_values[idx] = -(val - 2.0) * 0.05
+            elif col == "is_time_pressure_30s" and val == 1:
+                shap_values[idx] = -0.28
+            elif col == "is_time_pressure_60s" and val == 1:
+                shap_values[idx] = -0.18
+            elif col == "think_time_deviation" and abs(val) > 1.5:
+                shap_values[idx] = -0.12 if val > 0 else 0.08
+        return shap_values
 
     def explain(
         self,
@@ -90,33 +132,14 @@ class ShapExplainer:
 
         if self._tree_explainer is not None:
             # Use real SHAP values from trained tree model
-            raw_shap = self._tree_explainer.shap_values(X)
-            shap_values = np.array(raw_shap[0] if isinstance(raw_shap, list) else raw_shap).flatten()
+            try:
+                raw_shap = self._tree_explainer.shap_values(X, check_additivity=False)
+                shap_values = np.array(raw_shap[0] if isinstance(raw_shap, list) else raw_shap).flatten()
+            except Exception as exc:
+                logger.warning("SHAP calculation error, falling back to heuristic: %s", exc)
+                shap_values = self._heuristic_shap(X)
         else:
-            # Heuristic SHAP proxy when no model is loaded
-            shap_values = np.zeros(len(FEATURE_COLUMNS))
-            for idx, col in enumerate(FEATURE_COLUMNS):
-                val = float(X[col].iloc[0])
-                if col == "material_balance":
-                    shap_values[idx] = val * 0.12
-                elif col == "white_center_control":
-                    shap_values[idx] = val * 0.04
-                elif col == "black_center_control":
-                    shap_values[idx] = -val * 0.04
-                elif col == "white_mobility":
-                    shap_values[idx] = (val - 15.0) * 0.01
-                elif col == "black_mobility":
-                    shap_values[idx] = -(val - 15.0) * 0.01
-                elif col == "white_pawn_shield":
-                    shap_values[idx] = (val - 2.0) * 0.05
-                elif col == "black_pawn_shield":
-                    shap_values[idx] = -(val - 2.0) * 0.05
-                elif col == "is_time_pressure_30s" and val == 1:
-                    shap_values[idx] = -0.28
-                elif col == "is_time_pressure_60s" and val == 1:
-                    shap_values[idx] = -0.18
-                elif col == "think_time_deviation" and abs(val) > 1.5:
-                    shap_values[idx] = -0.12 if val > 0 else 0.08
+            shap_values = self._heuristic_shap(X)
 
         impacts: list[FeatureImpact] = []
         for idx, col in enumerate(FEATURE_COLUMNS):

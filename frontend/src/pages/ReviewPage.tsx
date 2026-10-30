@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   AreaChart,
   Area,
@@ -10,6 +11,23 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts';
+import {
+  ChevronLeft,
+  ChevronRight,
+  RotateCcw,
+  Zap,
+  TrendingDown,
+  Brain,
+  Sliders,
+  AlertTriangle,
+  Sparkles,
+  FlipVertical2,
+  User,
+  Download,
+  Loader2,
+} from 'lucide-react';
+import { api } from '../api/client';
+import type { TimelineMove, PredictResponse, WhatIfResponse, EloSimResponse } from '../api/client';
 
 function fenToPositionObj(fen: string): Record<string, string> | 'start' {
   if (!fen || fen === 'start') return 'start';
@@ -28,96 +46,87 @@ function fenToPositionObj(fen: string): Record<string, string> | 'start' {
       }
     }
     return pos;
-  } catch (err) {
+  } catch {
     return 'start';
   }
 }
-import {
-  ChevronLeft,
-  ChevronRight,
-  RotateCcw,
-  Zap,
-  TrendingDown,
-  Brain,
-  Sliders,
-  AlertTriangle,
-  Sparkles,
-  FlipVertical2,
-  User,
-} from 'lucide-react';
-import { api } from '../api/client';
-import type { TimelineMove, PredictResponse, WhatIfResponse, EloSimResponse } from '../api/client';
 
 interface ReviewPageProps {
   gameId: number | null;
   username?: string | null;
 }
 
+// Move classification metadata
+const MOVE_TYPES = [
+  { key: 'brilliant',  label: 'Brilliant',  icon: '!!', color: '#00B5C8', bg: 'rgba(0,181,200,0.12)',  border: 'rgba(0,181,200,0.25)',  text: '#00B5C8' },
+  { key: 'great',      label: 'Great',      icon: '!',  color: '#32A8A8', bg: 'rgba(50,168,168,0.12)', border: 'rgba(50,168,168,0.25)', text: '#32A8A8' },
+  { key: 'book',       label: 'Book',       icon: '📖', color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)',  border: 'rgba(139,92,246,0.25)', text: '#8B5CF6' },
+  { key: 'best',       label: 'Best',       icon: '★',  color: '#30C670', bg: 'rgba(48,198,112,0.12)', border: 'rgba(48,198,112,0.25)', text: '#30C670' },
+  { key: 'excellent',  label: 'Excellent',  icon: '✓+', color: '#7FC97F', bg: 'rgba(127,201,127,0.12)',border: 'rgba(127,201,127,0.25)',text: '#7FC97F' },
+  { key: 'good',       label: 'Good',       icon: '✓',  color: '#4ADE80', bg: 'rgba(74,222,128,0.12)', border: 'rgba(74,222,128,0.25)', text: '#4ADE80' },
+  { key: 'inaccuracy', label: 'Inaccuracy', icon: '?!', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.25)', text: '#F59E0B' },
+  { key: 'mistake',    label: 'Mistake',    icon: '?',  color: '#F97316', bg: 'rgba(249,115,22,0.12)', border: 'rgba(249,115,22,0.25)', text: '#F97316' },
+  { key: 'miss',       label: 'Miss',       icon: '✗',  color: '#EF4444', bg: 'rgba(239,68,68,0.12)',  border: 'rgba(239,68,68,0.25)',  text: '#EF4444' },
+  { key: 'blunder',    label: 'Blunder',    icon: '??', color: '#DC2626', bg: 'rgba(220,38,38,0.12)',  border: 'rgba(220,38,38,0.25)',  text: '#DC2626' },
+];
+
+const getMoveTypeMeta = (cls: string) => MOVE_TYPES.find((t) => t.key === cls) || MOVE_TYPES[3];
+
 export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
   const [allGames, setAllGames] = useState<any[]>([]);
   const [activeGameId, setActiveGameId] = useState<number | null>(gameId);
   const [timeline, setTimeline] = useState<TimelineMove[]>([]);
-  const [boardFlipped, setBoardFlipped] = useState<boolean>(false);
-  // -1 = starting position (before any moves), 0..n-1 = timeline moves
-  const [currentIndex, setCurrentIndex] = useState<number>(-1);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [whatIfLoading, setWhatIfLoading] = useState<boolean>(false);
+  const [boardFlipped, setBoardFlipped] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(-1);
+  const [loading, setLoading] = useState(true);
+  const [whatIfLoading, setWhatIfLoading] = useState(false);
   const [gameMeta, setGameMeta] = useState<any>(null);
-
-  // Advanced Analysis State
   const [prediction, setPrediction] = useState<PredictResponse | null>(null);
   const [whatIfResult, setWhatIfResult] = useState<WhatIfResponse | null>(null);
   const [eloSimResult, setEloSimResult] = useState<EloSimResponse | null>(null);
-  const [altMoveInput, setAltMoveInput] = useState<string>('');
-  const [selectedElo, setSelectedElo] = useState<string>('1600-1800');
+  const [altMoveInput, setAltMoveInput] = useState('');
+  const [selectedElo, setSelectedElo] = useState('1600-1800');
   const boardContainerRef = React.useRef<HTMLDivElement>(null);
+  const moveListRef = React.useRef<HTMLDivElement>(null);
 
-  // Load available games list
+  // Load game list
   useEffect(() => {
     const fetchGamesList = async () => {
       try {
         const url = username ? `/games?username=${username}` : '/games';
         const res = await api.get(url);
         setAllGames(res.data);
-        if (res.data.length > 0 && !activeGameId) {
-          setActiveGameId(res.data[0].id);
-        }
-      } catch (err) {
-        console.error('Failed fetching games list', err);
-      }
+        if (res.data.length > 0 && !activeGameId) setActiveGameId(res.data[0].id);
+      } catch (err) { console.error('Failed fetching games list', err); }
     };
     fetchGamesList();
   }, [username]);
 
+  // Load game data
   useEffect(() => {
     const targetId = activeGameId || gameId;
     if (!targetId) return;
-
     const loadGameData = async () => {
       setLoading(true);
       try {
         const metaRes = await api.get(`/games/${targetId}`);
         setGameMeta(metaRes.data);
-
-        // Ensure the active game is always in the dropdown list even if filtered out by username
         setAllGames(prev => {
           if (prev.some(g => g.id === metaRes.data.id)) return prev;
           const mappedGame = {
             id: metaRes.data.id,
             white_player: typeof metaRes.data.white_player === 'object' && metaRes.data.white_player
-              ? (metaRes.data.white_player.display_name || metaRes.data.white_player.username || "White")
-              : (metaRes.data.white_player || "White"),
+              ? (metaRes.data.white_player.display_name || metaRes.data.white_player.username || 'White')
+              : (metaRes.data.white_player || 'White'),
             black_player: typeof metaRes.data.black_player === 'object' && metaRes.data.black_player
-              ? (metaRes.data.black_player.display_name || metaRes.data.black_player.username || "Black")
-              : (metaRes.data.black_player || "Black"),
-            result: metaRes.data.result || "*"
+              ? (metaRes.data.black_player.display_name || metaRes.data.black_player.username || 'Black')
+              : (metaRes.data.black_player || 'Black'),
+            result: metaRes.data.result || '*',
           };
           return [mappedGame, ...prev];
         });
-
         const timelineRes = await api.get<TimelineMove[]>(`/games/${targetId}/timeline`);
         setTimeline(timelineRes.data);
-        
         const params = new URLSearchParams(window.location.search);
         const plyStr = params.get('ply');
         if (plyStr) {
@@ -136,40 +145,32 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
     loadGameData();
   }, [activeGameId, gameId]);
 
-  // Keyboard Arrow Navigation (ignore when typing in input/select fields)
+  // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const tag = (document.activeElement as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-
-      if (e.key === 'ArrowLeft') {
-        setCurrentIndex((prev) => Math.max(-1, prev - 1));
-      } else if (e.key === 'ArrowRight') {
-        setCurrentIndex((prev) => Math.min(timeline.length - 1, prev + 1));
-      }
+      if (e.key === 'ArrowLeft') setCurrentIndex(prev => Math.max(-1, prev - 1));
+      else if (e.key === 'ArrowRight') setCurrentIndex(prev => Math.min(timeline.length - 1, prev + 1));
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [timeline.length]);
 
-  // Scroll active move into view in the Game Moves list
+  // Scroll active move into view
   useEffect(() => {
     if (currentIndex >= 0) {
-      const activeEl = document.getElementById(`move-${currentIndex}`);
-      if (activeEl) {
-        activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }
+      const el = document.getElementById(`move-${currentIndex}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   }, [currentIndex]);
 
-  const currentMove = timeline[currentIndex] ?? null;  // null at index -1 (start)
+  const currentMove = timeline[currentIndex] ?? null;
 
-  // Run ML Prediction on move change (skip at starting position)
+  // ML Prediction
   useEffect(() => {
     if (!currentMove) { setPrediction(null); return; }
-    
-    setPrediction(null); // Clear old prediction while waiting
-
+    setPrediction(null);
     const timer = setTimeout(async () => {
       try {
         const res = await api.post<PredictResponse>('/analysis/predict', {
@@ -179,20 +180,15 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
           eval_cp: (currentMove as any).eval_cp,
         });
         setPrediction(res.data);
-      } catch (err) {
-        console.error('Prediction failed', err);
-      }
+      } catch (err) { console.error('Prediction failed', err); }
     }, 400);
-
     return () => clearTimeout(timer);
   }, [currentIndex, currentMove]);
 
-  // Run ELO Simulator on target ELO change (skip at starting position)
+  // ELO Sim
   useEffect(() => {
     if (!currentMove) { setEloSimResult(null); return; }
-    
-    setEloSimResult(null); // Clear old simulation while waiting
-
+    setEloSimResult(null);
     const timer = setTimeout(async () => {
       try {
         const res = await api.post<EloSimResponse>('/analysis/elo-sim', {
@@ -203,20 +199,13 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
         });
         setEloSimResult(res.data);
       } catch (err: any) {
-        const tb = err.response?.data?.traceback;
-        if (tb) console.error("ELO SIM SERVER TRACEBACK:", tb);
         console.error('ELO Sim failed', err);
       }
     }, 400);
-
     return () => clearTimeout(timer);
   }, [currentIndex, selectedElo, currentMove]);
 
-  const runWhatIf = async (
-    baseFen: string,
-    actualMove: TimelineMove,
-    altMoveStr: string
-  ) => {
+  const runWhatIf = async (baseFen: string, actualMove: TimelineMove, altMoveStr: string) => {
     setWhatIfLoading(true);
     try {
       const res = await api.post<WhatIfResponse>('/analysis/what-if', {
@@ -230,10 +219,8 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
       });
       setWhatIfResult(res.data);
     } catch (err: any) {
-      const tb = err.response?.data?.traceback;
-      if (tb) console.error("SERVER TRACEBACK:", tb);
-      const errorMsg = err.response?.data?.detail || err.message || 'An unknown error occurred on the server.';
-      alert(`Evaluation failed: ${errorMsg}\n\n${tb ? 'Check console for EXACT server traceback.' : ''}`);
+      const errorMsg = err.response?.data?.detail || err.message || 'An unknown error occurred.';
+      alert(`Evaluation failed: ${errorMsg}`);
     } finally {
       setWhatIfLoading(false);
     }
@@ -242,90 +229,53 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
   const handleWhatIfSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentMove || !altMoveInput.trim() || whatIfLoading) return;
-
     const prevFen = currentIndex > 0
       ? timeline[currentIndex - 1].fen
       : 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-
     await runWhatIf(prevFen, currentMove, altMoveInput);
   };
 
   const onPieceDrop = (sourceSquare: string, targetSquare: string, _piece: string) => {
     const fen = currentMove ? currentMove.fen : 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
     const chess = new Chess(fen);
-    
     try {
-      const moveObj = chess.move({
-        from: sourceSquare,
-        to: targetSquare,
-        promotion: 'q',
-      });
-      
+      const moveObj = chess.move({ from: sourceSquare, to: targetSquare, promotion: 'q' });
       if (!moveObj) return false;
-
       const nextIndex = currentIndex + 1;
       const actualNextMove = nextIndex < timeline.length ? timeline[nextIndex] : null;
-
       if (actualNextMove) {
         if (moveObj.lan !== actualNextMove.uci && moveObj.san !== actualNextMove.san) {
-          // They played an alternative move. Step forward and run what-if.
           setCurrentIndex(nextIndex);
           setAltMoveInput(moveObj.san);
           runWhatIf(fen, actualNextMove, moveObj.san);
         } else {
-          // They played the exact move from the game.
           setCurrentIndex(nextIndex);
           setAltMoveInput('');
           setWhatIfResult(null);
         }
       }
       return true;
-    } catch (e) {
-      // Illegal move or wrong turn
-      return false;
-    }
+    } catch { return false; }
   };
 
-  if (loading) {
-    return (
-      <div className="py-24 text-center text-slate-400">
-        Loading game #{activeGameId || gameId} timeline and neural feature metrics...
-      </div>
-    );
-  }
+  // Clock display helper
+  const formatClock = (seconds: number | null) => {
+    if (seconds === null) return '--:--';
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    const ms = (seconds % 1).toFixed(1).substring(2);
+    return seconds < 10 ? `${m}:${s.toString().padStart(2, '0')}.${ms}` : `${m}:${s.toString().padStart(2, '0')}`;
+  };
 
-  const chartData: any[] = [];
-  const movesByNumber = new Map<number, any>();
-
-  timeline.forEach((m) => {
-    if (!movesByNumber.has(m.move_number)) {
-      movesByNumber.set(m.move_number, { move: m.move_number });
+  const getPlayerClock = (color: 'white' | 'black') => {
+    for (let i = currentIndex; i >= 0; i--) {
+      if (timeline[i]?.color === color) return timeline[i].time_remaining_sec;
     }
-    const d = movesByNumber.get(m.move_number);
-    if (m.color === 'white') {
-      d.whiteThink = parseFloat((m.think_time_sec ?? 0).toFixed(1));
-    } else {
-      d.blackThink = parseFloat((m.think_time_sec ?? 0).toFixed(1));
-    }
-  });
-  movesByNumber.forEach((v) => chartData.push(v));
-  chartData.sort((a, b) => a.move - b.move);
+    const tc = gameMeta?.time_control || '';
+    return parseInt(tc.split('+')[0]) || null;
+  };
 
-  // Chess.com move classification metadata (order matches Chess.com Game Review)
-  const MOVE_TYPES = [
-    { key: 'brilliant', label: 'Brilliant', icon: '!!', color: '#00b5c8', bgColor: 'bg-cyan-500/20', borderColor: 'border-cyan-500/30', textColor: 'text-cyan-400' },
-    { key: 'great',     label: 'Great',     icon: '!',  color: '#32a8a8', bgColor: 'bg-teal-500/20', borderColor: 'border-teal-500/30', textColor: 'text-teal-400' },
-    { key: 'book',      label: 'Book',      icon: '📖', color: '#8b5cf6', bgColor: 'bg-violet-500/20', borderColor: 'border-violet-500/30', textColor: 'text-violet-400' },
-    { key: 'best',      label: 'Best',      icon: '★',  color: '#30c670', bgColor: 'bg-emerald-500/20', borderColor: 'border-emerald-500/30', textColor: 'text-emerald-400' },
-    { key: 'excellent', label: 'Excellent', icon: '✓+', color: '#7fc97f', bgColor: 'bg-green-500/20', borderColor: 'border-green-500/30', textColor: 'text-green-400' },
-    { key: 'good',      label: 'Good',      icon: '✓',  color: '#4ade80', bgColor: 'bg-lime-500/20', borderColor: 'border-lime-500/30', textColor: 'text-lime-400' },
-    { key: 'inaccuracy',label: 'Inaccuracy',icon: '?!', color: '#f59e0b', bgColor: 'bg-amber-500/20', borderColor: 'border-amber-500/30', textColor: 'text-amber-400' },
-    { key: 'mistake',   label: 'Mistake',   icon: '?',  color: '#f97316', bgColor: 'bg-orange-500/20', borderColor: 'border-orange-500/30', textColor: 'text-orange-400' },
-    { key: 'miss',      label: 'Miss',      icon: '✗',  color: '#ef4444', bgColor: 'bg-rose-500/20', borderColor: 'border-rose-500/30', textColor: 'text-rose-400' },
-    { key: 'blunder',   label: 'Blunder',   icon: '??', color: '#dc2626', bgColor: 'bg-red-600/20', borderColor: 'border-red-600/30', textColor: 'text-red-400' },
-  ];
-
-  // Count move types per player for Game Review summary
+  // Compute accuracy
   const getMoveTypeCounts = (color: 'white' | 'black') => {
     const counts: Record<string, number> = {};
     MOVE_TYPES.forEach(t => { counts[t.key] = 0; });
@@ -338,27 +288,43 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
     return counts;
   };
 
-  // Compute accuracy % — Book moves excluded from denominator (not evaluated by engine)
-  // Brilliant/Great/Best/Excellent/Good = accurate; Inaccuracy/Mistake/Miss/Blunder = inaccurate
-  const computeAccuracy = (counts: Record<string, number>): number => {
+  const computeAccuracy = (counts: Record<string, number>) => {
     const bookCount = counts['book'] || 0;
     const total = (Object.values(counts).reduce((a, b) => a + b, 0) - bookCount) || 1;
-    const goodMoves = (counts['brilliant'] || 0) + (counts['great'] || 0) + (counts['best'] || 0) + (counts['excellent'] || 0) + (counts['good'] || 0);
-    return parseFloat(((goodMoves / total) * 100).toFixed(1));
+    const good = (counts['brilliant'] || 0) + (counts['great'] || 0) + (counts['best'] || 0) + (counts['excellent'] || 0) + (counts['good'] || 0);
+    return parseFloat(((good / total) * 100).toFixed(1));
   };
 
-  // Estimate ChessTrace rating using a curve mapping + blending with actual ELO for stability
-  const estimateRating = (accuracy: number, actualElo?: number): number => {
-    // Exponential mapping of accuracy to ELO performance
-    const perfElo = Math.max(100, Math.pow(accuracy / 100, 2.5) * 3200);
-    
+  // Calibrated Stockfish rating estimation: anchors tightly to actual ratings
+  // and prevents single-game accuracy from inflating into Grandmaster tiers
+  const estimateRating = (accuracy: number, actualElo?: number) => {
+    // If actual Elo is known from game metadata, bound performance tightly around it
     if (actualElo && actualElo > 0) {
-      // Blend 60% actual ELO with 40% game performance ELO to keep estimates grounded
-      return Math.round((actualElo * 0.6) + (perfElo * 0.4));
+      // Stockfish expected accuracy based on rating tier (e.g. 70% for 1200, 76% for 1600, 84% for 2000)
+      const expectedAccuracy = Math.min(88, Math.max(60, 52 + (actualElo / 2500) * 38));
+      const accuracyDiff = accuracy - expectedAccuracy;
+      // Single-game performance adjustment: at most ±75 Elo above or below actual rating
+      const delta = Math.max(-80, Math.min(75, Math.round(accuracyDiff * 3.2)));
+      return actualElo + delta;
     }
-    
-    return Math.round(perfElo);
+
+    // When actual rating is unknown, map accuracy to realistic Stockfish human Elo curve (700-2100)
+    const clampedAccuracy = Math.min(100, Math.max(0, accuracy));
+    const perfElo = Math.round(700 + (clampedAccuracy / 100) * 1350);
+    return Math.min(2100, Math.max(650, perfElo));
   };
+
+  // Chart data
+  const chartData: any[] = [];
+  const movesByNumber = new Map<number, any>();
+  timeline.forEach(m => {
+    if (!movesByNumber.has(m.move_number)) movesByNumber.set(m.move_number, { move: m.move_number });
+    const d = movesByNumber.get(m.move_number);
+    if (m.color === 'white') d.whiteThink = parseFloat((m.think_time_sec ?? 0).toFixed(1));
+    else d.blackThink = parseFloat((m.think_time_sec ?? 0).toFixed(1));
+  });
+  movesByNumber.forEach(v => chartData.push(v));
+  chartData.sort((a, b) => a.move - b.move);
 
   const whiteCounts = getMoveTypeCounts('white');
   const blackCounts = getMoveTypeCounts('black');
@@ -369,32 +335,65 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
   const whiteTotalMoves = timeline.filter(m => m.color === 'white').length || 1;
   const blackTotalMoves = timeline.filter(m => m.color === 'black').length || 1;
 
-  // Current move classification metadata helper
-  const getMoveTypeMeta = (cls: string) => MOVE_TYPES.find(t => t.key === cls) || MOVE_TYPES[4];
+  // Eval bar
+  const evalCp = (currentMove as any)?.eval_cp;
+  const evalScore = evalCp !== undefined && evalCp !== null ? evalCp / 100 : 0.25;
+  let whitePct: number;
+  if (evalCp !== undefined && evalCp !== null && Math.abs(evalCp) > 100000) {
+    whitePct = evalCp > 0 ? 100 : 0;
+  } else {
+    whitePct = Math.max(8, Math.min(92, 50 + evalScore * 10));
+  }
+  const evalDisplay = (currentMove as any)?.eval_score || `${evalScore >= 0 ? '+' : ''}${evalScore.toFixed(2)}`;
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 gap-6">
+        <Loader2
+          className="w-10 h-10 animate-spin"
+          style={{ color: 'var(--ct-gold)' }}
+        />
+        <p className="text-sm" style={{ color: 'var(--ct-text-muted)' }}>
+          Loading game #{activeGameId || gameId} timeline…
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-      {/* Game Header Banner */}
-      <div className="glass-panel p-6 rounded-2xl flex flex-wrap justify-between items-center gap-4">
+    <div className="space-y-5">
+      {/* ── Game Header ──────────────────────────────────────── */}
+      <div
+        className="glass-panel rounded-2xl px-6 py-4 flex flex-wrap justify-between items-center gap-4"
+      >
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-white font-mono">
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1
+              className="text-lg font-bold font-mono"
+              style={{ color: 'var(--ct-text-primary)' }}
+            >
               {gameMeta?.white_player || 'White'} vs {gameMeta?.black_player || 'Black'}
             </h1>
-            <span className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-mono">
+            <span
+              className="px-2.5 py-0.5 rounded-md text-xs font-bold font-mono"
+              style={{
+                background: 'rgba(232,182,106,0.1)',
+                color: 'var(--ct-gold)',
+                border: '1px solid rgba(232,182,106,0.2)',
+              }}
+            >
               {gameMeta?.eco || 'A00'}
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-1 font-mono">
-            {gameMeta?.event} • Result: {gameMeta?.result} • TC: {gameMeta?.time_control}
+          <p className="text-xs font-mono mt-1" style={{ color: 'var(--ct-text-muted)' }}>
+            {gameMeta?.event} &nbsp;·&nbsp; {gameMeta?.result} &nbsp;·&nbsp; {gameMeta?.time_control}
           </p>
         </div>
 
-        <div className="flex items-center gap-4">
-          {/* Game Selection Dropdown */}
+        <div className="flex items-center gap-3 flex-wrap">
           {allGames.length > 0 && (
             <div className="flex items-center gap-2">
-              <label className="text-xs font-mono text-slate-400">Select Game:</label>
+              <label className="text-xs font-mono" style={{ color: 'var(--ct-text-muted)' }}>Game:</label>
               <select
                 value={activeGameId ?? ''}
                 onChange={(e) => {
@@ -402,13 +401,13 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
                   setActiveGameId(newId);
                   const url = new URL(window.location.href);
                   url.searchParams.set('gameId', newId.toString());
-                  // Remove ply if it exists so we don't jump into the middle of the new game
                   url.searchParams.delete('ply');
                   window.history.replaceState({}, '', url);
                 }}
-                className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-indigo-300 font-mono focus:outline-none focus:border-indigo-500 shadow-md cursor-pointer hover:border-indigo-400 transition-colors"
+                className="input-app py-1.5 px-3 text-xs font-mono"
+                style={{ color: 'var(--ct-gold)' }}
               >
-                {allGames.map((g) => (
+                {allGames.map(g => (
                   <option key={g.id} value={g.id}>
                     #{g.id}: {g.white_player} vs {g.black_player} ({g.result})
                   </option>
@@ -420,730 +419,791 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
           <a
             href={`/api/v1/games/${activeGameId || gameId}/export-pgn`}
             download
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 font-medium text-xs border border-indigo-500/30 transition-all font-mono shadow-md"
+            className="btn-app text-xs gap-2"
           >
-            <span>Download PGN</span>
+            <Download className="w-3.5 h-3.5" />
+            PGN
           </a>
         </div>
       </div>
 
-      {/* Main Grid: Board + Controls + Narrative */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left 5 Cols: Interactive Chessboard + Vertical Eval Bar */}
-        <div className="lg:col-span-5 space-y-6">
-          {/* Move Quality Banner (Chess.com Style) */}
+      {/* ── Main Analysis Grid ───────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Left Column: Board + Controls */}
+        <div className="lg:col-span-5 space-y-4">
+          {/* Move Quality Banner */}
           {currentMove && (() => {
             const cls = (currentMove as any).move_classification || 'good';
             const meta = getMoveTypeMeta(cls);
             return (
-              <div className={`glass-panel p-3.5 rounded-2xl flex items-center justify-between gap-3 border ${meta.borderColor} shadow-lg`}>
-                <div className="flex items-center gap-2.5">
-                  <span className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-black ${meta.bgColor} ${meta.textColor} border ${meta.borderColor}`}>
+              <motion.div
+                key={currentIndex}
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+                className="glass-panel rounded-xl px-4 py-3 flex items-center justify-between gap-3"
+                style={{ borderColor: meta.border }}
+              >
+                <div className="flex items-center gap-3">
+                  <span
+                    className="w-8 h-8 flex items-center justify-center rounded-full text-sm font-black flex-shrink-0"
+                    style={{ background: meta.bg, color: meta.text, border: `1px solid ${meta.border}` }}
+                  >
                     {meta.icon}
                   </span>
                   <div>
-                    <div className={`text-xs font-black font-mono ${meta.textColor}`}>{meta.label}</div>
-                    <div className="text-[11px] text-slate-400 font-mono">{currentMove.san} played</div>
+                    <div className="text-xs font-black font-mono" style={{ color: meta.text }}>
+                      {meta.label}
+                    </div>
+                    <div className="text-[11px] font-mono" style={{ color: 'var(--ct-text-muted)' }}>
+                      {currentMove.san} played
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`text-sm font-extrabold font-mono ${meta.textColor}`}>{(currentMove as any).eval_score || '+0.25'}</span>
+                  <span className="text-sm font-extrabold font-mono" style={{ color: meta.text }}>
+                    {evalDisplay}
+                  </span>
                   {!['best', 'brilliant', 'great', 'book'].includes(cls) && (
-                    <div className="text-[11px] font-bold font-mono text-emerald-300 bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20">
+                    <span
+                      className="text-[11px] font-bold font-mono px-2 py-1 rounded-lg"
+                      style={{
+                        background: 'rgba(48,198,112,0.1)',
+                        color: '#30C670',
+                        border: '1px solid rgba(48,198,112,0.2)',
+                      }}
+                    >
                       {(currentMove as any).best_move_label || `${(currentMove as any).best_move_san || 'best'} is best`}
-                    </div>
+                    </span>
                   )}
                 </div>
-              </div>
+              </motion.div>
             );
           })()}
 
-          <div className="flex items-center justify-center gap-2">
-            {/* Vertical Evaluation Bar + visible score */}
-            {(() => {
-              const rawEval = prediction ? (prediction.win_probability * 2 - 1) * 3.5 : 0.25;
-              const evalCp = (currentMove as any)?.eval_cp;
-              const evalScore = evalCp !== undefined && evalCp !== null
-                ? (evalCp / 100.0)
-                : rawEval;
-              
-              let whitePct;
-              if (evalCp !== undefined && evalCp !== null && Math.abs(evalCp) > 100000) {
-                whitePct = evalCp > 0 ? 100 : 0;
-              } else {
-                whitePct = Math.max(8, Math.min(92, 50 + (evalScore * 10)));
-              }
+          {/* Board + Eval Bar */}
+          <div className="flex items-center justify-center gap-3">
+            {/* Eval Bar */}
+            <div className="flex flex-col items-center gap-1.5">
+              <span
+                className="text-[11px] font-extrabold font-mono px-2 py-0.5 rounded-lg"
+                style={
+                  evalScore >= 0
+                    ? { background: 'rgba(255,255,255,0.9)', color: '#10152F', border: '1px solid rgba(255,255,255,0.4)' }
+                    : { background: 'rgba(16,21,47,0.9)', color: '#F3F0E8', border: '1px solid rgba(255,255,255,0.1)' }
+                }
+              >
+                {evalDisplay}
+              </span>
+              <div
+                className="w-5 rounded-xl overflow-hidden border"
+                style={{
+                  height: '380px',
+                  background: '#0A0E20',
+                  borderColor: 'rgba(255,255,255,0.06)',
+                }}
+              >
+                {boardFlipped ? (
+                  <>
+                    <div
+                      className="w-full transition-all duration-300 ease-out"
+                      style={{ height: `${whitePct}%`, background: '#F3F0E8' }}
+                    />
+                    <div
+                      className="w-full transition-all duration-300 ease-out"
+                      style={{ height: `${100 - whitePct}%`, background: '#2A3050' }}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <div
+                      className="w-full transition-all duration-300 ease-out"
+                      style={{ height: `${100 - whitePct}%`, background: '#2A3050' }}
+                    />
+                    <div
+                      className="w-full transition-all duration-300 ease-out"
+                      style={{ height: `${whitePct}%`, background: '#F3F0E8' }}
+                    />
+                  </>
+                )}
+              </div>
+            </div>
 
-              const evalDisplay = (currentMove as any)?.eval_score || `${evalScore >= 0 ? '+' : ''}${evalScore.toFixed(2)}`;
-
-              return (
-                <div className="flex flex-col items-center gap-1">
-                  {/* Score above bar */}
-                  <span className={`text-[11px] font-extrabold font-mono px-2 py-0.5 rounded-lg shadow-md ${
-                    evalScore >= 0
-                      ? 'bg-slate-800 text-white border border-slate-600'
-                      : 'bg-slate-100 text-slate-900 border border-slate-300'
-                  }`}>
-                    {evalDisplay}
-                  </span>
-                  {/* Bar — orientation flips with board */}
-                  <div className="w-5 h-[400px] bg-slate-950 rounded-xl overflow-hidden border border-slate-800 flex flex-col relative shadow-2xl">
-                    {boardFlipped ? (
-                      <>
-                        {/* Flipped: White advantage at top */}
-                        <div className="bg-slate-100 w-full transition-all duration-300 ease-out" style={{ height: `${whitePct}%` }} />
-                        <div className="bg-slate-800 w-full transition-all duration-300 ease-out" style={{ height: `${100 - whitePct}%` }} />
-                      </>
-                    ) : (
-                      <>
-                        {/* Normal: Black advantage at top */}
-                        <div className="bg-slate-800 w-full transition-all duration-300 ease-out" style={{ height: `${100 - whitePct}%` }} />
-                        <div className="bg-slate-100 w-full transition-all duration-300 ease-out" style={{ height: `${whitePct}%` }} />
-                      </>
-                    )}
+            {/* Board Column */}
+            <div className="flex flex-col gap-2 flex-1 max-w-[420px]">
+              {/* Top player */}
+              <div
+                className="flex items-center justify-between rounded-xl px-4 py-2.5"
+                style={{
+                  background: 'rgba(23,30,64,0.8)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                }}
+              >
+                <div className="flex items-center gap-2.5">
+                  <div
+                    className="w-7 h-7 rounded-lg flex items-center justify-center"
+                    style={{ background: 'var(--ct-navy-3)', border: '1px solid rgba(255,255,255,0.08)' }}
+                  >
+                    <User className="w-4 h-4" style={{ color: 'var(--ct-text-muted)' }} />
                   </div>
-                </div>
-              );
-            })()}
-
-            {/* Chessboard Area */}
-            <div className="flex flex-col gap-3 w-full max-w-[440px]">
-              
-              {/* Top Player (Opponent) */}
-              <div className="flex items-center justify-between bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-2.5 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded bg-slate-800 flex items-center justify-center border border-slate-700 shadow-inner">
-                    <User className="w-4 h-4 text-slate-400" />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="font-semibold text-slate-200 text-sm">
+                  <div>
+                    <div className="text-sm font-semibold" style={{ color: 'var(--ct-text-primary)' }}>
                       {boardFlipped ? (gameMeta?.white_player || 'White') : (gameMeta?.black_player || 'Black')}
-                    </span>
-                    <span className="text-xs text-slate-500 font-mono">
+                    </div>
+                    <div className="text-[11px] font-mono" style={{ color: 'var(--ct-text-muted)' }}>
                       {boardFlipped ? gameMeta?.white_elo : gameMeta?.black_elo}
-                    </span>
+                    </div>
                   </div>
                 </div>
-                <div className="flex flex-col items-end">
-                  <span className="text-[10px] text-slate-500 font-semibold mb-0.5 uppercase tracking-wider">{gameMeta?.time_control || 'Standard'}</span>
-                  <div className="bg-slate-950 px-3 py-1 rounded border border-slate-800 shadow-inner font-mono text-lg font-bold text-slate-300 min-w-[85px] text-center">
-                    {(() => {
-                      // Find most recent clock for the top player
-                      const targetColor = boardFlipped ? 'white' : 'black';
-                      let clock = null;
-                      for (let i = currentIndex; i >= 0; i--) {
-                        if (timeline[i]?.color === targetColor) {
-                          clock = timeline[i].time_remaining_sec;
-                          break;
-                        }
-                      }
-                      if (clock === null) {
-                        const tc = gameMeta?.time_control || '';
-                        clock = parseInt(tc.split('+')[0]) || null;
-                      }
-                      
-                      if (clock === null) return '--:--';
-                      const m = Math.floor(clock / 60);
-                      const s = Math.floor(clock % 60);
-                      const ms = (clock % 1).toFixed(1).substring(2);
-                      return clock < 10 ? `${m}:${s.toString().padStart(2, '0')}.${ms}` : `${m}:${s.toString().padStart(2, '0')}`;
-                    })()}
-                  </div>
+                <div
+                  className="px-3 py-1 rounded-lg font-mono text-base font-bold min-w-[76px] text-center"
+                  style={{ background: '#0A0E20', color: 'var(--ct-text-primary)', border: '1px solid rgba(255,255,255,0.06)' }}
+                >
+                  {formatClock(getPlayerClock(boardFlipped ? 'white' : 'black'))}
                 </div>
               </div>
 
-              {/* Interactive Chessboard */}
-              <div ref={boardContainerRef} className="bg-slate-900/40 border border-slate-800 shadow-xl p-4 rounded-2xl aspect-square flex items-center justify-center glow-indigo relative z-10">
+              {/* Chessboard */}
+              <div
+                ref={boardContainerRef}
+                className="rounded-2xl overflow-hidden"
+                style={{
+                  background: 'var(--ct-navy-2)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+                  padding: '12px',
+                }}
+              >
                 <Chessboard
                   position={fenToPositionObj(currentMove ? currentMove.fen : 'start')}
                   boardOrientation={boardFlipped ? 'black' : 'white'}
                   onPieceDrop={onPieceDrop}
-                  customSquareStyles={currentMove?.uci ? {
-                    [currentMove.uci.substring(0, 2)]: { backgroundColor: 'rgba(255, 255, 0, 0.4)' },
-                    [currentMove.uci.substring(2, 4)]: { backgroundColor: 'rgba(255, 255, 0, 0.4)' },
-                  } : {}}
+                  customSquareStyles={
+                    currentMove?.uci
+                      ? {
+                          [currentMove.uci.substring(0, 2)]: { backgroundColor: 'rgba(232,182,106,0.45)' },
+                          [currentMove.uci.substring(2, 4)]: { backgroundColor: 'rgba(232,182,106,0.45)' },
+                        }
+                      : {}
+                  }
                   customBoardStyle={{
-                    borderRadius: '12px',
-                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+                    borderRadius: '10px',
+                    boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
                   }}
+                  customDarkSquareStyle={{ backgroundColor: '#B8944E' }}
+                  customLightSquareStyle={{ backgroundColor: '#E8D5A8' }}
                 />
               </div>
 
-              {/* Bottom Player (You) */}
-              <div className="flex items-center justify-between bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-2.5 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded bg-slate-800 flex items-center justify-center border border-slate-700 shadow-inner">
-                    <User className="w-4 h-4 text-slate-400" />
+              {/* Bottom player */}
+              <div
+                className="flex items-center justify-between rounded-xl px-4 py-2.5"
+                style={{
+                  background: 'rgba(23,30,64,0.8)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                }}
+              >
+                <div className="flex items-center gap-2.5">
+                  <div
+                    className="w-7 h-7 rounded-lg flex items-center justify-center"
+                    style={{ background: 'var(--ct-navy-3)', border: '1px solid rgba(255,255,255,0.08)' }}
+                  >
+                    <User className="w-4 h-4" style={{ color: 'var(--ct-gold)' }} />
                   </div>
-                  <div className="flex flex-col">
-                    <span className="font-semibold text-slate-200 text-sm">
+                  <div>
+                    <div className="text-sm font-semibold" style={{ color: 'var(--ct-text-primary)' }}>
                       {boardFlipped ? (gameMeta?.black_player || 'Black') : (gameMeta?.white_player || 'White')}
-                    </span>
-                    <span className="text-xs text-slate-500 font-mono">
+                    </div>
+                    <div className="text-[11px] font-mono" style={{ color: 'var(--ct-text-muted)' }}>
                       {boardFlipped ? gameMeta?.black_elo : gameMeta?.white_elo}
-                    </span>
+                    </div>
                   </div>
                 </div>
-                <div className="flex flex-col items-end">
-                  <div className="bg-slate-950 px-3 py-1 rounded border border-slate-800 shadow-inner font-mono text-lg font-bold text-slate-300 min-w-[85px] text-center mt-3">
-                    {(() => {
-                      // Find most recent clock for the bottom player
-                      const targetColor = boardFlipped ? 'black' : 'white';
-                      let clock = null;
-                      for (let i = currentIndex; i >= 0; i--) {
-                        if (timeline[i]?.color === targetColor) {
-                          clock = timeline[i].time_remaining_sec;
-                          break;
-                        }
-                      }
-                      if (clock === null) {
-                        const tc = gameMeta?.time_control || '';
-                        clock = parseInt(tc.split('+')[0]) || null;
-                      }
-                      
-                      if (clock === null) return '--:--';
-                      const m = Math.floor(clock / 60);
-                      const s = Math.floor(clock % 60);
-                      const ms = (clock % 1).toFixed(1).substring(2);
-                      return clock < 10 ? `${m}:${s.toString().padStart(2, '0')}.${ms}` : `${m}:${s.toString().padStart(2, '0')}`;
-                    })()}
-                  </div>
+                <div
+                  className="px-3 py-1 rounded-lg font-mono text-base font-bold min-w-[76px] text-center"
+                  style={{ background: '#0A0E20', color: 'var(--ct-gold)', border: '1px solid rgba(232,182,106,0.15)' }}
+                >
+                  {formatClock(getPlayerClock(boardFlipped ? 'black' : 'white'))}
                 </div>
               </div>
-
             </div>
           </div>
 
-          {/* Stepper Controls */}
-          <div className="glass-panel p-4 rounded-2xl flex items-center justify-between">
+          {/* Navigation Controls */}
+          <div
+            className="glass-panel rounded-xl px-4 py-3 flex items-center justify-between"
+          >
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setCurrentIndex(-1)}
-                className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+                className="p-2 rounded-lg transition-all duration-150"
+                style={{ background: 'var(--ct-navy-3)', color: 'var(--ct-text-secondary)' }}
                 title="Reset to start"
               >
-                <RotateCcw className="w-5 h-5" />
+                <RotateCcw className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setBoardFlipped(f => !f)}
-                className={`p-2 rounded-lg transition-colors ${
-                  boardFlipped
-                    ? 'bg-indigo-600 hover:bg-indigo-500 text-white'
-                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-                }`}
+                className="p-2 rounded-lg transition-all duration-150"
+                style={{
+                  background: boardFlipped ? 'rgba(232,182,106,0.15)' : 'var(--ct-navy-3)',
+                  color: boardFlipped ? 'var(--ct-gold)' : 'var(--ct-text-secondary)',
+                  border: boardFlipped ? '1px solid rgba(232,182,106,0.25)' : '1px solid transparent',
+                }}
                 title="Flip board"
               >
-                <FlipVertical2 className="w-5 h-5" />
+                <FlipVertical2 className="w-4 h-4" />
               </button>
             </div>
 
             <div className="flex items-center gap-3">
               <button
                 disabled={currentIndex <= -1}
-                onClick={() => setCurrentIndex((prev) => Math.max(-1, prev - 1))}
-                className="p-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 text-white transition-all"
+                onClick={() => setCurrentIndex(prev => Math.max(-1, prev - 1))}
+                className="p-2.5 rounded-xl disabled:opacity-30 transition-all duration-150"
+                style={{ background: 'var(--ct-gold)', color: 'var(--ct-navy)' }}
               >
-                <ChevronLeft className="w-6 h-6" />
+                <ChevronLeft className="w-5 h-5" />
               </button>
-
-              <span className="text-sm font-semibold text-slate-300 font-mono min-w-[80px] text-center">
+              <span
+                className="text-sm font-bold font-mono min-w-[80px] text-center"
+                style={{ color: 'var(--ct-text-secondary)' }}
+              >
                 {currentIndex === -1 ? 'Start' : `${currentIndex + 1} / ${timeline.length}`}
               </span>
-
               <button
                 disabled={currentIndex === timeline.length - 1}
-                onClick={() => setCurrentIndex((prev) => Math.min(timeline.length - 1, prev + 1))}
-                className="p-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 text-white transition-all"
+                onClick={() => setCurrentIndex(prev => Math.min(timeline.length - 1, prev + 1))}
+                className="p-2.5 rounded-xl disabled:opacity-30 transition-all duration-150"
+                style={{ background: 'var(--ct-gold)', color: 'var(--ct-navy)' }}
               >
-                <ChevronRight className="w-6 h-6" />
+                <ChevronRight className="w-5 h-5" />
               </button>
             </div>
 
-            <span className="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-800 text-indigo-400 font-mono">
+            <span
+              className="text-xs font-bold px-3 py-1.5 rounded-lg font-mono"
+              style={{
+                background: 'var(--ct-navy-3)',
+                color: currentMove ? 'var(--ct-gold)' : 'var(--ct-text-muted)',
+              }}
+            >
               {currentMove ? currentMove.san : 'Start'}
             </span>
           </div>
         </div>
 
-        {/* Right 7 Cols: Analysis, SHAP, What-If & ELO Sim */}
-        <div className="lg:col-span-7 space-y-6">
-          {/* Clickable Move List */}
-          <div className="glass-panel p-4 rounded-2xl max-h-[200px] overflow-y-auto">
-            <div className="flex items-center gap-2 text-indigo-400 font-semibold text-sm mb-3">
-              <Zap className="w-4 h-4" />
-              <span>Game Moves</span>
+        {/* Right Column: Analysis Panels */}
+        <div className="lg:col-span-7 space-y-4">
+          {/* Move List */}
+          <div className="glass-panel rounded-2xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Zap className="w-4 h-4" style={{ color: 'var(--ct-gold)' }} />
+              <span className="text-sm font-semibold" style={{ color: 'var(--ct-text-primary)' }}>
+                Game Moves
+              </span>
+              <span className="text-xs font-mono ml-auto" style={{ color: 'var(--ct-text-muted)' }}>
+                ← → to navigate
+              </span>
             </div>
-            <div className="grid grid-cols-[40px_1fr_1fr] gap-x-2 gap-y-1 text-sm font-mono">
-              {Array.from({ length: Math.ceil(timeline.length / 2) }).map((_, i) => {
-                const whiteMove = timeline[i * 2];
-                const blackMove = timeline[i * 2 + 1];
-                return (
-                  <React.Fragment key={i}>
-                    <div className="text-slate-500 text-right pr-2 py-0.5">{whiteMove?.move_number}.</div>
-                    {whiteMove && (
-                      <button 
-                        id={`move-${i * 2}`}
-                        onClick={() => setCurrentIndex(i * 2)}
-                        className={`text-left px-2 py-0.5 rounded transition-colors ${
-                          currentIndex === i * 2 ? 'bg-indigo-600 text-white font-bold shadow-md' : 'hover:bg-slate-800 text-slate-300'
-                        }`}
+            <div
+              ref={moveListRef}
+              className="max-h-[200px] overflow-y-auto"
+              style={{ scrollbarWidth: 'thin' }}
+            >
+              <div className="grid grid-cols-[36px_1fr_1fr] gap-x-1 gap-y-0.5 text-sm font-mono">
+                {Array.from({ length: Math.ceil(timeline.length / 2) }).map((_, i) => {
+                  const whiteMove = timeline[i * 2];
+                  const blackMove = timeline[i * 2 + 1];
+                  const wCls = (whiteMove as any)?.move_classification || 'good';
+                  const bCls = (blackMove as any)?.move_classification || 'good';
+                  const wMeta = getMoveTypeMeta(wCls);
+                  const bMeta = getMoveTypeMeta(bCls);
+                  return (
+                    <React.Fragment key={i}>
+                      <div
+                        className="text-right pr-2 py-0.5 flex items-center justify-end text-xs"
+                        style={{ color: 'var(--ct-text-muted)' }}
                       >
-                        {whiteMove.san}
-                      </button>
-                    )}
-                    {blackMove ? (
-                      <button 
-                        id={`move-${i * 2 + 1}`}
-                        onClick={() => setCurrentIndex(i * 2 + 1)}
-                        className={`text-left px-2 py-0.5 rounded transition-colors ${
-                          currentIndex === i * 2 + 1 ? 'bg-indigo-600 text-white font-bold shadow-md' : 'hover:bg-slate-800 text-slate-300'
-                        }`}
-                      >
-                        {blackMove.san}
-                      </button>
-                    ) : (
-                      <div />
-                    )}
-                  </React.Fragment>
-                );
-              })}
+                        {whiteMove?.move_number}.
+                      </div>
+                      {whiteMove && (
+                        <button
+                          id={`move-${i * 2}`}
+                          onClick={() => setCurrentIndex(i * 2)}
+                          className="text-left px-2 py-0.5 rounded transition-all duration-100 flex items-center gap-1.5"
+                          style={
+                            currentIndex === i * 2
+                              ? { background: 'rgba(232,182,106,0.15)', color: 'var(--ct-gold)', fontWeight: 700 }
+                              : { color: 'var(--ct-text-secondary)' }
+                          }
+                          title={wMeta.label}
+                        >
+                          <span
+                            className="text-[9px] w-4 text-center flex-shrink-0"
+                            style={{ color: wMeta.text }}
+                          >
+                            {wMeta.icon}
+                          </span>
+                          {whiteMove.san}
+                        </button>
+                      )}
+                      {blackMove ? (
+                        <button
+                          id={`move-${i * 2 + 1}`}
+                          onClick={() => setCurrentIndex(i * 2 + 1)}
+                          className="text-left px-2 py-0.5 rounded transition-all duration-100 flex items-center gap-1.5"
+                          style={
+                            currentIndex === i * 2 + 1
+                              ? { background: 'rgba(232,182,106,0.15)', color: 'var(--ct-gold)', fontWeight: 700 }
+                              : { color: 'var(--ct-text-secondary)' }
+                          }
+                          title={bMeta.label}
+                        >
+                          <span
+                            className="text-[9px] w-4 text-center flex-shrink-0"
+                            style={{ color: bMeta.text }}
+                          >
+                            {bMeta.icon}
+                          </span>
+                          {blackMove.san}
+                        </button>
+                      ) : <div />}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
-          {/* Counterfactual What-If Brancher */}
-          <div className="glass-panel p-6 rounded-2xl space-y-4">
-            <div className="flex items-center gap-2 text-sm font-semibold text-white">
-              <Sliders className="w-4 h-4 text-pink-400" />
-              <span>Counterfactual What-If Divergence Analysis</span>
+          {/* What-If Divergence */}
+          <div className="glass-panel p-5 rounded-2xl space-y-4">
+            <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--ct-text-primary)' }}>
+              <Sliders className="w-4 h-4" style={{ color: 'var(--ct-gold)' }} />
+              <span>Counterfactual What-If Analysis</span>
             </div>
 
-            <form onSubmit={handleWhatIfSubmit} className="flex gap-3">
+            <form onSubmit={handleWhatIfSubmit} className="flex gap-2">
               <input
                 type="text"
-                placeholder={`What if ${currentMove?.color === 'white' ? 'White' : 'Black'} played... (instead of ${currentMove?.san})`}
+                placeholder={`What if ${currentMove?.color === 'white' ? 'White' : 'Black'} played… (instead of ${currentMove?.san || '…'})`}
                 value={altMoveInput}
                 onChange={(e) => setAltMoveInput(e.target.value)}
-                className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                className="input-app flex-1 text-xs"
               />
               <button
                 type="submit"
-                disabled={whatIfLoading}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-                  whatIfLoading 
-                    ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
-                    : 'bg-indigo-600 hover:bg-indigo-500 text-white'
-                }`}
+                disabled={whatIfLoading || !currentMove}
+                className="btn-gold text-xs whitespace-nowrap disabled:opacity-50"
               >
-                {whatIfLoading ? 'Evaluating...' : 'Evaluate Divergence'}
+                {whatIfLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Evaluate'}
               </button>
             </form>
 
-            {whatIfResult && (
-              <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-3 text-xs">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-slate-800/50 p-3 rounded-lg">
-                    <div className="text-[10px] text-slate-500 uppercase font-semibold">Played Move</div>
-                    <div className="text-sm font-bold text-white mt-1">{(whatIfResult.played_move as any).san || whatIfResult.played_move.uci}</div>
-                    <div className="text-slate-300 font-mono mt-0.5">
-                      {(whatIfResult.played_move as any).eval_str != null
-                        ? `${(whatIfResult.played_move as any).eval_str} eval`
-                        : ''} · {(
-                          (boardFlipped ? 1 - whatIfResult.played_move.win_probability : whatIfResult.played_move.win_probability) * 100
-                        ).toFixed(1)}% win
-                    </div>
+            <AnimatePresence>
+              {whatIfResult && (
+                <motion.div
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="rounded-xl p-4 space-y-3 text-xs"
+                  style={{ background: 'var(--ct-navy)', border: '1px solid rgba(255,255,255,0.06)' }}
+                >
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { label: 'Played Move', data: whatIfResult.played_move },
+                      { label: 'Alternative Move', data: whatIfResult.alternative_move },
+                    ].map(({ label, data }) => (
+                      <div key={label} className="rounded-lg p-3" style={{ background: 'var(--ct-navy-2)' }}>
+                        <div className="text-[10px] uppercase font-semibold mb-1" style={{ color: 'var(--ct-text-muted)' }}>
+                          {label}
+                        </div>
+                        <div className="text-sm font-bold font-mono" style={{ color: 'var(--ct-text-primary)' }}>
+                          {(data as any).san || data.uci}
+                        </div>
+                        <div className="font-mono mt-0.5" style={{ color: 'var(--ct-text-secondary)' }}>
+                          {(boardFlipped ? 1 - data.win_probability : data.win_probability * 100).toFixed(1)}% win
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="bg-slate-800/50 p-3 rounded-lg">
-                    <div className="text-[10px] text-slate-500 uppercase font-semibold">Alternative Move</div>
-                    <div className="text-sm font-bold text-white mt-1">{(whatIfResult.alternative_move as any).san || whatIfResult.alternative_move.uci}</div>
-                    <div className="text-slate-300 font-mono mt-0.5">
-                      {(whatIfResult.alternative_move as any).eval_str != null
-                        ? `${(whatIfResult.alternative_move as any).eval_str} eval`
-                        : ''} · {(
-                          (boardFlipped ? 1 - whatIfResult.alternative_move.win_probability : whatIfResult.alternative_move.win_probability) * 100
-                        ).toFixed(1)}% win
-                    </div>
-                  </div>
-                </div>
-                <p className={`font-semibold text-sm mt-1 ${
-                  whatIfResult.probability_divergence.win_probability_delta > 0.03 ? 'text-emerald-400' :
-                  whatIfResult.probability_divergence.win_probability_delta < -0.03 ? 'text-rose-400' :
-                  'text-slate-300'
-                }`}>
-                  {whatIfResult.probability_divergence.recommendation}
-                </p>
-              </div>
-            )}
+                  <p
+                    className="font-semibold text-sm"
+                    style={{
+                      color:
+                        whatIfResult.probability_divergence.win_probability_delta > 0.03 ? '#30C670' :
+                        whatIfResult.probability_divergence.win_probability_delta < -0.03 ? '#EF4444' :
+                        'var(--ct-text-secondary)',
+                    }}
+                  >
+                    {whatIfResult.probability_divergence.recommendation}
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
-          {/* Win & Collapse Probability Card */}
-          {prediction && (
-            <div className="glass-panel p-6 rounded-2xl space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-indigo-400 font-semibold text-sm">
-                  <Zap className="w-4 h-4" />
-                  <span>XGBoost Intelligence Predictions</span>
-                </div>
-                {prediction.time_pressure_risk_multiplier > 1.0 && (
-                  <span className="flex items-center gap-1 text-xs font-bold text-pink-400 bg-pink-950/60 border border-pink-800 px-2.5 py-1 rounded-full animate-pulse">
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                    {prediction.time_pressure_risk_multiplier}x Time Stress Multiplier
-                  </span>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800">
-                  <p className="text-xs text-slate-400 uppercase font-semibold">
-                    Win Probability ({boardFlipped ? 'Black' : 'White'})
-                  </p>
-                  <p className="text-3xl font-extrabold text-emerald-400 mt-1">
-                    {((boardFlipped ? 1 - prediction.win_probability : prediction.win_probability) * 100).toFixed(1)}%
-                  </p>
-                  <p className="text-[10px] text-slate-500 mt-1 font-mono">
-                    {prediction.win_probability > 0.6 ? '▲ White is winning' :
-                     prediction.win_probability < 0.4 ? '▼ Black is winning' :
-                     '= Position is balanced'}
-                  </p>
-                </div>
-
-                <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800">
-                  <p className="text-xs text-slate-400 uppercase font-semibold">
-                    Collapse Risk ({currentMove?.color === 'white' ? 'White' : 'Black'})
-                  </p>
-                  <p className={`text-3xl font-extrabold mt-1 ${
-                    prediction.collapse_probability > 0.6 ? 'text-red-400' :
-                    prediction.collapse_probability > 0.35 ? 'text-orange-400' : 'text-green-400'
-                  }`}>
-                    {(prediction.collapse_probability * 100).toFixed(1)}%
-                  </p>
-                  <p className="text-[10px] text-slate-500 mt-1 font-mono">
-                    {prediction.collapse_probability > 0.6 ? '⚠ High time-pressure risk' :
-                     prediction.collapse_probability > 0.35 ? '~ Moderate risk' :
-                     '✓ Low risk'}
-                  </p>
-                </div>
-              </div>
-
-              {/* SHAP Factor Breakdown */}
-              {(prediction.top_positive_factors?.length > 0 || prediction.top_negative_factors?.length > 0) && (
-                <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800 space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-300">
-                    <Brain className="w-4 h-4 text-indigo-400" />
-                    <span>Position Factor Breakdown (SHAP)</span>
+          {/* XGBoost Predictions */}
+          <AnimatePresence>
+            {prediction && (
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="glass-panel p-5 rounded-2xl space-y-4"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--ct-text-primary)' }}>
+                    <Zap className="w-4 h-4" style={{ color: 'var(--ct-gold)' }} />
+                    <span>XGBoost Intelligence</span>
                   </div>
-                  <div className="space-y-1.5">
-                    {[...(prediction.top_positive_factors || []), ...(prediction.top_negative_factors || [])]
-                      .sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact))
-                      .slice(0, 5)
-                      .map((f, i) => (
-                        <div key={i} className="flex items-center gap-2">
-                          <span className={`text-[10px] font-bold w-[30px] text-right mr-2 ${
-                            f.impact >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                          }`}>{f.impact >= 0 ? '+' : ''}{(f.impact * 100).toFixed(1)}%</span>
-                          <div className="flex-1 bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full rounded-full ${
-                                f.impact >= 0 ? 'bg-emerald-500' : 'bg-rose-500'
-                              }`}
-                              style={{ width: `${Math.min(100, Math.abs(f.impact) * 400)}%` }}
-                            />
-                          </div>
-                          <span className="text-[10px] text-slate-400 font-mono truncate max-w-[120px]">{f.feature}</span>
-                        </div>
-                      ))}
+                  {prediction.time_pressure_risk_multiplier > 1.0 && (
+                    <span
+                      className="flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full animate-pulse"
+                      style={{
+                        background: 'rgba(249,115,22,0.1)',
+                        color: '#F97316',
+                        border: '1px solid rgba(249,115,22,0.25)',
+                      }}
+                    >
+                      <AlertTriangle className="w-3 h-3" />
+                      {prediction.time_pressure_risk_multiplier}× Time Stress
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-xl p-4" style={{ background: 'var(--ct-navy)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <p className="text-xs uppercase font-semibold" style={{ color: 'var(--ct-text-muted)' }}>
+                      Win Probability ({boardFlipped ? 'Black' : 'White'})
+                    </p>
+                    <p className="text-3xl font-extrabold mt-1 font-mono" style={{ color: '#30C670' }}>
+                      {((boardFlipped ? 1 - prediction.win_probability : prediction.win_probability) * 100).toFixed(1)}%
+                    </p>
+                    <p className="text-[10px] mt-1 font-mono" style={{ color: 'var(--ct-text-muted)' }}>
+                      {prediction.win_probability > 0.6 ? '▲ White is winning' :
+                       prediction.win_probability < 0.4 ? '▼ Black is winning' :
+                       '= Balanced position'}
+                    </p>
+                  </div>
+                  <div className="rounded-xl p-4" style={{ background: 'var(--ct-navy)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <p className="text-xs uppercase font-semibold" style={{ color: 'var(--ct-text-muted)' }}>
+                      Collapse Risk ({currentMove?.color === 'white' ? 'White' : 'Black'})
+                    </p>
+                    <p
+                      className="text-3xl font-extrabold mt-1 font-mono"
+                      style={{
+                        color: prediction.collapse_probability > 0.6 ? '#DC2626' :
+                               prediction.collapse_probability > 0.35 ? '#F97316' : '#30C670',
+                      }}
+                    >
+                      {(prediction.collapse_probability * 100).toFixed(1)}%
+                    </p>
+                    <p className="text-[10px] mt-1 font-mono" style={{ color: 'var(--ct-text-muted)' }}>
+                      {prediction.collapse_probability > 0.6 ? '⚠ High risk' :
+                       prediction.collapse_probability > 0.35 ? '~ Moderate risk' : '✓ Low risk'}
+                    </p>
                   </div>
                 </div>
-              )}
 
-              {/* SHAP Narrative */}
-              <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800 space-y-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-300">
-                  <Brain className="w-4 h-4 text-indigo-400" />
-                  <span>SHAP Plain-English Narrative</span>
-                </div>
-                <p className="text-sm text-slate-300 italic">{prediction.narrative_summary}</p>
-              </div>
-            </div>
-          )}
-
-          {/* ELO Simulator Overlay */}
-          {eloSimResult && (
-            <div className="glass-panel p-6 rounded-2xl space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm font-semibold text-white">
-                  <Sparkles className="w-4 h-4 text-indigo-400" />
-                  <span>ELO Simulation Candidate Moves</span>
-                </div>
-
-                <select
-                  value={selectedElo}
-                  onChange={(e) => setSelectedElo(e.target.value)}
-                  className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1 text-xs text-indigo-300 font-semibold focus:outline-none"
-                >
-                  <option value="< 1000">&lt; 1000 ELO</option>
-                  <option value="1000-1200">1000-1200 ELO</option>
-                  <option value="1200-1400">1200-1400 ELO</option>
-                  <option value="1400-1600">1400-1600 ELO</option>
-                  <option value="1600-1800">1600-1800 ELO</option>
-                  <option value="1800-2000">1800-2000 ELO</option>
-                  <option value="2000+">2000+ ELO</option>
-                </select>
-              </div>
-
-              <div className="space-y-3">
-                {eloSimResult.top_candidate_moves.length === 0 ? (
-                  <div className="text-slate-400 text-xs italic text-center py-2">
-                    No candidate moves found. (Game over?)
-                  </div>
-                ) : (
-                  eloSimResult.top_candidate_moves.map((cand, i) => (
-                    <div key={i} className="bg-slate-900/50 p-3 rounded-xl border border-slate-800 space-y-1.5 text-xs">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <span className="font-bold text-white text-sm font-mono">{cand.san}</span>
-                          <span className="text-slate-500 ml-2 font-mono">({cand.uci})</span>
-                          {cand.is_engine_top_choice && (
-                            <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">
-                              Stockfish Best
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-indigo-400 font-bold font-mono">{(cand.probability * 100).toFixed(1)}%</span>
-                      </div>
-
-                      <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-                        <div
-                          className="bg-indigo-500 h-full rounded-full transition-all"
-                          style={{ width: `${Math.min(100, cand.probability * 100)}%` }}
-                        />
-                      </div>
+                {/* SHAP Factors */}
+                {(prediction.top_positive_factors?.length > 0 || prediction.top_negative_factors?.length > 0) && (
+                  <div className="rounded-xl p-4 space-y-3" style={{ background: 'var(--ct-navy)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div className="flex items-center gap-2 text-xs font-bold" style={{ color: 'var(--ct-text-secondary)' }}>
+                      <Brain className="w-4 h-4" style={{ color: 'var(--ct-gold)' }} />
+                      Position Factors (SHAP)
                     </div>
-                  ))
+                    <div className="space-y-2">
+                      {[...(prediction.top_positive_factors || []), ...(prediction.top_negative_factors || [])]
+                        .sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact))
+                        .slice(0, 5)
+                        .map((f, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <span
+                              className="text-[10px] font-bold w-[36px] text-right font-mono"
+                              style={{ color: f.impact >= 0 ? '#30C670' : '#EF4444' }}
+                            >
+                              {f.impact >= 0 ? '+' : ''}{(f.impact * 100).toFixed(1)}%
+                            </span>
+                            <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--ct-navy-2)' }}>
+                              <div
+                                className="h-full rounded-full"
+                                style={{
+                                  width: `${Math.min(100, Math.abs(f.impact) * 400)}%`,
+                                  background: f.impact >= 0 ? '#30C670' : '#EF4444',
+                                }}
+                              />
+                            </div>
+                            <span className="text-[10px] font-mono truncate max-w-[130px]" style={{ color: 'var(--ct-text-muted)' }}>
+                              {f.feature}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
                 )}
-              </div>
-            </div>
-          )}
+
+                {/* SHAP Narrative */}
+                <div className="rounded-xl p-4" style={{ background: 'var(--ct-navy)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div className="flex items-center gap-2 text-xs font-bold mb-2" style={{ color: 'var(--ct-text-secondary)' }}>
+                    <Brain className="w-4 h-4" style={{ color: 'var(--ct-gold)' }} />
+                    SHAP Narrative
+                  </div>
+                  <p className="text-sm italic" style={{ color: 'var(--ct-text-secondary)' }}>
+                    {prediction.narrative_summary}
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* ELO Simulator */}
+          <AnimatePresence>
+            {eloSimResult && (
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="glass-panel p-5 rounded-2xl space-y-4"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--ct-text-primary)' }}>
+                    <Sparkles className="w-4 h-4" style={{ color: 'var(--ct-gold)' }} />
+                    ELO Simulation
+                  </div>
+                  <select
+                    value={selectedElo}
+                    onChange={(e) => setSelectedElo(e.target.value)}
+                    className="input-app py-1 px-2.5 text-xs font-mono"
+                    style={{ color: 'var(--ct-gold)' }}
+                  >
+                    <option value="< 1000">&lt; 1000</option>
+                    <option value="1000-1200">1000–1200</option>
+                    <option value="1200-1400">1200–1400</option>
+                    <option value="1400-1600">1400–1600</option>
+                    <option value="1600-1800">1600–1800</option>
+                    <option value="1800-2000">1800–2000</option>
+                    <option value="2000+">2000+</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2.5">
+                  {eloSimResult.top_candidate_moves.length === 0 ? (
+                    <p className="text-xs text-center italic py-3" style={{ color: 'var(--ct-text-muted)' }}>
+                      No candidate moves found.
+                    </p>
+                  ) : (
+                    eloSimResult.top_candidate_moves.map((cand, i) => (
+                      <div
+                        key={i}
+                        className="rounded-xl p-3 space-y-1.5 text-xs"
+                        style={{ background: 'var(--ct-navy)', border: '1px solid rgba(255,255,255,0.05)' }}
+                      >
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-sm font-mono" style={{ color: 'var(--ct-text-primary)' }}>
+                              {cand.san}
+                            </span>
+                            <span className="font-mono" style={{ color: 'var(--ct-text-muted)' }}>
+                              ({cand.uci})
+                            </span>
+                            {cand.is_engine_top_choice && (
+                              <span
+                                className="px-2 py-0.5 rounded text-[10px] font-bold"
+                                style={{ background: 'rgba(48,198,112,0.12)', color: '#30C670', border: '1px solid rgba(48,198,112,0.25)' }}
+                              >
+                                Stockfish Best
+                              </span>
+                            )}
+                          </div>
+                          <span className="font-bold font-mono" style={{ color: 'var(--ct-gold)' }}>
+                            {(cand.probability * 100).toFixed(1)}%
+                          </span>
+                        </div>
+                        <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--ct-navy-2)' }}>
+                          <div
+                            className="h-full rounded-full transition-all duration-300"
+                            style={{ width: `${Math.min(100, cand.probability * 100)}%`, background: 'var(--ct-gold)' }}
+                          />
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
-      {/* Game Review Summary Panel — Chess.com Layout */}
+      {/* ── Game Review Summary ──────────────────────────────── */}
       <div className="glass-panel rounded-2xl overflow-hidden">
-        {/* Header */}
-        <div className="px-6 pt-5 pb-4 border-b border-slate-800 flex items-center justify-between">
-          <h3 className="text-base font-bold text-white flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-indigo-400" />
-            <span>Game Review</span>
-          </h3>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500 font-mono">ChessTrace estimated rating</span>
-          </div>
+        <div
+          className="px-6 py-4 flex items-center justify-between border-b"
+          style={{ borderColor: 'rgba(255,255,255,0.05)' }}
+        >
+          <h2 className="text-base font-bold flex items-center gap-2" style={{ color: 'var(--ct-text-primary)' }}>
+            <Sparkles className="w-4 h-4" style={{ color: 'var(--ct-gold)' }} />
+            Game Review
+          </h2>
         </div>
 
-        {/* Column Headers: White | — | Black */}
-        <div className="px-6 pt-4 pb-2 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-          {/* White player header */}
-          <div className="text-right flex flex-col items-end">
-            <div className="text-xs font-bold text-slate-300 font-mono truncate">{gameMeta?.white_player || 'White'}</div>
-            <div className="text-2xl font-extrabold text-white font-mono leading-none mt-1">{whiteRating}</div>
-            <div className="text-[10px] text-indigo-400 font-mono">Est.</div>
-          </div>
-
-          <div className="w-16" /> {/* Center spacer */}
-
-          {/* Black player header */}
-          <div className="text-left flex flex-col items-start">
-            <div className="text-xs font-bold text-slate-300 font-mono truncate">{gameMeta?.black_player || 'Black'}</div>
-            <div className="text-2xl font-extrabold text-white font-mono leading-none mt-1">{blackRating}</div>
-            <div className="text-[10px] text-indigo-400 font-mono">Est.</div>
-          </div>
-        </div>
-
-        {/* Accuracy Row */}
-        <div className="px-6 py-2 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-          {/* White accuracy bar + number */}
-          <div className="flex items-center justify-end gap-3">
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm font-extrabold text-white font-mono">{whiteAccuracy}</span>
-              <span className="text-[10px] text-slate-500 uppercase font-semibold tracking-wider">Accuracy</span>
+        {/* Player Headers */}
+        <div className="px-6 py-5 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+          <div className="flex flex-col items-end">
+            <div className="text-xs font-bold font-mono truncate" style={{ color: 'var(--ct-text-secondary)' }}>
+              {gameMeta?.white_player || 'White'}
             </div>
-            <div className="flex-1 max-w-[120px] bg-slate-800 h-2 rounded-full overflow-hidden">
-              <div className="bg-blue-400 h-full rounded-full transition-all" style={{ width: `${whiteAccuracy}%` }} />
+            <div className="text-3xl font-extrabold font-mono leading-none mt-1" style={{ color: 'var(--ct-text-primary)' }}>
+              {whiteRating}
+            </div>
+            <div className="text-[10px] mt-0.5" style={{ color: 'var(--ct-gold)' }}>
+              {gameMeta?.white_elo ? `Est. Rating · Actual: ${gameMeta.white_elo}` : 'Est. Rating'}
             </div>
           </div>
-
-          <div className="w-16" />
-
-          {/* Black accuracy bar + number */}
-          <div className="flex items-center justify-start gap-3">
-            <div className="flex-1 max-w-[120px] bg-slate-800 h-2 rounded-full overflow-hidden">
-              <div className="bg-emerald-400 h-full rounded-full transition-all" style={{ width: `${blackAccuracy}%` }} />
+          <div className="text-center">
+            <div className="text-xs font-semibold px-3 py-1 rounded-full" style={{ background: 'var(--ct-navy)', color: 'var(--ct-text-muted)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              vs
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] text-slate-500 uppercase font-semibold tracking-wider">Accuracy</span>
-              <span className="text-sm font-extrabold text-white font-mono">{blackAccuracy}</span>
+          </div>
+          <div className="flex flex-col items-start">
+            <div className="text-xs font-bold font-mono truncate" style={{ color: 'var(--ct-text-secondary)' }}>
+              {gameMeta?.black_player || 'Black'}
+            </div>
+            <div className="text-3xl font-extrabold font-mono leading-none mt-1" style={{ color: 'var(--ct-text-primary)' }}>
+              {blackRating}
+            </div>
+            <div className="text-[10px] mt-0.5" style={{ color: 'var(--ct-gold)' }}>
+              {gameMeta?.black_elo ? `Est. Rating · Actual: ${gameMeta.black_elo}` : 'Est. Rating'}
             </div>
           </div>
         </div>
 
-        {/* Divider */}
-        <div className="mx-6 border-t border-slate-800/60" />
+        {/* Accuracy Bars */}
+        <div className="px-6 pb-4 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+          <div className="flex items-center justify-end gap-2">
+            <span className="text-sm font-extrabold font-mono" style={{ color: 'var(--ct-text-primary)' }}>
+              {whiteAccuracy}
+            </span>
+            <div className="flex-1 max-w-[120px] h-2 rounded-full overflow-hidden" style={{ background: 'var(--ct-navy-3)' }}>
+              <div className="h-full rounded-full" style={{ width: `${whiteAccuracy}%`, background: 'var(--ct-gold)' }} />
+            </div>
+          </div>
+          <div
+            className="px-3 py-1 rounded text-[10px] font-semibold uppercase tracking-wider text-center"
+            style={{ color: 'var(--ct-text-muted)' }}
+          >
+            Accuracy
+          </div>
+          <div className="flex items-center justify-start gap-2">
+            <div className="flex-1 max-w-[120px] h-2 rounded-full overflow-hidden" style={{ background: 'var(--ct-navy-3)' }}>
+              <div className="h-full rounded-full" style={{ width: `${blackAccuracy}%`, background: '#A5ADC6' }} />
+            </div>
+            <span className="text-sm font-extrabold font-mono" style={{ color: 'var(--ct-text-primary)' }}>
+              {blackAccuracy}
+            </span>
+          </div>
+        </div>
 
-        {/* Move Type Rows — clickable to jump to first move of that type */}
-        <div className="px-6 py-3 space-y-1">
+        <div className="mx-6 border-t" style={{ borderColor: 'rgba(255,255,255,0.04)' }} />
+
+        {/* Move Type Rows */}
+        <div className="px-6 py-4 space-y-1">
           {MOVE_TYPES.map((mt) => {
             const wCount = whiteCounts[mt.key] || 0;
             const bCount = blackCounts[mt.key] || 0;
             const wPct = (wCount / whiteTotalMoves) * 100;
             const bPct = (bCount / blackTotalMoves) * 100;
-
-            const wFirstIdx = timeline.findIndex((m) => m.color === 'white' && (m as any).move_classification === mt.key);
-            const bFirstIdx = timeline.findIndex((m) => m.color === 'black' && (m as any).move_classification === mt.key);
-
-            const handleWhiteClick = () => {
-              if (wFirstIdx !== -1) {
-                setCurrentIndex(wFirstIdx);
-                boardContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }
-            };
-
-            const handleBlackClick = () => {
-              if (bFirstIdx !== -1) {
-                setCurrentIndex(bFirstIdx);
-                boardContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }
-            };
-
+            const wFirstIdx = timeline.findIndex(m => m.color === 'white' && (m as any).move_classification === mt.key);
+            const bFirstIdx = timeline.findIndex(m => m.color === 'black' && (m as any).move_classification === mt.key);
             return (
-              <div
-                key={mt.key}
-                className="grid grid-cols-[1fr_auto_auto_auto_1fr] items-center gap-2 py-1.5 px-2 rounded-xl"
-              >
-                {/* White side */}
-                <div 
-                  className={`flex items-center justify-end gap-2 group ${wFirstIdx !== -1 ? 'cursor-pointer hover:bg-slate-800/80 rounded-lg py-1 px-2 transition-colors' : 'opacity-40'}`}
-                  onClick={handleWhiteClick}
-                  title={wFirstIdx !== -1 ? `Jump to White's first ${mt.label}` : ''}
+              <div key={mt.key} className="grid grid-cols-[1fr_64px_40px_64px_1fr] items-center gap-2 py-1.5 px-2 rounded-xl">
+                <div
+                  className={`flex items-center justify-end gap-2 ${wFirstIdx !== -1 ? 'cursor-pointer hover:bg-white/[0.03] rounded-lg px-2 py-1 transition-colors' : 'opacity-30'}`}
+                  onClick={() => { if (wFirstIdx !== -1) { setCurrentIndex(wFirstIdx); boardContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}}
                 >
-                  {wCount > 0 && (
-                    <span className={`text-sm font-extrabold font-mono ${mt.textColor}`}>{wCount}</span>
-                  )}
-                  <div className="flex-1 max-w-[140px] h-2 rounded-full overflow-hidden bg-slate-800/40">
-                    {wCount > 0 && (
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{ width: `${Math.max(4, wPct * 2.5)}%`, backgroundColor: mt.color }}
-                      />
-                    )}
+                  {wCount > 0 && <span className="text-sm font-extrabold font-mono" style={{ color: mt.text }}>{wCount}</span>}
+                  <div className="flex-1 max-w-[100px] h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                    {wCount > 0 && <div className="h-full rounded-full" style={{ width: `${Math.max(4, wPct * 2.5)}%`, background: mt.color }} />}
                   </div>
                 </div>
-
-                {/* Label */}
-                <div className="w-[72px] text-center flex items-center justify-center gap-1">
-                  <span className="text-xs font-semibold text-slate-400">{mt.label}</span>
+                <div className="text-center text-xs font-semibold" style={{ color: 'var(--ct-text-muted)' }}>
+                  {mt.label}
                 </div>
-
-                {/* Icon — center */}
-                <div className={`w-8 h-8 flex items-center justify-center rounded-full text-xs font-black flex-shrink-0 ${mt.bgColor} ${mt.textColor} border ${mt.borderColor}`}>
+                <div
+                  className="w-8 h-8 flex items-center justify-center rounded-full text-xs font-black flex-shrink-0 mx-auto"
+                  style={{ background: mt.bg, color: mt.text, border: `1px solid ${mt.border}` }}
+                >
                   {mt.icon}
                 </div>
-
-                {/* Spacer */}
-                <div className="w-[72px] text-center" />
-
-                {/* Black side */}
-                <div 
-                  className={`flex items-center justify-start gap-2 group ${bFirstIdx !== -1 ? 'cursor-pointer hover:bg-slate-800/80 rounded-lg py-1 px-2 transition-colors' : 'opacity-40'}`}
-                  onClick={handleBlackClick}
-                  title={bFirstIdx !== -1 ? `Jump to Black's first ${mt.label}` : ''}
+                <div className="text-center" />
+                <div
+                  className={`flex items-center justify-start gap-2 ${bFirstIdx !== -1 ? 'cursor-pointer hover:bg-white/[0.03] rounded-lg px-2 py-1 transition-colors' : 'opacity-30'}`}
+                  onClick={() => { if (bFirstIdx !== -1) { setCurrentIndex(bFirstIdx); boardContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}}
                 >
-                  <div className="flex-1 max-w-[140px] h-2 rounded-full overflow-hidden bg-slate-800/40">
-                    {bCount > 0 && (
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{ width: `${Math.max(4, bPct * 2.5)}%`, backgroundColor: mt.color }}
-                      />
-                    )}
+                  <div className="flex-1 max-w-[100px] h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                    {bCount > 0 && <div className="h-full rounded-full" style={{ width: `${Math.max(4, bPct * 2.5)}%`, background: mt.color }} />}
                   </div>
-                  {bCount > 0 && (
-                    <span className={`text-sm font-extrabold font-mono ${mt.textColor}`}>{bCount}</span>
-                  )}
+                  {bCount > 0 && <span className="text-sm font-extrabold font-mono" style={{ color: mt.text }}>{bCount}</span>}
                 </div>
               </div>
             );
           })}
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-3 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-500 font-mono">
-          <span>{gameMeta?.white_player || 'White'} (White) · {whiteTotalMoves} moves</span>
-          <span>{timeline.length} total moves analyzed</span>
-          <span>{gameMeta?.black_player || 'Black'} (Black) · {blackTotalMoves} moves</span>
+        <div className="px-6 py-3 border-t flex items-center justify-between text-[11px] font-mono" style={{ borderColor: 'rgba(255,255,255,0.04)', color: 'var(--ct-text-muted)' }}>
+          <span>{gameMeta?.white_player || 'White'} · {whiteTotalMoves} moves</span>
+          <span>{timeline.length} moves analyzed</span>
+          <span>{gameMeta?.black_player || 'Black'} · {blackTotalMoves} moves</span>
         </div>
       </div>
 
-      {/* Bottom Full-Width Chart: Think Time & Clock Heatmap */}
-      <div className="glass-panel p-6 rounded-2xl space-y-4">
+      {/* ── Think Time Chart ─────────────────────────────────── */}
+      <div className="glass-panel p-5 rounded-2xl space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-            <TrendingDown className="w-5 h-5 text-indigo-400" />
-            <span>Think Time & Clock Pressure Heatmap</span>
+          <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--ct-text-primary)' }}>
+            <TrendingDown className="w-4 h-4" style={{ color: 'var(--ct-gold)' }} />
+            Think Time &amp; Clock Pressure Heatmap
           </h3>
-          <span className="text-xs text-slate-400">Seconds spent per move throughout the game</span>
+          <span className="text-xs" style={{ color: 'var(--ct-text-muted)' }}>Seconds per move</span>
         </div>
 
         {chartData.length === 0 ? (
-          <div className="h-48 flex items-center justify-center text-slate-500 text-sm">
-            No think time data available for this game (clock times may not have been recorded)
+          <div className="h-48 flex items-center justify-center text-sm" style={{ color: 'var(--ct-text-muted)' }}>
+            No clock data available for this game.
           </div>
         ) : (
           <div className="h-48 w-full cursor-pointer">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart 
-                data={chartData} 
+              <AreaChart
+                data={chartData}
                 margin={{ top: 4, right: 8, bottom: 0, left: 0 }}
                 onClick={(e: any) => {
-                  if (e && e.activeLabel) {
-                    const moveNumber = Number(e.activeLabel);
-                    const idx = timeline.findIndex(m => m.move_number === moveNumber);
-                    if (idx !== -1) {
-                      setCurrentIndex(idx);
-                      boardContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }
+                  if (e?.activeLabel) {
+                    const idx = timeline.findIndex(m => m.move_number === Number(e.activeLabel));
+                    if (idx !== -1) { setCurrentIndex(idx); boardContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
                   }
                 }}
-                style={{ cursor: 'pointer' }}
               >
                 <defs>
-                  <linearGradient id="thinkColor" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366F1" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#6366F1" stopOpacity={0.0} />
+                  <linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#E8B66A" stopOpacity={0.5} />
+                    <stop offset="95%" stopColor="#E8B66A" stopOpacity={0} />
                   </linearGradient>
-                  <linearGradient id="pressureColor" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.7} />
-                    <stop offset="95%" stopColor="#f43f5e" stopOpacity={0.0} />
+                  <linearGradient id="silverGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#A5ADC6" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#A5ADC6" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <XAxis
-                  dataKey="move"
-                  stroke="#64748B"
-                  fontSize={10}
-                  tick={{ fill: '#94a3b8' }}
-                  minTickGap={35}
-                />
-                <YAxis stroke="#64748B" fontSize={10} unit="s" tick={{ fill: '#94a3b8' }} width={36} />
+                <XAxis dataKey="move" stroke="#2A3050" fontSize={10} tick={{ fill: '#6B7394' }} minTickGap={35} />
+                <YAxis stroke="#2A3050" fontSize={10} unit="s" tick={{ fill: '#6B7394' }} width={36} />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#0F172A',
-                    borderColor: '#334155',
-                    borderRadius: '12px',
-                    color: '#fff',
-                    fontSize: '12px',
-                  }}
+                  contentStyle={{ backgroundColor: '#171E40', borderColor: '#2A3050', borderRadius: '10px', color: '#F3F0E8', fontSize: '12px' }}
                   formatter={(val: any, name: any) => [`${val}s`, name === 'whiteThink' ? 'White Time' : 'Black Time']}
                 />
-                <Area type="monotone" dataKey="whiteThink" name="whiteThink" stroke="#f1f5f9" strokeWidth={2} fillOpacity={0.2} fill="#f1f5f9" dot={false} />
-                <Area type="monotone" dataKey="blackThink" name="blackThink" stroke="#6366F1" strokeWidth={2} fillOpacity={0.5} fill="#6366F1" dot={false} />
-                {currentMove && <ReferenceLine x={currentMove.move_number} stroke="#ec4899" strokeWidth={2} strokeDasharray="3 3" />}
+                <Area type="monotone" dataKey="whiteThink" name="whiteThink" stroke="#F3F0E8" strokeWidth={1.5} fillOpacity={1} fill="url(#silverGrad)" dot={false} />
+                <Area type="monotone" dataKey="blackThink" name="blackThink" stroke="#E8B66A" strokeWidth={1.5} fillOpacity={1} fill="url(#goldGrad)" dot={false} />
+                {currentMove && <ReferenceLine x={currentMove.move_number} stroke="#E8B66A" strokeWidth={1.5} strokeDasharray="3 3" />}
               </AreaChart>
             </ResponsiveContainer>
           </div>

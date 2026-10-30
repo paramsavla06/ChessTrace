@@ -50,6 +50,26 @@ FEATURE_COLUMNS = [
 ]
 
 
+DEFAULT_WEIGHTS_PATH = Path(__file__).resolve().parent / "weights" / "collapse_xgboost.json"
+_GLOBAL_MODEL: xgb.XGBRegressor | None = None
+
+
+def get_shared_model() -> xgb.XGBRegressor | None:
+    """Return a globally cached XGBoost model instance, loading from weights if available."""
+    global _GLOBAL_MODEL
+    if _GLOBAL_MODEL is not None:
+        return _GLOBAL_MODEL
+    if DEFAULT_WEIGHTS_PATH.exists():
+        try:
+            loaded = xgb.XGBRegressor()
+            loaded.load_model(str(DEFAULT_WEIGHTS_PATH))
+            _GLOBAL_MODEL = loaded
+            logger.info("Loaded shared XGBoost model from %s", DEFAULT_WEIGHTS_PATH)
+        except Exception as exc:
+            logger.warning("Could not load default XGBoost model from %s: %s", DEFAULT_WEIGHTS_PATH, exc)
+    return _GLOBAL_MODEL
+
+
 @dataclass(slots=True, frozen=True)
 class PredictionResult:
     win_probability: float
@@ -63,7 +83,10 @@ class WinCollapsePredictor:
     """
 
     def __init__(self, model: xgb.XGBRegressor | None = None) -> None:
-        self.model = model
+        if model is not None:
+            self.model = model
+        else:
+            self.model = get_shared_model()
 
     def feature_vector_from_dtos(
         self,
@@ -105,21 +128,30 @@ class WinCollapsePredictor:
         eval_cp: float | None = None,
     ) -> PredictionResult:
         """
-        Run inference to predict win and collapse probability.
+        Run inference to predict win and collapse probability using trained XGBoost.
         """
         X = self.feature_vector_from_dtos(pos_feats, time_feats)
 
+        win_prob: float
         if self.model is not None:
             raw_pred = float(self.model.predict(X)[0])
-            win_prob = float(np.clip(raw_pred, 0.0, 1.0))
+            ml_prob = float(np.clip(raw_pred, 0.0, 1.0))
+            if eval_cp is not None:
+                # Blend Stockfish evaluation centipawns with XGBoost positional & clock model
+                exponent = max(-700.0, min(700.0, -0.00368208 * eval_cp))
+                import math
+                sf_prob = 1.0 / (1.0 + math.exp(exponent))
+                # 60% engine search, 40% XGBoost human cognitive model
+                win_prob = float(np.clip(0.6 * sf_prob + 0.4 * ml_prob, 0.02, 0.98))
+            else:
+                win_prob = ml_prob
         elif eval_cp is not None:
             # Standard Stockfish/Lichess formula to map centipawns to win probability
-            # Cap the exponent between -700 and 700 to prevent math.exp OverflowError
             exponent = max(-700.0, min(700.0, -0.00368208 * eval_cp))
             import math
-            win_prob = 1.0 / (1.0 + math.exp(exponent))
+            win_prob = float(1.0 / (1.0 + math.exp(exponent)))
         else:
-            # Fallback mathematical heuristic if un-trained and no eval
+            # Fallback heuristic if un-trained and no eval
             base_score = 0.5 + (pos_feats.material_balance * 0.05)
             win_prob = float(np.clip(base_score, 0.05, 0.95))
 
@@ -132,7 +164,7 @@ class WinCollapsePredictor:
         elif time_feats.is_time_pressure_120s:
             time_mult = 1.3
 
-        # Collapse risk is higher when win probability is volatile and time pressure is high
+        # Collapse risk is higher when position is volatile and time pressure is high
         collapse_prob = float(
             np.clip((1.0 - abs(win_prob - 0.5) * 2.0) * 0.4 * time_mult, 0.05, 0.95)
         )

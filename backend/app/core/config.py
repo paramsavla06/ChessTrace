@@ -5,6 +5,7 @@ Application configuration settings.
 from __future__ import annotations
 
 import os
+import shutil
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -21,7 +22,50 @@ _db_url = os.getenv("DATABASE_URL", "sqlite:///./chesstrace.db")
 if _db_url.startswith("postgres://"):
     _db_url = _db_url.replace("postgres://", "postgresql://", 1)
 DATABASE_URL: str = _db_url
-STOCKFISH_PATH: str = os.getenv("STOCKFISH_PATH", "./stockfish_bin")
+
+
+def resolve_stockfish_path() -> str | None:
+    """Intelligently locate the Stockfish binary across dev, docker, and cloud environments."""
+    configured = os.getenv("STOCKFISH_PATH")
+    candidates: list[Path] = []
+    if configured:
+        p = Path(configured)
+        candidates.extend([
+            p,
+            BASE_DIR / configured,
+            BASE_DIR / "backend" / configured,
+            BASE_DIR / "backend" / "app" / "engine" / p.name,
+        ])
+
+    # Check system PATH
+    for cmd in ["stockfish", "stockfish.exe", "stockfish_bin"]:
+        w = shutil.which(cmd)
+        if w:
+            candidates.append(Path(w))
+
+    # Common development, container, and free-tier Linux locations
+    candidates.extend([
+        BASE_DIR / "backend" / "app" / "engine" / "stockfish.exe",
+        BASE_DIR / "backend" / "stockfish_bin",
+        BASE_DIR / "stockfish_bin",
+        Path("./stockfish_bin"),
+        Path("./backend/stockfish_bin"),
+        Path("./app/engine/stockfish.exe"),
+        Path("/usr/games/stockfish"),
+        Path("/usr/bin/stockfish"),
+        Path("/usr/local/bin/stockfish"),
+    ])
+
+    for c in candidates:
+        try:
+            if c and c.is_file():
+                return str(c.resolve())
+        except Exception:
+            continue
+    return None
+
+
+STOCKFISH_PATH: str | None = resolve_stockfish_path()
 LICHESS_API_TOKEN: str = os.getenv("LICHESS_API_TOKEN", "")
 
 _extra_origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]

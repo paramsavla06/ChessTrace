@@ -1,12 +1,98 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
+/* ================================================================
+   CHESSTRACE DESIGN SYSTEM
+   Two visual environments:
+   A) Public landing page — warm ivory, charcoal, champagne gold
+   B) Application workspace — deep navy, warm gold, ivory text
+   ================================================================ */
+
+/* ── Design Tokens ───────────────────────────────────────────── */
+:root {
+  /* Landing Page Palette */
+  --ct-ivory: #F3F0E8;
+  --ct-stone: #E5E0D6;
+  --ct-charcoal: #171714;
+  --ct-muted: #77756E;
+  --ct-champagne: #C9A96E;
+  --ct-champagne-light: #E8D5A8;
+
+  /* Application Palette */
+  --ct-navy: #10152F;
+  --ct-navy-2: #171E40;
+  --ct-navy-3: #20294F;
+  --ct-gold: #E8B66A;
+  --ct-gold-dim: #B8944E;
+  --ct-text-primary: #F3F0E8;
+  --ct-text-secondary: #A5ADC6;
+  --ct-text-muted: #6B7394;
+
+  /* Move Classifications */
+  --ct-brilliant: #00B5C8;
+  --ct-great: #32A8A8;
+  --ct-book: #8B5CF6;
+  --ct-best: #30C670;
+  --ct-excellent: #7FC97F;
+  --ct-good: #4ADE80;
+  --ct-inaccuracy: #F59E0B;
+  --ct-mistake: #F97316;
+  --ct-miss: #EF4444;
+  --ct-blunder: #DC2626;
+
+  /* Typography */
+  --font-display: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+
+  /* Spacing Scale */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+  --space-4xl: 96px;
+
+  /* Radii */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-2xl: 32px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.15);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.2);
+  --shadow-xl: 0 16px 48px rgba(0,0,0,0.3);
+  --shadow-glow-gold: 0 0 24px rgba(232,182,106,0.15);
+  --shadow-glow-navy: 0 8px 32px rgba(16,21,47,0.5);
+
+  /* Animation Timing */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-micro: 150ms;
+  --duration-fast: 200ms;
+  --duration-normal: 300ms;
+  --duration-slow: 500ms;
+  --duration-reveal: 700ms;
+}
+
+/* ── Base Styles ─────────────────────────────────────────────── */
 @layer base {
   body {
-    @apply bg-[#0B0F19] text-slate-100 antialiased selection:bg-indigo-500 selection:text-white min-h-screen font-sans;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
   }
-  
-  button, 
+
+  button,
   [role="button"],
   [type="button"],
   [type="submit"],
@@ -14,49 +100,293 @@
   select {
     cursor: pointer;
   }
+
+  ::selection {
+    background: rgba(232, 182, 106, 0.3);
+    color: var(--ct-charcoal);
+  }
 }
 
-/* Glassmorphism custom components */
+/* ── Landing Page Environment ────────────────────────────────── */
+.landing-env {
+  background-color: var(--ct-ivory);
+  color: var(--ct-charcoal);
+}
+
+.landing-env ::selection {
+  background: rgba(201, 169, 110, 0.3);
+}
+
+/* ── Application Environment ─────────────────────────────────── */
+.app-env {
+  background-color: var(--ct-navy);
+  color: var(--ct-text-primary);
+  min-height: 100vh;
+}
+
+.app-env ::selection {
+  background: rgba(232, 182, 106, 0.3);
+  color: #fff;
+}
+
+/* ── Glass Panel (App) ───────────────────────────────────────── */
 .glass-panel {
-  background: rgba(17, 24, 39, 0.7);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  background: rgba(23, 30, 64, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
 }
 
 .glass-panel-hover {
-  transition: all 0.2s ease-in-out;
+  transition: all var(--duration-fast) var(--ease-in-out);
 }
 .glass-panel-hover:hover {
-  border-color: rgba(99, 102, 241, 0.4);
-  box-shadow: 0 12px 40px 0 rgba(99, 102, 241, 0.15);
+  border-color: rgba(232, 182, 106, 0.25);
+  box-shadow: 0 8px 32px rgba(232, 182, 106, 0.08);
 }
 
-/* Neon Glow Accents */
-.glow-indigo {
-  box-shadow: 0 0 20px rgba(99, 102, 241, 0.35);
+/* ── Typography Utilities ────────────────────────────────────── */
+.font-display {
+  font-family: var(--font-display);
 }
 
-.glow-pink {
-  box-shadow: 0 0 20px rgba(236, 72, 153, 0.35);
+.font-mono {
+  font-family: var(--font-mono);
 }
 
-.glow-emerald {
-  box-shadow: 0 0 20px rgba(16, 185, 129, 0.35);
-}
-
-/* Scrollbar Styling */
-::-webkit-scrollbar {
+/* ── Scrollbar (App) ─────────────────────────────────────────── */
+.app-env ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
-::-webkit-scrollbar-track {
-  background: #0B0F19;
+.app-env ::-webkit-scrollbar-track {
+  background: var(--ct-navy);
 }
-::-webkit-scrollbar-thumb {
-  background: #1F2937;
-  border-radius: 9999px;
+.app-env ::-webkit-scrollbar-thumb {
+  background: var(--ct-navy-3);
+  border-radius: var(--radius-full);
 }
-::-webkit-scrollbar-thumb:hover {
-  background: #374151;
+.app-env ::-webkit-scrollbar-thumb:hover {
+  background: rgba(165, 173, 198, 0.3);
 }
+
+/* ── Landing Page Scrollbar ──────────────────────────────────── */
+.landing-env ::-webkit-scrollbar {
+  width: 6px;
+}
+.landing-env ::-webkit-scrollbar-track {
+  background: var(--ct-ivory);
+}
+.landing-env ::-webkit-scrollbar-thumb {
+  background: var(--ct-stone);
+  border-radius: var(--radius-full);
+}
+
+/* ── Button System ───────────────────────────────────────────── */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 28px;
+  background: var(--ct-charcoal);
+  color: var(--ct-ivory);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  border-radius: var(--radius-lg);
+  border: none;
+  transition: all var(--duration-fast) var(--ease-out-quart);
+  position: relative;
+  overflow: hidden;
+}
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(23, 23, 20, 0.3);
+}
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 28px;
+  background: transparent;
+  color: var(--ct-charcoal);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  border-radius: var(--radius-lg);
+  border: 1.5px solid var(--ct-stone);
+  transition: all var(--duration-fast) var(--ease-out-quart);
+}
+.btn-secondary:hover {
+  border-color: var(--ct-charcoal);
+  background: rgba(23, 23, 20, 0.04);
+}
+
+.btn-gold {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, var(--ct-gold), var(--ct-gold-dim));
+  color: var(--ct-navy);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.03em;
+  border-radius: var(--radius-md);
+  border: none;
+  transition: all var(--duration-fast) var(--ease-out-quart);
+  box-shadow: 0 2px 12px rgba(232, 182, 106, 0.2);
+}
+.btn-gold:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(232, 182, 106, 0.35);
+}
+
+.btn-app {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: var(--ct-navy-3);
+  color: var(--ct-text-primary);
+  font-weight: 600;
+  font-size: 13px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255,255,255,0.08);
+  transition: all var(--duration-fast) var(--ease-in-out);
+}
+.btn-app:hover {
+  background: rgba(232, 182, 106, 0.12);
+  border-color: rgba(232, 182, 106, 0.25);
+  color: var(--ct-gold);
+}
+
+/* ── App Input System ────────────────────────────────────────── */
+.input-app {
+  background: rgba(16, 21, 47, 0.6);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius-md);
+  padding: 10px 16px;
+  font-size: 13px;
+  color: var(--ct-text-primary);
+  font-family: var(--font-sans);
+  transition: border-color var(--duration-fast) var(--ease-in-out);
+}
+.input-app::placeholder {
+  color: var(--ct-text-muted);
+}
+.input-app:focus {
+  outline: none;
+  border-color: var(--ct-gold);
+  box-shadow: 0 0 0 3px rgba(232, 182, 106, 0.1);
+}
+
+/* ── App Card System ─────────────────────────────────────────── */
+.card-app {
+  background: var(--ct-navy-2);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  transition: all var(--duration-fast) var(--ease-in-out);
+}
+.card-app:hover {
+  border-color: rgba(232, 182, 106, 0.15);
+}
+
+/* ── Glow Accents (App) ──────────────────────────────────────── */
+.glow-gold {
+  box-shadow: 0 0 20px rgba(232, 182, 106, 0.15);
+}
+
+.glow-indigo {
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.15);
+}
+
+.glow-pink {
+  box-shadow: 0 0 20px rgba(236, 72, 153, 0.15);
+}
+
+.glow-emerald {
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+}
+
+/* ── Reduced Motion ──────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Landing Animations ──────────────────────────────────────── */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes drawLine {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+/* ── Landing Nav Background Transition ───────────────────────── */
+.landing-nav {
+  transition: background-color var(--duration-normal) var(--ease-in-out),
+              backdrop-filter var(--duration-normal) var(--ease-in-out),
+              box-shadow var(--duration-normal) var(--ease-in-out);
+}
+.landing-nav.scrolled {
+  background-color: rgba(243, 240, 232, 0.92);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.06);
+}
+
+/* ── Chessboard overrides for app theme ──────────────────────── */
+.app-env .board-container {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-xl);
+}
+
+

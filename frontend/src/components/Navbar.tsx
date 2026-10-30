@@ -110,8 +110,8 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, current
           
           <div className="w-px h-6 bg-slate-700 mx-2"></div>
           
-          <div className="relative group">
-            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <div className="relative group flex items-center">
+            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none z-10" />
             <input
               type="text"
               placeholder="Your Username"
@@ -119,7 +119,8 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, current
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
               onBlur={handleBlur}
-              className="bg-slate-800/50 border border-slate-700 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 w-40 transition-all focus:w-48"
+              className="bg-slate-800/50 border border-slate-700 rounded-lg pr-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 w-40 transition-all focus:w-48"
+              style={{ paddingLeft: '36px' }}
             />
           </div>
         </nav>
