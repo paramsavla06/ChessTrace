@@ -813,27 +813,43 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
                     {[
                       { label: 'Played Move', data: whatIfResult.played_move },
                       { label: 'Alternative Move', data: whatIfResult.alternative_move },
-                    ].map(({ label, data }) => (
-                      <div key={label} className="rounded-lg p-3" style={{ background: 'var(--ct-navy-2)' }}>
-                        <div className="text-[10px] uppercase font-semibold mb-1" style={{ color: 'var(--ct-text-muted)' }}>
-                          {label}
+                    ].map(({ label, data }) => {
+                      const winPct = (boardFlipped ? (1 - data.win_probability) : data.win_probability) * 100;
+                      return (
+                        <div key={label} className="rounded-lg p-3" style={{ background: 'var(--ct-navy-2)' }}>
+                          <div className="text-[10px] uppercase font-semibold mb-1" style={{ color: 'var(--ct-text-muted)' }}>
+                            {label}
+                          </div>
+                          <div className="flex items-baseline justify-between">
+                            <span className="text-base font-bold font-mono" style={{ color: 'var(--ct-text-primary)' }}>
+                              {(data as any).san || data.uci}
+                            </span>
+                            {(data as any).eval_str && (
+                              <span className="text-xs font-mono font-semibold" style={{ color: 'var(--ct-gold)' }}>
+                                {(data as any).eval_str}
+                              </span>
+                            )}
+                          </div>
+                          <div className="font-mono mt-1 text-xs" style={{ color: 'var(--ct-text-secondary)' }}>
+                            {winPct.toFixed(1)}% win
+                          </div>
                         </div>
-                        <div className="text-sm font-bold font-mono" style={{ color: 'var(--ct-text-primary)' }}>
-                          {(data as any).san || data.uci}
-                        </div>
-                        <div className="font-mono mt-0.5" style={{ color: 'var(--ct-text-secondary)' }}>
-                          {(boardFlipped ? 1 - data.win_probability : data.win_probability * 100).toFixed(1)}% win
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                   <p
-                    className="font-semibold text-sm"
+                    className="font-semibold text-sm leading-relaxed"
                     style={{
                       color:
-                        whatIfResult.probability_divergence.win_probability_delta > 0.03 ? '#30C670' :
-                        whatIfResult.probability_divergence.win_probability_delta < -0.03 ? '#EF4444' :
-                        'var(--ct-text-secondary)',
+                        whatIfResult.probability_divergence.win_probability_delta > 0.03 ||
+                        whatIfResult.probability_divergence.recommendation.startsWith('🟢')
+                          ? '#30C670'
+                          : whatIfResult.probability_divergence.win_probability_delta < -0.03 ||
+                            whatIfResult.probability_divergence.recommendation.startsWith('🔴')
+                          ? '#EF4444'
+                          : whatIfResult.probability_divergence.recommendation.startsWith('🟡')
+                          ? '#F59E0B'
+                          : 'var(--ct-text-secondary)',
                     }}
                   >
                     {whatIfResult.probability_divergence.recommendation}

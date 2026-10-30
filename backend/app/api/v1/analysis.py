@@ -398,12 +398,49 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
     win_diff = pred_alt.win_probability - pred_played.win_probability
     collapse_diff = pred_alt.collapse_probability - pred_played.collapse_probability
     
-    # Evaluate delta from the requested perspective
-    player_win_diff = win_diff if req.perspective == "white" else -win_diff
+    # 1. Compute centipawn difference from the moving player's perspective
+    # Positive = alternative move is BETTER for the player than played move
+    # Negative = alternative move is WORSE for the player than played move
+    if played_eval_cp is not None and alt_eval_cp is not None:
+        if req.perspective == "white":
+            player_eval_delta_cp = alt_eval_cp - played_eval_cp
+        else:
+            player_eval_delta_cp = played_eval_cp - alt_eval_cp
+    else:
+        player_eval_delta_cp = 0.0
+
+    player_eval_delta_pawns = player_eval_delta_cp / 100.0
+
+    # 2. Compute win probability difference from moving player's perspective
+    player_played_win = (1.0 - pred_played.win_probability) if req.perspective == "black" else pred_played.win_probability
+    player_alt_win = (1.0 - pred_alt.win_probability) if req.perspective == "black" else pred_alt.win_probability
+    raw_player_win_diff = player_alt_win - player_played_win
+
+    # 3. Effective win diff reflects tactical severity even when standard sigmoid is saturated
+    effective_win_diff = raw_player_win_diff
+    if abs(player_eval_delta_pawns) >= 0.4:
+        if player_eval_delta_pawns <= -3.0:
+            effective_win_diff = min(effective_win_diff, -0.30)
+        elif player_eval_delta_pawns <= -1.5:
+            effective_win_diff = min(effective_win_diff, -0.15)
+        elif player_eval_delta_pawns <= -0.4:
+            effective_win_diff = min(effective_win_diff, -0.05)
+        elif player_eval_delta_pawns >= 3.0:
+            effective_win_diff = max(effective_win_diff, 0.30)
+        elif player_eval_delta_pawns >= 1.5:
+            effective_win_diff = max(effective_win_diff, 0.15)
+        elif player_eval_delta_pawns >= 0.4:
+            effective_win_diff = max(effective_win_diff, 0.05)
+
+    # 4. Collapse risk increases when making an inferior move/blunder
+    if player_eval_delta_pawns <= -2.0:
+        collapse_diff = max(collapse_diff, 0.25)
+    elif player_eval_delta_pawns <= -0.8:
+        collapse_diff = max(collapse_diff, 0.12)
+    elif player_eval_delta_pawns >= 1.5:
+        collapse_diff = min(collapse_diff, -0.15)
 
     # --- Build rich recommendation ---
-    played_wp = round(pred_played.win_probability * 100, 1)
-    alt_wp = round(pred_alt.win_probability * 100, 1)
     if played_eval_cp is not None and abs(played_eval_cp) > 100000:
         mate_in = 200000 - abs(played_eval_cp)
         if mate_in == 0:
@@ -424,16 +461,21 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
     
     persp_str = req.perspective.capitalize()
 
-    if player_win_diff > 0.08:
-        rec = f"🟢 {alt_san} is significantly better for {persp_str} than {played_san}! ({alt_eval_str} vs {played_eval_str})"
-    elif player_win_diff > 0.03:
-        rec = f"🟡 {alt_san} is slightly better for {persp_str} than {played_san} ({alt_eval_str} vs {played_eval_str})"
-    elif player_win_diff > -0.03:
-        rec = f"⚖️ Both moves are roughly equal ({alt_san}: {alt_eval_str}, {played_san}: {played_eval_str})"
-    elif player_win_diff > -0.08:
-        rec = f"🟡 {alt_san} is slightly worse for {persp_str} than {played_san} ({alt_eval_str} vs {played_eval_str})"
+    # Move quality classification based on chess engine standards + cognitive win delta:
+    if player_eval_delta_pawns <= -3.0 or effective_win_diff <= -0.20:
+        rec = f"🔴 {alt_san} is a severe blunder ({player_eval_delta_pawns:+.2f} pawns for {persp_str} vs {played_san})"
+    elif player_eval_delta_pawns <= -1.5 or effective_win_diff <= -0.08:
+        rec = f"🔴 {alt_san} is significantly worse for {persp_str} than {played_san} ({player_eval_delta_pawns:+.2f} pawns)"
+    elif player_eval_delta_pawns <= -0.4 or effective_win_diff <= -0.03:
+        rec = f"🟡 {alt_san} is worse for {persp_str} than {played_san} ({player_eval_delta_pawns:+.2f} pawns)"
+    elif player_eval_delta_pawns >= 3.0 or effective_win_diff >= 0.20:
+        rec = f"🟢 {alt_san} is a winning tactic ({player_eval_delta_pawns:+.2f} pawns for {persp_str} vs {played_san})!"
+    elif player_eval_delta_pawns >= 1.5 or effective_win_diff >= 0.08:
+        rec = f"🟢 {alt_san} is significantly better for {persp_str} than {played_san}! ({player_eval_delta_pawns:+.2f} pawns)"
+    elif player_eval_delta_pawns >= 0.4 or effective_win_diff >= 0.03:
+        rec = f"🟡 {alt_san} is slightly better for {persp_str} than {played_san} ({player_eval_delta_pawns:+.2f} pawns)"
     else:
-        rec = f"🔴 {alt_san} is significantly worse for {persp_str} than {played_san} ({alt_eval_str} vs {played_eval_str})"
+        rec = f"⚖️ Both moves are roughly equal ({alt_san}: {alt_eval_str}, {played_san}: {played_eval_str})"
 
     return {
         "played_move": {
@@ -453,8 +495,9 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
             "collapse_probability": round(pred_alt.collapse_probability, 4),
         },
         "probability_divergence": {
-            "win_probability_delta": round(player_win_diff, 4),
+            "win_probability_delta": round(effective_win_diff, 4),
             "collapse_probability_delta": round(collapse_diff, 4),
+            "eval_delta_pawns": round(player_eval_delta_pawns, 2),
             "recommendation": rec,
         },
     }
