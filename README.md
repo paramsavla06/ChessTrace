@@ -324,3 +324,10 @@ Electronics & Telecommunication Engineering, Sardar Patel Institute of Technolog
 - Training game corpora sourced from the [Lichess Open Database](https://database.lichess.org).
 - Engine analysis provided by the official open-source [Stockfish Chess](https://stockfishchess.org).
 
+---
+
+## License
+
+This project is open-source and distributed under the [MIT License](LICENSE).
+
+
