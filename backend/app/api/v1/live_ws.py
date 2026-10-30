@@ -210,7 +210,106 @@ async def stream_live_game(websocket: WebSocket, game_id: str) -> None:
                     previous_clock = clock_after
 
                 # Game stream finished (game concluded or completed)
-                logger.info("Live stream completed for game ID '%s'", clean_game_id)
+                logger.info("Live stream ended for game ID '%s'. Reconciling final moves...", clean_game_id)
+                try:
+                    export_url = f"https://lichess.org/game/export/{clean_game_id}?moves=true&clocks=true&evals=false"
+                    export_resp = await client.get(export_url, headers={"Accept": "application/json"}, timeout=8.0)
+                    if export_resp.status_code == 200:
+                        export_data = export_resp.json()
+                        all_sans = export_data.get("moves", "").split()
+                        
+                        # Catch up any trailing moves missed by delayed spectator stream
+                        if len(all_sans) > len(board.move_stack):
+                            missing_sans = all_sans[len(board.move_stack):]
+                            logger.info("Catching up %d missing final moves: %s", len(missing_sans), missing_sans)
+                            
+                            for m_san in missing_sans:
+                                try:
+                                    chess_move = board.parse_san(m_san)
+                                    calculated_san = board.san(chess_move)
+                                    board.push(chess_move)
+                                except Exception as parse_err:
+                                    logger.warning("Could not parse missing move %s: %s", m_san, parse_err)
+                                    break
+                                    
+                                ply += 1
+                                move_number = (ply + 1) // 2
+                                active_color = MoveColor.WHITE if board.turn == chess.BLACK else MoveColor.BLACK
+                                
+                                move_obj = Move(
+                                    move_number=move_number,
+                                    ply=ply,
+                                    color=active_color,
+                                    san=calculated_san,
+                                    uci=chess_move.uci(),
+                                    fen=board.fen(),
+                                    clock_before=previous_clock,
+                                    clock_after=previous_clock,
+                                    time_spent=1,
+                                )
+                                
+                                pos_feats = extract_position_features(board)
+                                prev_same = prev_white_moves if active_color == MoveColor.WHITE else prev_black_moves
+                                time_feats = extract_time_features(move_obj, previous_moves_same_color=prev_same)
+                                pred = predictor.predict(pos_feats, time_feats)
+                                exp = explainer.explain(pos_feats, time_feats)
+                                
+                                frame = {
+                                    "game_id": clean_game_id,
+                                    "ply": ply,
+                                    "move_number": move_number,
+                                    "color": active_color.value,
+                                    "uci": chess_move.uci(),
+                                    "san": calculated_san,
+                                    "fen": board.fen(),
+                                    "white_player": white_player,
+                                    "black_player": black_player,
+                                    "white_clock": previous_clock // 1000 if previous_clock else None,
+                                    "black_clock": previous_clock // 1000 if previous_clock else None,
+                                    "win_probability": round(pred.win_probability, 4),
+                                    "collapse_probability": round(pred.collapse_probability, 4),
+                                    "time_pressure_risk_multiplier": pred.time_pressure_risk_multiplier,
+                                    "narrative_summary": exp.narrative_summary,
+                                    "material_balance": pos_feats.material_balance,
+                                    "game_phase": pos_feats.game_phase,
+                                    "think_time_sec": time_feats.think_time,
+                                    "time_remaining_sec": time_feats.time_remaining,
+                                    "is_time_pressure_30s": time_feats.is_time_pressure_30s,
+                                }
+                                await websocket.send_json(frame)
+                                
+                                if active_color == MoveColor.WHITE:
+                                    prev_white_moves.append(move_obj)
+                                else:
+                                    prev_black_moves.append(move_obj)
+
+                        # Send terminal game-over notification
+                        raw_status = export_data.get("status", "completed")
+                        winner = export_data.get("winner")
+                        if winner == "white":
+                            result_text = f"1-0 · {white_player} won ({raw_status})"
+                        elif winner == "black":
+                            result_text = f"0-1 · {black_player} won ({raw_status})"
+                        else:
+                            result_text = f"½-½ · Draw ({raw_status})"
+
+                        await websocket.send_json({
+                            "game_id": clean_game_id,
+                            "game_over": True,
+                            "status": "completed",
+                            "winner": winner,
+                            "result_text": result_text,
+                            "narrative_summary": f"Game Over — {result_text}",
+                        })
+                except Exception as final_err:
+                    logger.warning("Could not reconcile final moves: %s", final_err)
+                    await websocket.send_json({
+                        "game_id": clean_game_id,
+                        "game_over": True,
+                        "status": "completed",
+                        "narrative_summary": "Game completed.",
+                    })
+
                 while True:
                     await asyncio.sleep(60)
 

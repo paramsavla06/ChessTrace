@@ -23,7 +23,11 @@ interface LiveFrame {
   uci?: string;
   white_player?: string;
   black_player?: string;
+  white_clock?: number;
+  black_clock?: number;
   time_remaining_sec?: number;
+  game_over?: boolean;
+  result_text?: string;
 }
 
 export function extractLichessGame(input: string): { gameId: string; orientation: 'white' | 'black' } {
@@ -55,6 +59,8 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, onSelectGame }) => {
   const [history, setHistory] = useState<LiveFrame[]>([]);
   const [viewIndex, setViewIndex] = useState(-1);
   const [connected, setConnected] = useState(false);
+  const [isGameOver, setIsGameOver] = useState(false);
+  const [gameResultText, setGameResultText] = useState<string | null>(null);
   const [inputGameId, setInputGameId] = useState('');
   const [boardOrientation, setBoardOrientation] = useState<'white' | 'black'>('white');
   const [isExporting, setIsExporting] = useState(false);
@@ -107,7 +113,7 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, onSelectGame }) => {
   useEffect(() => {
     const { gameId: cleanId, orientation } = extractLichessGame(inputGameId);
     setBoardOrientation(orientation);
-    if (!cleanId || cleanId.length < 8) { setConnected(false); return; }
+    if (!cleanId || cleanId.length < 8) { setConnected(false); setIsGameOver(false); setGameResultText(null); return; }
 
     const apiBase = import.meta.env.VITE_API_URL as string | undefined;
     let wsUrl: string;
@@ -124,11 +130,23 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, onSelectGame }) => {
     }
 
     const socket = new WebSocket(wsUrl);
-    socket.onopen = () => { setConnected(true); setErrorMsg(null); setHistory([]); setViewIndex(-1); };
+    socket.onopen = () => {
+      setConnected(true);
+      setIsGameOver(false);
+      setGameResultText(null);
+      setErrorMsg(null);
+      setHistory([]);
+      setViewIndex(-1);
+    };
     socket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         if (data.error) { setErrorMsg(data.error); socket.close(); return; }
+        if (data.game_over || data.status === 'completed') {
+          setIsGameOver(true);
+          if (data.result_text) setGameResultText(data.result_text);
+          if (!data.ply) return;
+        }
         setHistory(prev => {
           const newHistory = [...prev];
           const existingIdx = newHistory.findIndex(f => f.ply === data.ply);
@@ -195,12 +213,19 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, onSelectGame }) => {
             Live Spectate
           </h1>
           <p className="text-sm mt-1" style={{ color: 'var(--ct-text-muted)' }}>
-            {connected ? (
+            {isGameOver ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full"
+                    style={{ background: 'rgba(232,182,106,0.12)', color: 'var(--ct-gold)', border: '1px solid rgba(232,182,106,0.3)' }}>
+                ✓ Game Completed {gameResultText ? `· ${gameResultText}` : `(#${displayId})`}
+              </span>
+            ) : connected ? (
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-[#EF4444] animate-pulse" />
-                Connected — game #{displayId}
+                Streaming Live — game #{displayId}
               </span>
-            ) : 'Enter a Lichess game ID or URL to begin spectating'}
+            ) : (
+              'Enter a Lichess game ID or URL to begin spectating'
+            )}
           </p>
         </div>
 
@@ -262,9 +287,14 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, onSelectGame }) => {
               </div>
               <div>
                 <div className="text-sm font-semibold" style={{ color: 'var(--ct-text-primary)' }}>{topPlayer}</div>
-                {connected && (
+                {connected && !isGameOver && (
                   <div className="text-[11px] flex items-center gap-1" style={{ color: '#EF4444' }}>
                     <span className="w-1.5 h-1.5 rounded-full bg-current" />Live
+                  </div>
+                )}
+                {isGameOver && (
+                  <div className="text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ background: 'rgba(232,182,106,0.15)', color: 'var(--ct-gold)' }}>
+                    Game Over
                   </div>
                 )}
               </div>
@@ -333,18 +363,23 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, onSelectGame }) => {
                 <button
                   onClick={() => setViewIndex(0)}
                   disabled={viewIndex === 0}
-                  className="hover:text-white disabled:opacity-40 transition-colors"
+                  className="hover:text-white disabled:opacity-40 transition-colors flex items-center gap-1"
                 >
-                  Start
+                  ⏮ Start
                 </button>
-                <span>{viewIndex === -1 ? '● Live' : `Move ${viewIndex + 1} / ${history.length}`}</span>
+                <span className="font-mono text-xs" style={{ color: 'var(--ct-text-primary)' }}>
+                  {viewIndex === -1
+                    ? (isGameOver ? 'Final Move' : '● Live Position')
+                    : `Move ${viewIndex + 1} of ${history.length}`}
+                </span>
                 <button
                   onClick={() => setViewIndex(-1)}
                   disabled={viewIndex === -1}
-                  className="transition-colors disabled:opacity-40"
-                  style={{ color: viewIndex === -1 ? '#EF4444' : 'var(--ct-text-muted)' }}
+                  className="transition-colors disabled:opacity-40 hover:text-white flex items-center gap-1 font-semibold"
+                  style={{ color: viewIndex === -1 ? 'var(--ct-text-muted)' : 'var(--ct-gold)' }}
+                  title={isGameOver ? "Jump to final move" : "Jump to latest live move"}
                 >
-                  Live ●
+                  {isGameOver ? 'Latest Move ⏭' : 'Live Move ⏭'}
                 </button>
               </div>
               <input
@@ -429,7 +464,7 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, onSelectGame }) => {
                 style={{ background: 'var(--ct-navy)', border: '1px solid rgba(255,255,255,0.05)' }}
               >
                 <div className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--ct-text-muted)' }}>
-                  Live Game Moves
+                  {isGameOver ? 'Game Moves (Completed)' : 'Live Game Moves'}
                 </div>
                 <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto">
                   {history.map((m, i) => (
