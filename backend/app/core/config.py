@@ -19,8 +19,10 @@ PROJECT_NAME: str = "ChessTrace"
 API_V1_STR: str = "/api/v1"
 
 _db_url = os.getenv("DATABASE_URL", "sqlite:///./chesstrace.db")
-if _db_url.startswith("postgres://"):
-    _db_url = _db_url.replace("postgres://", "postgresql://", 1)
+if _db_url.startswith("postgresql+psycopg://"):
+    _db_url = _db_url.replace("postgresql+psycopg://", "postgresql+psycopg2://", 1)
+elif _db_url.startswith("postgres://"):
+    _db_url = _db_url.replace("postgres://", "postgresql+psycopg2://", 1)
 DATABASE_URL: str = _db_url
 
 
