@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Radio, Zap, ArrowRightCircle, User, Loader2, AlertCircle } from 'lucide-react';
+import { Radio, Zap, ArrowRightCircle, User, Loader2, AlertCircle, FlipVertical2 } from 'lucide-react';
 import { api } from '../api/client';
 
 interface LivePageProps {
@@ -299,11 +299,25 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, onSelectGame }) => {
                 )}
               </div>
             </div>
-            <div
-              className="px-3 py-1 rounded-lg font-mono text-base font-bold min-w-[76px] text-center"
-              style={{ background: '#0A0E20', color: 'var(--ct-text-primary)', border: '1px solid rgba(255,255,255,0.06)' }}
-            >
-              {formatClock(getPlayerClock(boardOrientation === 'white' ? 'black' : 'white'))}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setBoardOrientation(o => o === 'white' ? 'black' : 'white')}
+                className="p-1.5 rounded-lg hover:text-white transition-colors"
+                style={{
+                  background: boardOrientation === 'black' ? 'rgba(232,182,106,0.2)' : 'rgba(255,255,255,0.05)',
+                  color: boardOrientation === 'black' ? 'var(--ct-gold)' : 'var(--ct-text-muted)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                }}
+                title="Flip board orientation (toggle White / Black view)"
+              >
+                <FlipVertical2 className="w-4 h-4" />
+              </button>
+              <div
+                className="px-3 py-1 rounded-lg font-mono text-base font-bold min-w-[76px] text-center"
+                style={{ background: '#0A0E20', color: 'var(--ct-text-primary)', border: '1px solid rgba(255,255,255,0.06)' }}
+              >
+                {formatClock(getPlayerClock(boardOrientation === 'white' ? 'black' : 'white'))}
+              </div>
             </div>
           </div>
 
@@ -358,42 +372,72 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, onSelectGame }) => {
 
           {/* Scrubber */}
           {history.length > 0 && (
-            <div className="w-full max-w-[460px]">
-              <div className="flex justify-between items-center text-xs mb-2" style={{ color: 'var(--ct-text-muted)' }}>
-                <button
-                  onClick={() => setViewIndex(0)}
-                  disabled={viewIndex === 0}
-                  className="hover:text-white disabled:opacity-40 transition-colors flex items-center gap-1"
-                >
-                  ⏮ Start
-                </button>
-                <span className="font-mono text-xs" style={{ color: 'var(--ct-text-primary)' }}>
+            <div className="w-full max-w-[460px] bg-[rgba(23,30,64,0.5)] p-3.5 rounded-xl border border-[rgba(255,255,255,0.06)] shadow-md">
+              <div className="flex justify-between items-center text-xs mb-3" style={{ color: 'var(--ct-text-muted)' }}>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setViewIndex(0)}
+                    disabled={viewIndex === 0}
+                    className="hover:text-white disabled:opacity-40 transition-colors flex items-center gap-1 font-medium px-2 py-1 rounded bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.08)]"
+                    title="Jump to starting position"
+                  >
+                    ⏮ Start
+                  </button>
+                  <button
+                    onClick={() => setBoardOrientation(o => o === 'white' ? 'black' : 'white')}
+                    className="px-2 py-1 rounded text-xs font-semibold flex items-center gap-1 transition-all"
+                    style={{
+                      background: boardOrientation === 'black' ? 'rgba(232,182,106,0.2)' : 'rgba(255,255,255,0.05)',
+                      color: boardOrientation === 'black' ? 'var(--ct-gold)' : 'var(--ct-text-secondary)',
+                      border: boardOrientation === 'black' ? '1px solid rgba(232,182,106,0.35)' : '1px solid rgba(255,255,255,0.1)',
+                    }}
+                    title="Flip board orientation (toggle White / Black view)"
+                  >
+                    <FlipVertical2 className="w-3.5 h-3.5" />
+                    <span>Flip</span>
+                  </button>
+                </div>
+                <span className="font-mono text-xs font-semibold px-2.5 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--ct-text-primary)' }}>
                   {viewIndex === -1
                     ? (isGameOver ? 'Final Move' : '● Live Position')
-                    : `Move ${viewIndex + 1} of ${history.length}`}
+                    : `Move ${viewIndex + 1} / ${history.length}`}
                 </span>
                 <button
                   onClick={() => setViewIndex(-1)}
                   disabled={viewIndex === -1}
-                  className="transition-colors disabled:opacity-40 hover:text-white flex items-center gap-1 font-semibold"
+                  className="transition-colors disabled:opacity-40 hover:text-white flex items-center gap-1 font-semibold px-2 py-1 rounded bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.08)]"
                   style={{ color: viewIndex === -1 ? 'var(--ct-text-muted)' : 'var(--ct-gold)' }}
                   title={isGameOver ? "Jump to final move" : "Jump to latest live move"}
                 >
                   {isGameOver ? 'Latest Move ⏭' : 'Live Move ⏭'}
                 </button>
               </div>
-              <input
-                type="range"
-                min={0}
-                max={history.length - 1}
-                value={viewIndex === -1 ? history.length - 1 : viewIndex}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value);
-                  setViewIndex(val === history.length - 1 ? -1 : val);
-                }}
-                className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
-                style={{ accentColor: 'var(--ct-gold)' }}
-              />
+
+              {/* Distinguishable Move Slider */}
+              <div className="relative pt-1 pb-1">
+                <input
+                  type="range"
+                  min={0}
+                  max={history.length - 1}
+                  value={viewIndex === -1 ? history.length - 1 : viewIndex}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value);
+                    setViewIndex(val === history.length - 1 ? -1 : val);
+                  }}
+                  className="ct-slider"
+                  style={{
+                    background: `linear-gradient(to right, #E8B66A 0%, #E8B66A ${
+                      history.length > 1
+                        ? ((viewIndex === -1 ? history.length - 1 : viewIndex) / (history.length - 1)) * 100
+                        : 100
+                    }%, rgba(255,255,255,0.15) ${
+                      history.length > 1
+                        ? ((viewIndex === -1 ? history.length - 1 : viewIndex) / (history.length - 1)) * 100
+                        : 100
+                    }%, rgba(255,255,255,0.15) 100%)`,
+                  }}
+                />
+              </div>
             </div>
           )}
         </div>

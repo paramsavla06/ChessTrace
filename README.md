@@ -1,335 +1,331 @@
-<div align="center">
-  <h1>♟️ ChessTrace</h1>
-  <h3>Human Cognition & Collapse Intelligence</h3>
+# ChessTrace
 
-  <p><em>Stockfish tells you the best move.<br>ChessTrace tells you what you'll actually play — and when you'll crack.</em></p>
+An open-source chess intelligence and cognitive analysis platform combining Stockfish engine evaluations with machine learning (XGBoost, SHAP explainability) to model human decision-making, time-pressure dynamics, and performance degradation.
 
-  <p>
-    <a href="https://chess-trace.vercel.app"><img src="https://img.shields.io/badge/Live%20Demo-chess--trace.vercel.app-blueviolet?style=for-the-badge&logo=vercel&logoColor=white" alt="Live Demo"></a>
-    <a href="https://chesstrace.onrender.com/docs"><img src="https://img.shields.io/badge/API%20Docs-OpenAPI%20%2F%20Swagger-green?style=for-the-badge&logo=fastapi&logoColor=white" alt="API Docs"></a>
-  </p>
-
-  <br/>
-
-  <img src="docs/assets/hero1.png" alt="ChessTrace Dashboard Screenshot" width="900">
-  <img src="docs/assets/hero2.png" alt="ChessTrace Dashboard Screenshot" width="900">
-
-</div>
+[![Live Web Application](https://img.shields.io/badge/Production%20Web%20App-chess--trace.vercel.app-10152F?style=for-the-badge&logo=vercel&logoColor=white)](https://chess-trace.vercel.app)
+[![API Documentation](https://img.shields.io/badge/OpenAPI%20%2F%20Swagger-chesstrace.onrender.com-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://chesstrace.onrender.com/docs)
+[![Python Version](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![React Version](https://img.shields.io/badge/React-19%20%7C%20TypeScript-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
 
 ---
 
-## One-Line Pitch
+## Overview
 
-**ChessTrace is a chess intelligence platform that models human play under time pressure — going beyond Stockfish and Chess.com by decoding each player's unique cognitive fingerprint from their game history and ELO profile.**
+Traditional chess engines (such as Stockfish or Leela Chess Zero) evaluate positions assuming optimal play under unbounded computational limits. However, competitive human games are constrained by finite thinking time, cognitive fatigue, and psychological stress.
 
----
+**ChessTrace** bridges this gap by combining traditional UCI engine analysis with trained gradient-boosted decision trees (XGBoost) and SHAP (SHapley Additive exPlanations). Beyond calculating best moves, ChessTrace models:
 
-## 🎥 Demo
-
-[![ChessTrace Demo](https://img.youtube.com/vi/QUP6ZHaxRJU/0.jpg)](https://www.youtube.com/watch?v=QUP6ZHaxRJU)
-
-🔴 **Live at:** [chess-trace.vercel.app](https://chess-trace.vercel.app)  
-📖 **API Docs:** [chesstrace.onrender.com/docs](https://chesstrace.onrender.com/docs)
-
-> Paste any Lichess username to auto-import, then click into any game to see real-time ML predictions, SHAP explanations, and cognitive profiling in action.
+- **Time-Pressure Collapse Modeling**: Predicts the likelihood of game-altering blunders as clocks drop below critical thresholds (120s, 60s, 30s).
+- **Explainable Positional Metrics**: Decomposes position evaluations into human-readable tactical and strategic factors via SHAP values.
+- **Counterfactual What-If Exploration**: Evaluates alternative candidate moves against played moves to measure centipawn loss and win probability divergence.
+- **Calibrated Rating Estimation**: Evaluates game accuracy to derive realistic performance ratings bounded within standard deviation brackets.
+- **Real-Time Lichess Spectator Streaming**: Connects directly to ongoing games via Lichess's public NDJSON stream over WebSockets, performing per-move inference in sub-second latency.
 
 ---
 
-## The Problem
+## User Interface & Workspace
 
-India has over 40 million Lichess players. Every chess analysis tool today — Chess.com, Lichess, ChessIQ — is fundamentally a Stockfish wrapper. They show you the engine's best move with infinite time and call it "analysis."
+### 1. Architectural Landing Interface
+Minimalist editorial interface presenting core analytical capabilities, opening repertoire health, and interactive board previews.
 
-Real players have clocks. They panic. They rush. They tilt after blunders. They collapse in ways that have nothing to do with the board position. **No existing tool models any of this.**
+![ChessTrace Landing Page](docs/assets/landing_hero.jpg)
 
----
+### 2. Move-by-Move Analysis Workspace
+Interactive chessboard with Stockfish engine evaluations, live XGBoost win probability gauges, real-time collapse risk multipliers, SHAP factor attribution, and counterfactual What-If branch testing.
 
-## Why ChessTrace Is Different
+![ChessTrace Game Review Workspace](docs/assets/game_review.jpg)
 
-| Feature | Chess.com | Lichess | Stockfish | **Maia Chess** | **ChessTrace** |
-|---|:---:|:---:|:---:|:---:|:---:|
-| Move classification | ✓ | ✓ | ✓ | ✗ | **✓** |
-| ELO-adjusted classification | ✗ | ✗ | ✗ | ✓ | **✓** |
-| Human move prediction at ELO | ✗ | ✗ | ✗ | ✓ | **✓** |
-| Move time as ML feature | ✗ | ✗ | ✗ | ✗ | **✓** |
-| Time pressure collapse modeling | ✗ | ✗ | ✗ | ✗ | **✓** |
-| Cognitive tilt detection | ✗ | ✗ | ✗ | ✗ | **✓** |
-| Personal weakness fingerprint | ✗ | ✗ | ✗ | ✗ | **✓** |
-| Cross-game pattern detection | ✗ | ✗ | ✗ | ✗ | **✓** |
-| Real-time collapse probability | ✗ | ✗ | ✗ | ✗ | **✓** |
-| Counterfactual what-if analysis | ✗ | ✗ | ✗ | ✗ | **✓** |
-| Live WebSocket spectating + ML | ✗ | ✗ | ✗ | ✗ | **✓** |
-| SHAP plain-English explanation | ✗ | ✗ | ✗ | ✗ | **✓** |
+### 3. Performance Review & Calibrated Rating Estimation
+Post-game review dashboard displaying move classification breakdowns (Brilliant, Great, Best, Excellent, Good, Inaccuracy, Mistake, Miss, Blunder), accuracy ratings, and calibrated performance estimation.
 
-> Inspired by [Maia Chess](https://maiachess.com) (Cornell + Microsoft Research) — extended with time pressure modeling, personal cognitive profiling, and a complete product interface.
+![ChessTrace Accuracy & Rating Estimation](docs/assets/accuracy_rating.png)
 
 ---
 
-## Features
-
-### 🎮 Game Review & Analysis
-
-- Interactive board navigation (slider, clickable moves, **←→ keyboard arrows**)
-- XGBoost win probability gauge, updated per half-move
-- Cognitive collapse risk gauge — predicts tilt *before* it happens
-- SHAP plain-English explanation per move (e.g., *"White piece mobility +17%, center control +12%"*)
-- Counterfactual **What-If Engine** — play any alternative move and see the divergence
-- ELO Simulation Candidates — see what real humans at each rating bracket would have played
-- Download annotated PGN with SHAP comments embedded
-
-### 🧠 Personal Cognitive Fingerprint
-
-- **Style Archetypes:** Tactician, Positional Grinder, Time Pressure Collapser, Blitz Gambiter, Solid Classicalist
-- Accuracy vs. clock degradation curve vs. ELO benchmark
-- Game phase accuracy breakdown: Opening / Middlegame / Endgame
-- **Cognitive Tilt Detection** — measures speed-up/slow-down after blunders
-- **Overthinking Coefficient** — flags analysis paralysis on forced positions
-- **Panic Reflex Counter** — tracks sub-5s decisions in critical moments
-- K-Means archetype clustering across complete game history
-- Isolation Forest brilliancy and anomaly detection
-- Cosine similarity grandmaster style matching
-
-### 🏆 Brilliancy Hall of Fame
-
-- Scans complete game history using an **Isolation Forest** anomaly detector
-- Filters for statistically extraordinary moves combining high time pressure, complex board states, and high engine evaluation gains
-- Showcases the top 5 most brilliant unique career moves
-
-### 📖 Opening Health Repertoire
-
-- Groups historical performance by ECO code and opening name
-- Tracks the evaluation delta from opening to move 20 to detect middlegame deterioration
-- Flags lines that score well initially but result in highly lost middlegame positions
-
-### 🔄 Cross-Game Pattern Detector
-
-- Scans across all imported games to find recurring tactical blunders (e.g., "Missed Knight Forks", "Back Rank Mates")
-- Quantifies frequency and impact severity for each mistake pattern
-- Directly links to **custom Lichess Puzzle Training** tailored to those exact weaknesses
-
-### 📡 Live Game Spectating
-
-- Real-time WebSocket streaming of any public Lichess game (paste a URL or Game ID)
-- Sub-2-second ML inference per move as it is played
-- Board orientation auto-detected from `/black` or `/white` suffix
-- Live collapse probability gauge and SHAP narrative updating after every move
-- **History scrubbing** — scroll back through past moves without leaving the live stream
-- **Export to Game Review** — compile the live session into a full review after the game ends
-
-### 📥 Data Ingestion
-
-- **PGN File Upload** — import any `.pgn` file, with full clock and header preservation
-- **Lichess Auto-Import** — paste a username and pull their last N rated games with one click
-- Full catalog with global search, player filter, and game metadata display
-
-### 🤖 ELO Intelligence Engine
-
-- 7 XGBoost models spanning ELO brackets from `< 1000` to `2000+`
-- Predicts the probability distribution of human moves at each ELO level
-- Classifies played moves relative to ELO-tier expectations, not just Stockfish perfection
-- Clock data included as a model feature — models *time-aware* human behavior
-
-### 👥 Head-to-Head Comparison
-
-- Compare the cognitive fingerprints of any two imported players
-- K-Means clustering style-similarity score (0–100%)
-- Side-by-side overlays of win rates, blunder patterns, time management, and ELO distribution
-
----
-
-## Architecture
+## System Architecture
 
 ```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────────────┐
-│   Lichess API   │────▶│   PGN Parser    │────▶│   Feature Extractor     │
-│ (Game Streams)  │     │ (python-chess)  │     │ (Position + Clock/Time) │
-└─────────────────┘     └─────────────────┘     └──────────┬──────────────┘
-                                                            │
-                              ┌─────────────────────────────┘
-                              ▼
-                   ┌──────────────────────┐
-                   │   Stockfish 18 UCI   │
-                   │   (Evaluation Data)  │
-                   └──────────┬───────────┘
-                              │
-             ┌────────────────▼────────────────┐
-             │     XGBoost ML Model Suite       │
-             │  - Win/Collapse Predictor        │
-             │  - ELO Simulation (7 models)     │
-             │  - Personal Profiler             │
-             │  - Anomaly Detector              │
-             │  - Style Similarity              │
-             └────────────────┬────────────────┘
-                              │
-             ┌────────────────▼────────────────┐
-             │     SHAP TreeExplainer           │
-             │  (Per-move plain-English AI)     │
-             └────────────────┬────────────────┘
-                              │
-             ┌────────────────▼────────────────┐
-             │     FastAPI + WebSocket          │
-             │  - REST API (OpenAPI/Swagger)    │
-             │  - Real-time WS streaming        │
-             │  - SQLAlchemy + PostgreSQL        │
-             └────────────────┬────────────────┘
-                              │
-             ┌────────────────▼────────────────┐
-             │       React + Vite Frontend      │
-             │  - Interactive Chessboard        │
-             │  - Live ML Gauge Overlays        │
-             │  - Cognitive Profile Dashboard   │
-             └─────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│                              DATA SOURCES                              │
+│   • Lichess API (JSON/NDJSON live streams)                             │
+│   • PGN Import (Preserves clock comments, FEN headers, ECO codes)      │
+└──────────────────────────────────┬─────────────────────────────────────┘
+                                   │
+                                   ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                          INGESTION & PARSING                           │
+│   • python-chess: Board validation, legal move trees, SAN parsing      │
+│   • Move & Time Feature Extractor (40+ features per ply)               │
+└──────────────────┬───────────────────────────────┬─────────────────────┘
+                   │                               │
+                   ▼                               ▼
+┌──────────────────────────────────────┐  ┌──────────────────────────────┐
+│        STOCKFISH UCI ENGINE          │  │       XGBOOST SUITE          │
+│   • Principal variation (PV) search  │  │   • Win/Collapse Predictor   │
+│   • Centipawn & mate depth analysis  │  │   • ELO-Bracket Models (7x)  │
+│   • Positional heuristic fallback    │  │   • Style Archetype Cluster  │
+└──────────────────┬───────────────────┘  └──────────────┬───────────────┘
+                   │                                     │
+                   └───────────────────┬─────────────────┘
+                                       │
+                                       ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                       SHAP EXPLAINABILITY ENGINE                       │
+│   • TreeExplainer inference on gradient boosted feature vectors        │
+│   • Generates plain-English narrative factor attribution per move      │
+└──────────────────────────────────┬─────────────────────────────────────┘
+                                   │
+                                   ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                   FASTAPI ASYNC BACKEND (Uvicorn)                      │
+│   • REST Endpoints: Game catalog, timeline, profiles, what-if branch   │
+│   • WebSockets: Real-time live Lichess game streaming                  │
+│   • Persistence: SQLAlchemy 2.0 ORM + PostgreSQL / SQLite              │
+└──────────────────────────────────┬─────────────────────────────────────┘
+                                   │
+                                   ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                  REACT 19 + TYPESCRIPT FRONTEND                        │
+│   • Interactive react-chessboard + chess.js engine integration         │
+│   • Dynamic evaluation & collapse probability gauges                   │
+│   • Recharts telemetry curves, move scrubber, board orientation flip   │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Deployment:** Backend on [Render](https://render.com) · Frontend on [Vercel](https://vercel.com)
+---
+
+## Machine Learning & Statistical Pipeline
+
+### 1. Win & Collapse Risk Predictor
+The primary predictive model is an **XGBoost Regressor** trained on 512,000+ real move plies from rated human games in the Lichess Open Database.
+
+#### Feature Matrix (40+ Variables):
+- **Material Balance**: White material, Black material, pure piece count difference.
+- **Mobility & Dynamics**: Legal move counts per side, piece activity indices.
+- **Center Control**: Pawn and piece pressure exerted on $d4, e4, d5, e5$.
+- **Pawn Structure**: Doubled pawns, isolated pawns, passed pawns, pawn chains.
+- **King Safety**: Castling status, pawn shield integrity, open files near king.
+- **Clock Telemetry**: Think time per move, absolute time remaining, time usage ratio relative to initial time control, running average think time.
+- **Time Pressure Indices**: Categorical and continuous flags for $\le 120s$, $\le 60s$, and $\le 30s$ remaining.
+
+### 2. SHAP Interpretability Engine
+Raw model probabilities are paired with **SHAP TreeExplainer** values to isolate which specific factors contributed most to shifts in win or collapse probability:
+
+$$\phi_i(x) = \sum_{S \subseteq F \setminus \{i\}} \frac{|S|!(|F| - |S| - 1)!}{|F|!} \left( f_x(S \cup \{i\}) - f_x(S) \right)$$
+
+This translates numerical gradients into natural language feedback (e.g., *"White piece mobility (+17.2%) and center control (+8.5%) offset time pressure penalties (-4.1%)"*).
+
+### 3. ELO-Stratified Human Move Simulation
+A matrix of **7 separate XGBoost models** stratified across rating tiers:
+- Under 1000
+- 1000 – 1200
+- 1200 – 1400
+- 1400 – 1600
+- 1600 – 1800
+- 1800 – 2000
+- 2000+
+
+Each model predicts the candidate move probability distribution expected from human players at that specific rating level, allowing users to benchmark decisions against peer performance.
 
 ---
 
-## Tech Stack
+## Core Capabilities
 
-| Layer | Technology |
-|---|---|
-| **ML Models** | XGBoost (8 models), Scikit-learn, SHAP TreeExplainer |
-| **Chess Engine** | Stockfish 18 via python-chess UCI |
-| **Backend** | FastAPI, SQLAlchemy 2.0, Uvicorn, Alembic |
-| **Real-time** | WebSockets (FastAPI native) |
-| **Frontend** | React 18, Vite, Tailwind CSS, Recharts |
-| **Chess UI** | react-chessboard, chess.js |
-| **Database** | PostgreSQL (production) / SQLite (local dev) |
-| **Data** | Lichess Open Database (512K move plies, 8,067 games) |
-| **Deployment** | Render (backend) + Vercel (frontend) |
+### Move-by-Move Game Review
+- Complete interactive move timeline with keyboard arrow navigation (`←`, `→`).
+- Engine evaluation curve synced with move classifications (Brilliant, Great, Book, Best, Excellent, Good, Inaccuracy, Mistake, Miss, Blunder).
+- Calibrated performance rating estimation bounded within realistic statistical brackets.
+- Downloadable annotated PGN with embedded SHAP commentary.
 
----
+### Counterfactual What-If Engine
+- Allows input of any legal alternative move at any ply.
+- Re-evaluates position with Stockfish and XGBoost.
+- Calculates true centipawn delta ($\Delta \text{cp}$) from the active player's perspective.
+- Classifies candidate moves as blunders, inaccuracies, or winning tactics even in lopsided endgames.
 
-## Machine Learning
+### Player Cognitive Profiling
+- **Archetype Classification**: K-Means clustering assigning styles (Tactician, Positional Grinder, Time Pressure Collapser, Solid Classicalist).
+- **Tilt Detection**: Quantifies acceleration/deceleration in think times immediately following material losses or mistakes.
+- **Overthinking Coefficient**: Identifies excessive think time spent on forced or single-candidate moves.
+- **Panic Reflex Counter**: Tracks sub-5-second moves played in high-complexity positions.
 
-### Collapse & Win Probability Predictor
-
-- Trained on **512,618 real move plies** from the Lichess Open Database (2017, rated games)
-- **Features:** material balance, king safety, pawn structure, piece mobility, center control, think time, time remaining, time pressure flags (`< 30s`, `< 60s`), tilt velocity indicators
-- XGBoost classifier — ROC-AUC: **~90%+**
-- SHAP TreeExplainer for real-time per-move explainability (< 50ms per inference)
-
-### ELO Simulation Matrix
-
-- **7 separate XGBoost models**, one per rating bracket (`< 1000`, `1000–1200`, `1200–1400`, `1400–1600`, `1600–1800`, `1800–2000`, `2000+`)
-- Each trained on ELO-stratified game subsets from Lichess data
-- Predicts human move probability distribution at the target ELO
-- **Clock data included as feature** — models time-aware human decision-making, not just positions
-
-### Personal Profile Engine
-
-- Aggregates features across a player's complete game history
-- Computes accuracy degradation curves, tilt signatures, phase accuracies, panic reflex counters, and overthink coefficients
-- **K-Means clustering** (Scikit-Learn) for mathematically assigning playing archetype classification over 4D feature vectors
-- **Isolation Forest** (Scikit-Learn) for unsupervised move-level anomaly outlier detection (flagging brilliancies, blunders, and overthink paralyzations)
-- **Cosine similarity** matrix calculation for 0-100% grandmaster style matching across the database
+### Real-Time Live Spectating
+- WebSocket connection to Lichess live games (`/api/v1/ws/live/{game_id}`).
+- Works with any Lichess URL format (`https://lichess.org/game/{id}/black`, `https://lichess.org/{id}`, or raw 8-character ID).
+- Auto-detects board orientation and live clocks.
+- Automatic trailing move reconciliation upon game conclusion to ensure complete game history is delivered.
+- One-click export from live stream directly into full Game Review.
 
 ---
 
-## Local Setup
+## Technology Stack
+
+| Domain | Technology | Details |
+|---|---|---|
+| **Backend Framework** | FastAPI (Python 3.10+) | Async endpoints, WebSocket support, automatic OpenAPI/Swagger docs |
+| **Server** | Uvicorn / Gunicorn | High-concurrency ASGI web server |
+| **Database & ORM** | PostgreSQL / SQLAlchemy 2.0 | Compatible with Neon serverless Postgres & local SQLite, Alembic migrations |
+| **PostgreSQL Drivers** | `psycopg2-binary`, `psycopg 3` | Native support across Python 3.10–3.14 on Linux and Windows |
+| **Chess Engine** | Stockfish 11 / 18 + python-chess | UCI protocol integration with heuristic positional fallback for constrained environments |
+| **Machine Learning** | XGBoost, Scikit-learn, SHAP | 8 cached models, TreeExplainer, K-Means clustering, Isolation Forest |
+| **Frontend Framework** | React 19, TypeScript, Vite | Fast build pipeline, component modularity, strict typing |
+| **UI & Styling** | Tailwind CSS, Lucide React | Custom Geometria-inspired design tokens, accessible color hierarchy |
+| **Chess Visualization** | `react-chessboard`, `chess.js` | Interactive piece manipulation, dynamic orientation flipping, move validation |
+| **Deployment** | Render (Backend) + Vercel (Frontend) | Auto-deploy on `main` branch push |
+
+---
+
+## Repository Structure
+
+```text
+ChessTrace/
+├── backend/
+│   ├── app/
+│   │   ├── api/
+│   │   │   ├── v1/
+│   │   │   │   ├── analysis.py       # Predict, What-If, ELO simulation endpoints
+│   │   │   │   ├── games.py          # Game catalog, timeline, and review endpoints
+│   │   │   │   ├── health.py         # Service health checks
+│   │   │   │   ├── live_ws.py        # Real-time WebSocket live game streaming
+│   │   │   │   └── upload.py         # PGN file ingestion & Lichess auto-import
+│   │   │   └── router.py             # Top-level API router
+│   │   ├── core/
+│   │   │   ├── config.py             # Environment configuration & Stockfish resolver
+│   │   │   └── logging.py            # Structured logging configuration
+│   │   ├── database/
+│   │   │   ├── connection.py         # SQLAlchemy engine with URL normalizer
+│   │   │   ├── init_db.py            # Automatic schema creation on startup
+│   │   │   └── session.py            # Database session factory
+│   │   ├── engine/
+│   │   │   ├── evaluator.py          # Stockfish analysis parser
+│   │   │   └── stockfish.py          # UCI engine process management
+│   │   ├── features/
+│   │   │   ├── position_features.py  # 40+ topological board features
+│   │   │   └── time_features.py      # Clock & think-time telemetry features
+│   │   ├── ml/
+│   │   │   ├── collapse_model.py     # Win & collapse XGBoost predictor
+│   │   │   ├── elo_model.py          # Multi-bracket human move simulator
+│   │   │   ├── explainer.py          # SHAP TreeExplainer integration
+│   │   │   └── weights/              # Pretrained XGBoost model weights (JSON)
+│   │   ├── models/                   # SQLAlchemy declarative ORM models
+│   │   └── schemas/                  # Pydantic v2 validation models
+│   ├── build.sh                      # Render build & optional Stockfish compilation
+│   ├── Procfile                      # Uvicorn startup declaration
+│   └── requirements.txt              # Pinned Python dependencies
+├── docs/
+│   └── assets/                       # UI screenshots and diagrams
+├── frontend/
+│   ├── src/
+│   │   ├── api/                      # Axios client & typed API interfaces
+│   │   ├── components/               # AppShell, Navbar, ErrorBoundary
+│   │   ├── pages/
+│   │   │   ├── CatalogPage.tsx       # Game list & PGN upload
+│   │   │   ├── LandingPage.tsx       # Geometria editorial landing page
+│   │   │   ├── LivePage.tsx          # Real-time live spectating workspace
+│   │   │   ├── ProfilePage.tsx       # Player cognitive profile & archetypes
+│   │   │   └── ReviewPage.tsx        # Move-by-move game review workspace
+│   │   └── index.css                 # Design tokens, slider styles, typography
+│   ├── index.html                    # SEO tags & web font imports
+│   ├── package.json                  # Frontend dependencies & scripts
+│   └── vite.config.ts                # Vite build configuration
+└── README.md
+```
+
+---
+
+## Getting Started Locally
 
 ### Prerequisites
+- **Python**: 3.10, 3.11, or 3.12
+- **Node.js**: 18.x or 20.x LTS
+- **Stockfish**: (Optional) Download [Stockfish](https://stockfishchess.org/download/) and place the executable in system PATH or configure `STOCKFISH_PATH`. If omitted, ChessTrace runs with its high-performance ML positional evaluator.
 
-- Python 3.10+
-- Node.js 18+
-- [Stockfish 18](https://stockfishchess.org/download/) binary
-
-### 1. Clone
-
+### 1. Clone the Repository
 ```bash
-git clone https://github.com/paramsavla06/ChessTrace
+git clone https://github.com/paramsavla06/ChessTrace.git
 cd ChessTrace
 ```
 
-### 2. Backend
-
+### 2. Backend Setup
 ```bash
 cd backend
+
+# Create and activate virtual environment
+python -m venv .venv
+source .venv/bin/activate       # On Windows: .venv\Scripts\activate
+
+# Install dependencies
 pip install -r requirements.txt
 
-# Copy and edit environment variables
-cp .env.example .env
+# Configure environment variables
+cp .env.example .env            # On Windows: copy .env.example .env
 ```
 
+Start the FastAPI application:
 ```bash
-# Run database migrations
-alembic upgrade head
-
-# Start the server
-uvicorn app.main:app --reload
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
+The API is now accessible at `http://localhost:8000`. Interactive documentation is available at `http://localhost:8000/docs`.
 
-### 3. Frontend
-
+### 3. Frontend Setup
 ```bash
-cd frontend
+cd ../frontend
+
+# Install dependencies
 npm install
 
-# Set your backend URL in environment
-echo "VITE_API_URL=http://localhost:8000/api/v1" > .env
-
+# Start development server
 npm run dev
 ```
-
-### Environment Variables
-
-| Variable | Description |
-|---|---|
-| `DATABASE_URL` | PostgreSQL or SQLite connection string |
-| `STOCKFISH_PATH` | Absolute path to Stockfish 18 binary |
-| `LICHESS_API_TOKEN` | Optional — increases Lichess API rate limits |
-| `FRONTEND_URL` | Frontend URL for CORS (e.g. `https://chess-trace.vercel.app`) |
+Open `http://localhost:5173` (or `http://localhost:3000`) in your browser.
 
 ---
 
-## API
+## Environment Variables
 
-Full interactive docs: **[chesstrace.onrender.com/docs](https://chesstrace.onrender.com/docs)**
+| Variable | Scope | Description | Default |
+|---|---|---|---|
+| `DATABASE_URL` | Backend | PostgreSQL connection URL (e.g. Neon, Supabase) or SQLite | `sqlite:///./chesstrace.db` |
+| `STOCKFISH_PATH` | Backend | Explicit path to Stockfish binary | Auto-detected from PATH / engine directory |
+| `LICHESS_API_TOKEN` | Backend | Optional API token to bypass public Lichess rate limits | `""` |
+| `CORS_ORIGINS` | Backend | Comma-separated list of allowed origins | `http://localhost:3000,http://localhost:5173` |
+| `PORT` | Backend | Port bound by Uvicorn server | `8000` |
+| `VITE_API_URL` | Frontend | Base HTTP URL for the backend API | `http://localhost:8000/api/v1` |
+
+---
+
+## API Reference Overview
+
+Interactive Swagger documentation is auto-generated at `/docs`. Primary endpoints include:
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/api/v1/upload/pgn` | Upload a PGN file |
-| `POST` | `/api/v1/upload/lichess/{username}` | Auto-import from Lichess |
-| `GET` | `/api/v1/games` | List all games (with username filter) |
-| `GET` | `/api/v1/games/{id}/timeline` | Move-by-move game timeline |
-| `POST` | `/api/v1/analysis/predict` | XGBoost prediction + SHAP explanation |
-| `POST` | `/api/v1/analysis/what-if` | Counterfactual divergence analysis |
-| `GET` | `/api/v1/analysis/profile/{username}` | Personal cognitive fingerprint |
-| `GET` | `/api/v1/analysis/elo-sim` | ELO human move simulation |
-| `GET` | `/api/v1/analysis/compare/{u1}/{u2}` | Head-to-head cognitive comparison |
-| `GET` | `/api/v1/analysis/archetype/{username}` | K-Means archetype classification |
-| `GET` | `/api/v1/analysis/similarity/{username}` | Cosine similarity player matching |
-| `GET` | `/api/v1/analysis/patterns/{username}` | Cross-game recurring pattern detector |
-| `GET` | `/api/v1/analysis/anomalies/{game_id}` | Game anomaly & blunder detection |
-| `GET` | `/api/v1/analysis/openings/{username}` | ECO opening health report |
-| `GET` | `/api/v1/analysis/brilliances/{username}` | Brilliancy Hall of Fame |
-| `WS` | `/api/v1/ws/live/{game_id}` | Real-time WebSocket spectating stream |
+| `POST` | `/api/v1/upload/pgn` | Parse and persist games from uploaded `.pgn` files |
+| `POST` | `/api/v1/upload/lichess/{username}` | Auto-import the latest $N$ rated games for a Lichess user |
+| `GET` | `/api/v1/games` | Query imported games with pagination and player filters |
+| `GET` | `/api/v1/games/{id}/timeline` | Retrieve chronological move plies, FENs, and evaluations |
+| `POST` | `/api/v1/analysis/predict` | Run XGBoost win/collapse prediction with SHAP factor breakdown |
+| `POST` | `/api/v1/analysis/what-if` | Calculate counterfactual divergence between played and candidate moves |
+| `POST` | `/api/v1/analysis/elo-sim` | Predict candidate human moves for a specific ELO bracket |
+| `GET` | `/api/v1/analysis/profile/{username}` | Extract comprehensive cognitive profile and tilt metrics |
+| `GET` | `/api/v1/analysis/openings/{username}` | Generate ECO opening health reports and win rates |
+| `WS` | `/api/v1/ws/live/{game_id}` | Connect to live Lichess game stream for real-time spectating |
 
 ---
 
-## Acknowledgements & Citation
-
-Inspired by [Maia Chess](https://maiachess.com):
-
-> Reid McIlroy-Young, Siddhartha Sen, Jon Kleinberg, Ashton Anderson.  
-> *"Aligning Superhuman AI with Human Behavior: Chess as a Model System."*  
-> KDD 2020.
-
-Training data: [Lichess Open Database](https://database.lichess.org)
-
----
-
-## Author
+## Authors & Citation
 
 **Param Savla**  
-Electronics & Telecom Engineering, SPIT Mumbai
+Electronics & Telecommunication Engineering, Sardar Patel Institute of Technology (SPIT), Mumbai  
+[LinkedIn](https://linkedin.com/in/param-savla) · [GitHub](https://github.com/paramsavla06)
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-param--savla-blue?style=flat-square&logo=linkedin)](https://linkedin.com/in/param-savla)
-[![GitHub](https://img.shields.io/badge/GitHub-paramsavla06-black?style=flat-square&logo=github)](https://github.com/paramsavla06)
-[![Email](https://img.shields.io/badge/Email-paramsavla06%40gmail.com-red?style=flat-square&logo=gmail)](mailto:paramsavla06@gmail.com)
+*Inspirations & Datasets:*
+- Behavioral chess modeling inspired by Maia Chess ([McIlroy-Young et al., KDD 2020](https://maiachess.com)).
+- Training game corpora sourced from the [Lichess Open Database](https://database.lichess.org).
+- Engine analysis provided by the official open-source [Stockfish Chess](https://stockfishchess.org).
 
 ---
 
-<div align="center">
-  <sub>Built with ♟️ and a lot of time pressure.</sub>
-</div>
+## License
+
+This project is open-source and distributed under the [MIT License](LICENSE).
