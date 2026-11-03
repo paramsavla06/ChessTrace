@@ -398,13 +398,14 @@ def get_game_timeline(
                     "black_mobility": pos_feats.black_mobility,
                     "white_pawn_shield": pos_feats.white_pawn_shield,
                     "black_pawn_shield": pos_feats.black_pawn_shield,
-                    "think_time_sec": time_feats.think_time,
-                    "time_remaining_sec": time_feats.time_remaining,
-                    "is_time_pressure_120s": time_feats.is_time_pressure_120s,
-                    "is_time_pressure_60s": time_feats.is_time_pressure_60s,
-                    "is_time_pressure_30s": time_feats.is_time_pressure_30s,
-                    "time_usage_ratio": time_feats.time_usage_ratio,
+                    "think_time_sec": time_feats.think_time if time_feats.has_clock_data else None,
+                    "time_remaining_sec": time_feats.time_remaining if time_feats.has_clock_data else None,
+                    "is_time_pressure_120s": time_feats.is_time_pressure_120s if time_feats.has_clock_data else False,
+                    "is_time_pressure_60s": time_feats.is_time_pressure_60s if time_feats.has_clock_data else False,
+                    "is_time_pressure_30s": time_feats.is_time_pressure_30s if time_feats.has_clock_data else False,
+                    "time_usage_ratio": time_feats.time_usage_ratio if time_feats.has_clock_data else 0.0,
                     "time_control": time_feats.time_control,
+                    "has_clock_data": time_feats.has_clock_data,
                 }
             )
 

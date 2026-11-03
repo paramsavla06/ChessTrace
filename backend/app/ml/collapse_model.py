@@ -115,7 +115,7 @@ class WinCollapsePredictor:
         """
         if not time_feats.has_clock_data:
             think_sec = 0.0
-            rem_sec = 300.0  # neutral baseline
+            rem_sec = 0.0
             is_120s = 0
             is_60s = 0
             is_30s = 0

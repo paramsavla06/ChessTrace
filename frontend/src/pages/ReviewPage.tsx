@@ -173,11 +173,13 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
     setPrediction(null);
     const timer = setTimeout(async () => {
       try {
+        const hasClock = (currentMove as any)?.has_clock_data === true;
         const res = await api.post<PredictResponse>('/analysis/predict', {
           fen: currentMove.fen,
-          think_time_sec: currentMove.think_time_sec,
-          time_remaining_sec: currentMove.time_remaining_sec,
+          think_time_sec: hasClock ? currentMove.think_time_sec : null,
+          time_remaining_sec: hasClock ? currentMove.time_remaining_sec : null,
           eval_cp: (currentMove as any).eval_cp,
+          has_clock_data: hasClock,
         });
         setPrediction(res.data);
       } catch (err) { console.error('Prediction failed', err); }
@@ -191,11 +193,13 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
     setEloSimResult(null);
     const timer = setTimeout(async () => {
       try {
+        const hasClock = (currentMove as any)?.has_clock_data === true;
         const res = await api.post<EloSimResponse>('/analysis/elo-sim', {
           fen: currentMove.fen,
           target_elo_bucket: selectedElo,
-          time_remaining_sec: currentMove.time_remaining_sec,
+          time_remaining_sec: hasClock ? currentMove.time_remaining_sec : null,
           best_move_uci: (currentMove as any).best_move_uci,
+          has_clock_data: hasClock,
         });
         setEloSimResult(res.data);
       } catch (err: any) {
@@ -208,14 +212,16 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
   const runWhatIf = async (baseFen: string, actualMove: TimelineMove, altMoveStr: string) => {
     setWhatIfLoading(true);
     try {
+      const hasClock = (actualMove as any)?.has_clock_data === true;
       const res = await api.post<WhatIfResponse>('/analysis/what-if', {
         fen: baseFen,
         played_move_uci: actualMove.uci,
         alternative_move_uci: altMoveStr.trim(),
-        think_time_sec: actualMove.think_time_sec,
-        time_remaining_sec: actualMove.time_remaining_sec,
+        think_time_sec: hasClock ? actualMove.think_time_sec : null,
+        time_remaining_sec: hasClock ? actualMove.time_remaining_sec : null,
         eval_cp: (actualMove as any).eval_cp,
         perspective: boardFlipped ? 'black' : 'white',
+        has_clock_data: hasClock,
       });
       setWhatIfResult(res.data);
     } catch (err: any) {
@@ -268,8 +274,14 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
   };
 
   const getPlayerClock = (color: 'white' | 'black') => {
+    // If the game has no real clock telemetry on its moves, do not display a synthetic clock
+    const hasAnyClock = timeline.some(m => (m as any).has_clock_data === true || (m.time_remaining_sec != null && m.time_remaining_sec > 0));
+    if (!hasAnyClock) return null;
+
     for (let i = currentIndex; i >= 0; i--) {
-      if (timeline[i]?.color === color) return timeline[i].time_remaining_sec;
+      if (timeline[i]?.color === color && timeline[i]?.time_remaining_sec != null) {
+        return timeline[i].time_remaining_sec;
+      }
     }
     const tc = gameMeta?.time_control || '';
     return parseInt(tc.split('+')[0]) || null;
@@ -873,7 +885,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
                     <Zap className="w-4 h-4" style={{ color: 'var(--ct-gold)' }} />
                     <span>XGBoost Intelligence</span>
                   </div>
-                  {prediction.time_pressure_risk_multiplier > 1.0 && currentMove?.time_remaining_sec != null && (
+                  {prediction.time_pressure_risk_multiplier > 1.0 && (currentMove as any)?.has_clock_data && currentMove?.time_remaining_sec != null && (
                     <span
                       className="flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full animate-pulse"
                       style={{
@@ -889,7 +901,11 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
                 </div>
 
                 {(() => {
-                  const isUntimed = currentMove?.time_remaining_sec == null || currentMove?.time_remaining_sec === 0;
+                  const hasGameClocks = timeline.some(m => (m as any).has_clock_data === true);
+                  const isUntimed = !hasGameClocks ||
+                                    (currentMove as any)?.has_clock_data === false ||
+                                    currentMove?.time_remaining_sec == null ||
+                                    (prediction as any)?.has_clock_data === false;
                   const displayedWinProb = boardFlipped ? (1 - prediction.win_probability) : prediction.win_probability;
                   const winProbColor = displayedWinProb >= 0.55 ? '#30C670' : displayedWinProb <= 0.45 ? '#EF4444' : '#E8B66A';
 
@@ -899,7 +915,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
                   const displayedCollapseProb = Math.min(0.95, Math.max(0.05, (0.4 * tension + 0.6 * sideLosingFactor) * timeMult));
                   const collapseRiskColor = displayedCollapseProb > 0.6 ? '#DC2626' : displayedCollapseProb > 0.35 ? '#F97316' : '#30C670';
 
-                  const isTimeFeature = (f: string) => /time|clock|rush|panic|pace/i.test(f);
+                  const isTimeFeature = (f: string) => /time|clock|rush|panic|pace|deviation|ratio|pressure|seconds/i.test(f);
                   const filteredPositive = (prediction.top_positive_factors || []).filter(f => !isUntimed || !isTimeFeature(f.feature));
                   const filteredNegative = (prediction.top_negative_factors || []).filter(f => !isUntimed || !isTimeFeature(f.feature));
                   const combinedFactors = [...filteredPositive, ...filteredNegative]
@@ -908,7 +924,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
 
                   let displayNarrative = prediction.narrative_summary;
                   if (isUntimed && displayNarrative) {
-                    const cleanSentences = displayNarrative.split('. ').filter(s => !/time|clock|pace|rush|seconds/i.test(s));
+                    const cleanSentences = displayNarrative.split('. ').filter(s => !/time|clock|pace|rush|seconds|stress|pressure|deviation/i.test(s));
                     displayNarrative = cleanSentences.length > 0 ? cleanSentences.join('. ') : 'Position evaluation is driven by material balance, piece mobility, and center control.';
                     if (!displayNarrative.endsWith('.')) displayNarrative += '.';
                   }

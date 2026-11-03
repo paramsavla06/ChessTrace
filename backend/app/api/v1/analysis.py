@@ -38,29 +38,32 @@ router = APIRouter()
 
 class PredictRequest(BaseModel):
     fen: str
-    think_time_sec: float = 5.0
-    time_remaining_sec: float = 120.0
-    initial_clock_seconds: int = 300
+    think_time_sec: float | None = None
+    time_remaining_sec: float | None = None
+    initial_clock_seconds: int | None = None
     eval_cp: float | None = None
     is_already_white_pov: bool = False
+    has_clock_data: bool | None = None
 
 
 class WhatIfRequest(BaseModel):
     fen: str
     played_move_uci: str
     alternative_move_uci: str
-    think_time_sec: float = 5.0
-    time_remaining_sec: float = 120.0
-    initial_clock_seconds: int = 300
+    think_time_sec: float | None = None
+    time_remaining_sec: float | None = None
+    initial_clock_seconds: int | None = None
     eval_cp: float | None = None
     perspective: str = "white"  # "white" or "black"
+    has_clock_data: bool | None = None
 
 
 class EloSimRequest(BaseModel):
     fen: str
     target_elo_bucket: str = "1600-1800"
-    time_remaining_sec: float = 120.0
+    time_remaining_sec: float | None = None
     best_move_uci: str | None = None
+    has_clock_data: bool | None = None
 
 
 @router.post("/analysis/game/{game_id}", summary="Run Stockfish analysis on a game")
@@ -215,23 +218,41 @@ def predict_position(req: PredictRequest) -> dict[str, Any]:
 
     pos_feats = extract_position_features(board)
 
-    from app.models.move import Move, MoveColor
-    move_obj = Move(
-        move_number=1,
-        ply=1,
-        color=MoveColor.WHITE if board.turn == chess.WHITE else MoveColor.BLACK,
-        san="move",
-        uci="e2e4",
-        fen=req.fen,
-        time_spent=int(req.think_time_sec * 1000) if req.think_time_sec is not None else None,
-        clock_after=int(req.time_remaining_sec * 1000) if req.time_remaining_sec is not None else None,
+    has_clock = req.has_clock_data if req.has_clock_data is not None else (
+        req.think_time_sec is not None or req.time_remaining_sec is not None
     )
 
-    time_feats = extract_time_features(
-        move_obj,
-        previous_moves_same_color=[],
-        initial_clock_seconds=req.initial_clock_seconds,
-    )
+    if has_clock:
+        from app.models.move import Move, MoveColor
+        move_obj = Move(
+            move_number=1,
+            ply=1,
+            color=MoveColor.WHITE if board.turn == chess.WHITE else MoveColor.BLACK,
+            san="move",
+            uci="e2e4",
+            fen=req.fen,
+            time_spent=int(req.think_time_sec * 1000) if req.think_time_sec is not None else None,
+            clock_after=int(req.time_remaining_sec * 1000) if req.time_remaining_sec is not None else None,
+        )
+        time_feats = extract_time_features(
+            move_obj,
+            previous_moves_same_color=[],
+            initial_clock_seconds=req.initial_clock_seconds,
+        )
+    else:
+        from app.features.time_features import TimeFeatures
+        time_feats = TimeFeatures(
+            think_time=0.0,
+            time_remaining=0.0,
+            is_time_pressure_120s=False,
+            is_time_pressure_60s=False,
+            is_time_pressure_30s=False,
+            time_usage_ratio=0.0,
+            running_avg_think_time=0.0,
+            think_time_deviation=0.0,
+            time_control="unknown",
+            has_clock_data=False,
+        )
 
     predictor = WinCollapsePredictor()
     pred = predictor.predict(
@@ -250,6 +271,7 @@ def predict_position(req: PredictRequest) -> dict[str, Any]:
         "collapse_probability": round(pred.collapse_probability, 4),
         "black_collapse_probability": round(pred.black_collapse_probability, 4),
         "time_pressure_risk_multiplier": pred.time_pressure_risk_multiplier,
+        "has_clock_data": time_feats.has_clock_data,
         "narrative_summary": exp.narrative_summary,
         "top_positive_factors": [
             {"feature": f.display_name, "impact": round(f.shap_value, 4)}
@@ -382,25 +404,44 @@ def analyze_what_if(req: WhatIfRequest) -> dict[str, Any]:
     # --- Run predictor for both positions using trained XGBoost ---
     predictor = WinCollapsePredictor()
 
-    from app.models.move import Move, MoveColor
-    color = MoveColor.WHITE if board.turn == chess.WHITE else MoveColor.BLACK
-
-    pos_played = extract_position_features(board_played)
-    move_played_obj = Move(
-        move_number=1, ply=1, color=color, san=played_san, uci=played_move.uci(),
-        fen=board_played.fen(), time_spent=int(req.think_time_sec * 1000),
-        clock_after=int(req.time_remaining_sec * 1000),
+    has_clock = req.has_clock_data if req.has_clock_data is not None else (
+        (req.think_time_sec is not None and req.think_time_sec > 0)
+        or (req.time_remaining_sec is not None and req.time_remaining_sec > 0)
     )
-    time_played = extract_time_features(move_played_obj, previous_moves_same_color=[])
+
+    if has_clock:
+        from app.models.move import Move, MoveColor
+        color = MoveColor.WHITE if board.turn == chess.WHITE else MoveColor.BLACK
+        time_spent_ms = int(req.think_time_sec * 1000) if req.think_time_sec is not None else None
+        clock_after_ms = int(req.time_remaining_sec * 1000) if req.time_remaining_sec is not None else None
+
+        pos_played = extract_position_features(board_played)
+        move_played_obj = Move(
+            move_number=1, ply=1, color=color, san=played_san, uci=played_move.uci(),
+            fen=board_played.fen(), time_spent=time_spent_ms,
+            clock_after=clock_after_ms,
+        )
+        time_played = extract_time_features(move_played_obj, previous_moves_same_color=[], initial_clock_seconds=req.initial_clock_seconds)
+
+        pos_alt = extract_position_features(board_alt)
+        move_alt_obj = Move(
+            move_number=1, ply=1, color=color, san=alt_san, uci=alt_move.uci(),
+            fen=board_alt.fen(), time_spent=time_spent_ms,
+            clock_after=clock_after_ms,
+        )
+        time_alt = extract_time_features(move_alt_obj, previous_moves_same_color=[], initial_clock_seconds=req.initial_clock_seconds)
+    else:
+        from app.features.time_features import TimeFeatures
+        pos_played = extract_position_features(board_played)
+        pos_alt = extract_position_features(board_alt)
+        time_played = TimeFeatures(
+            think_time=0.0, time_remaining=0.0, is_time_pressure_120s=False,
+            is_time_pressure_60s=False, is_time_pressure_30s=False, time_usage_ratio=0.0,
+            running_avg_think_time=0.0, think_time_deviation=0.0, time_control="unknown", has_clock_data=False,
+        )
+        time_alt = time_played
+
     pred_played = predictor.predict(pos_played, time_played, eval_cp=played_eval_cp)
-
-    pos_alt = extract_position_features(board_alt)
-    move_alt_obj = Move(
-        move_number=1, ply=1, color=color, san=alt_san, uci=alt_move.uci(),
-        fen=board_alt.fen(), time_spent=int(req.think_time_sec * 1000),
-        clock_after=int(req.time_remaining_sec * 1000),
-    )
-    time_alt = extract_time_features(move_alt_obj, previous_moves_same_color=[])
     pred_alt = predictor.predict(pos_alt, time_alt, eval_cp=alt_eval_cp)
 
     win_diff = pred_alt.win_probability - pred_played.win_probability
@@ -520,18 +561,37 @@ def simulate_elo_move(req: EloSimRequest) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail="Invalid FEN string.")
 
     pos_feats = extract_position_features(board)
-    from app.models.move import Move, MoveColor
-    move_obj = Move(
-        move_number=1,
-        ply=1,
-        color=MoveColor.WHITE if board.turn == chess.WHITE else MoveColor.BLACK,
-        san="move",
-        uci="e2e4",
-        fen=req.fen,
-        time_spent=3000,
-        clock_after=int(req.time_remaining_sec * 1000),
+    has_clock = req.has_clock_data if req.has_clock_data is not None else (
+        req.time_remaining_sec is not None and req.time_remaining_sec > 0
     )
-    time_feats = extract_time_features(move_obj, previous_moves_same_color=[])
+
+    if has_clock:
+        from app.models.move import Move, MoveColor
+        move_obj = Move(
+            move_number=1,
+            ply=1,
+            color=MoveColor.WHITE if board.turn == chess.WHITE else MoveColor.BLACK,
+            san="move",
+            uci="e2e4",
+            fen=req.fen,
+            time_spent=3000,
+            clock_after=int(req.time_remaining_sec * 1000) if req.time_remaining_sec is not None else None,
+        )
+        time_feats = extract_time_features(move_obj, previous_moves_same_color=[])
+    else:
+        from app.features.time_features import TimeFeatures
+        time_feats = TimeFeatures(
+            think_time=0.0,
+            time_remaining=0.0,
+            is_time_pressure_120s=False,
+            is_time_pressure_60s=False,
+            is_time_pressure_30s=False,
+            time_usage_ratio=0.0,
+            running_avg_think_time=0.0,
+            think_time_deviation=0.0,
+            time_control="unknown",
+            has_clock_data=False,
+        )
 
     manager = EloSimulatorManager()
     result = manager.predict_for_elo(board, pos_feats, time_feats, req.target_elo_bucket, best_move_uci=req.best_move_uci)

@@ -51,6 +51,7 @@ export interface PredictResponse {
   collapse_probability: number;
   black_collapse_probability?: number;
   time_pressure_risk_multiplier: number;
+  has_clock_data?: boolean;
   narrative_summary: string;
   top_positive_factors: Array<{ feature: string; impact: number }>;
   top_negative_factors: Array<{ feature: string; impact: number }>;
