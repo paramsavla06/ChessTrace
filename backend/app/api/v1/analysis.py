@@ -42,6 +42,7 @@ class PredictRequest(BaseModel):
     time_remaining_sec: float = 120.0
     initial_clock_seconds: int = 300
     eval_cp: float | None = None
+    is_already_white_pov: bool = False
 
 
 class WhatIfRequest(BaseModel):
@@ -233,7 +234,13 @@ def predict_position(req: PredictRequest) -> dict[str, Any]:
     )
 
     predictor = WinCollapsePredictor()
-    pred = predictor.predict(pos_feats, time_feats, eval_cp=req.eval_cp)
+    pred = predictor.predict(
+        pos_feats,
+        time_feats,
+        eval_cp=req.eval_cp,
+        turn=board.turn,
+        is_already_white_pov=req.is_already_white_pov,
+    )
 
     explainer = ShapExplainer(predictor)
     exp = explainer.explain(pos_feats, time_feats)

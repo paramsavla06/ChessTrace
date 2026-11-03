@@ -2,6 +2,7 @@
 Time feature extractor.
 
 Extracts clock and time management metrics from Move ORM objects.
+Handles missing clock telemetry safely without zero-biasing.
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ from app.models.move import Move, MoveColor
 
 
 class TimeControl(str, Enum):
+    UNKNOWN = "unknown"
     BULLET = "bullet"
     BLITZ = "blitz"
     RAPID = "rapid"
@@ -31,12 +33,16 @@ class TimeFeatures:
     running_avg_think_time: float
     think_time_deviation: float
     time_control: str
+    has_clock_data: bool = True
 
 
 def classify_time_control(initial_clock_seconds: int | None) -> str:
-    """Classify game time control format based on initial clock seconds."""
-    if initial_clock_seconds is None:
-        return TimeControl.BLITZ.value
+    """
+    Classify game time control format based on initial clock seconds.
+    Returns 'unknown' when initial clock telemetry is missing or unavailable.
+    """
+    if initial_clock_seconds is None or initial_clock_seconds <= 0:
+        return TimeControl.UNKNOWN.value
     if initial_clock_seconds < 180:
         return TimeControl.BULLET.value
     if initial_clock_seconds <= 600:
@@ -44,6 +50,19 @@ def classify_time_control(initial_clock_seconds: int | None) -> str:
     if initial_clock_seconds <= 1800:
         return TimeControl.RAPID.value
     return TimeControl.CLASSICAL.value
+
+
+def _normalize_seconds(val: int | float | None) -> float | None:
+    """
+    Safely convert clock timestamps to float seconds.
+    Detects if millisecond timestamps (e.g. 85000ms) or second timestamps (e.g. 85s) were supplied.
+    """
+    if val is None:
+        return None
+    f_val = float(val)
+    if f_val >= 1000.0:
+        return f_val / 1000.0
+    return f_val
 
 
 def extract_time_features(
@@ -58,43 +77,77 @@ def extract_time_features(
     ----------
     move
         Move entity to analyze.
-
     previous_moves_same_color
         Prior moves played by the same player in the current game.
-
     initial_clock_seconds
         Optional starting clock time for the game to classify time control.
 
     Returns
     -------
     TimeFeatures
-        Extracted time features DTO.
+        Extracted time features DTO with consistent seconds units.
     """
-    think_time = (
-        float(move.time_spent) / 1000.0
-        if move.time_spent is not None
-        else 0.0
-    )
-    time_remaining = (
-        float(move.clock_after) / 1000.0
-        if move.clock_after is not None
-        else 0.0
-    )
+    has_clock = move.clock_after is not None
+    norm_clock_after = _normalize_seconds(move.clock_after)
+    norm_time_spent = _normalize_seconds(move.time_spent)
+    norm_clock_before = _normalize_seconds(move.clock_before)
 
-    is_120s = time_remaining < 120.0 and time_remaining > 0.0
-    is_60s = time_remaining < 60.0 and time_remaining > 0.0
-    is_30s = time_remaining < 30.0 and time_remaining > 0.0
+    # 1. Resolve think_time (in seconds)
+    if norm_time_spent is not None:
+        think_time = max(0.0, norm_time_spent)
+    elif norm_clock_before is not None and norm_clock_after is not None:
+        think_time = max(0.0, norm_clock_before - norm_clock_after)
+    else:
+        # If think time is unavailable, use prior moves running average or neutral 5.0s
+        prior_spents = [
+            _normalize_seconds(m.time_spent)
+            for m in previous_moves_same_color
+            if m.time_spent is not None
+        ]
+        prior_valid = [s for s in prior_spents if s is not None and s > 0]
+        think_time = sum(prior_valid) / len(prior_valid) if prior_valid else 5.0
 
-    time_usage_ratio = think_time / max(time_remaining, 1.0)
+    # 2. Resolve time_remaining (in seconds)
+    if has_clock and norm_clock_after is not None:
+        time_remaining = max(0.0, norm_clock_after)
+    elif initial_clock_seconds is not None and initial_clock_seconds > 0:
+        time_remaining = float(initial_clock_seconds)
+    else:
+        # Neutral baseline when clock data is completely missing (prevents false 0s time panic)
+        time_remaining = 300.0
 
+    # 3. Time pressure boundary handling (only trigger if genuine clock data exists)
+    if has_clock:
+        is_120s = 0.0 < time_remaining <= 120.0
+        is_60s = 0.0 < time_remaining <= 60.0
+        is_30s = 0.0 < time_remaining <= 30.0
+    else:
+        is_120s = False
+        is_60s = False
+        is_30s = False
+
+    # 4. Time usage ratio: think_time divided by clock_before (available time at move start)
+    if norm_clock_before is not None and norm_clock_before > 0:
+        available_clock = norm_clock_before
+    elif has_clock:
+        available_clock = time_remaining + think_time
+    elif initial_clock_seconds is not None and initial_clock_seconds > 0:
+        available_clock = float(initial_clock_seconds)
+    else:
+        available_clock = 300.0
+
+    time_usage_ratio = min(1.0, max(0.0, think_time / max(available_clock, 1.0)))
+
+    # 5. Running think time average and deviation
     prior_think_times = [
-        float(m.time_spent) / 1000.0
+        _normalize_seconds(m.time_spent)
         for m in previous_moves_same_color
         if m.time_spent is not None
     ]
+    valid_priors = [t for t in prior_think_times if t is not None]
 
-    if prior_think_times:
-        running_avg = sum(prior_think_times) / len(prior_think_times)
+    if valid_priors:
+        running_avg = sum(valid_priors) / len(valid_priors)
     else:
         running_avg = think_time
 
@@ -111,4 +164,5 @@ def extract_time_features(
         running_avg_think_time=running_avg,
         think_time_deviation=think_deviation,
         time_control=tc_category,
+        has_clock_data=has_clock,
     )

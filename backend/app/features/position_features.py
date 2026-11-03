@@ -2,6 +2,7 @@
 Position feature extractor.
 
 Extracts positional metrics from chess.Board objects for ML feature vectors.
+Performs safe non-mutating evaluations on board states.
 """
 
 from __future__ import annotations
@@ -47,11 +48,13 @@ class PositionFeatures:
     black_isolated_pawns: int
     white_doubled_pawns: int
     black_doubled_pawns: int
+    game_phase_numeric: int = 0
 
 
 def extract_position_features(board: chess.Board) -> PositionFeatures:
     """
     Extract comprehensive positional features from a chess board state.
+    Guarantees no in-place mutation of the caller's board object.
 
     Parameters
     ----------
@@ -73,27 +76,31 @@ def extract_position_features(board: chess.Board) -> PositionFeatures:
     )
     mat_balance = white_mat - black_mat
 
-    # Game phase classification based on non-pawn material sum
+    # Game phase classification based on non-pawn material sum (max is 62 at game start)
     non_pawn_mat = sum(
         (len(board.pieces(p_type, chess.WHITE)) + len(board.pieces(p_type, chess.BLACK)))
         * PIECE_VALUES[p_type]
         for p_type in (chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN)
     )
 
-    if non_pawn_mat > 28:
+    if non_pawn_mat >= 44 or (board.fullmove_number <= 12 and non_pawn_mat >= 36):
         phase = GamePhase.OPENING.value
-    elif non_pawn_mat >= 14:
+        phase_numeric = 0
+    elif non_pawn_mat >= 16:
         phase = GamePhase.MIDDLEGAME.value
+        phase_numeric = 1
     else:
         phase = GamePhase.ENDGAME.value
+        phase_numeric = 2
 
-    # Mobility
-    turn_backup = board.turn
-    board.turn = chess.WHITE
-    white_mob = board.legal_moves.count()
-    board.turn = chess.BLACK
-    black_mob = board.legal_moves.count()
-    board.turn = turn_backup
+    # Safe mobility calculation (never mutates caller's board state)
+    b_white = board.copy(stack=False)
+    b_white.turn = chess.WHITE
+    white_mob = b_white.legal_moves.count()
+
+    b_black = board.copy(stack=False)
+    b_black.turn = chess.BLACK
+    black_mob = b_black.legal_moves.count()
 
     # Center control
     white_center = sum(
@@ -103,7 +110,7 @@ def extract_position_features(board: chess.Board) -> PositionFeatures:
         1 for sq in CENTER_SQUARES if board.is_attacked_by(chess.BLACK, sq)
     )
 
-    # King pawn shield
+    # Refined King pawn shield with distance-weighted protection (rank+1 gets weight 2, rank+2 gets weight 1)
     w_king_sq = board.king(chess.WHITE)
     b_king_sq = board.king(chess.BLACK)
 
@@ -111,17 +118,19 @@ def extract_position_features(board: chess.Board) -> PositionFeatures:
     if w_king_sq is not None:
         w_file, w_rank = chess.square_file(w_king_sq), chess.square_rank(w_king_sq)
         for f in range(max(0, w_file - 1), min(8, w_file + 2)):
-            for r in range(w_rank + 1, min(8, w_rank + 3)):
-                if board.piece_at(chess.square(f, r)) == chess.Piece(chess.PAWN, chess.WHITE):
-                    w_shield += 1
+            if w_rank + 1 < 8 and board.piece_at(chess.square(f, w_rank + 1)) == chess.Piece(chess.PAWN, chess.WHITE):
+                w_shield += 2
+            elif w_rank + 2 < 8 and board.piece_at(chess.square(f, w_rank + 2)) == chess.Piece(chess.PAWN, chess.WHITE):
+                w_shield += 1
 
     b_shield = 0
     if b_king_sq is not None:
         b_file, b_rank = chess.square_file(b_king_sq), chess.square_rank(b_king_sq)
         for f in range(max(0, b_file - 1), min(8, b_file + 2)):
-            for r in range(max(0, b_rank - 2), b_rank):
-                if board.piece_at(chess.square(f, r)) == chess.Piece(chess.PAWN, chess.BLACK):
-                    b_shield += 1
+            if b_rank - 1 >= 0 and board.piece_at(chess.square(f, b_rank - 1)) == chess.Piece(chess.PAWN, chess.BLACK):
+                b_shield += 2
+            elif b_rank - 2 >= 0 and board.piece_at(chess.square(f, b_rank - 2)) == chess.Piece(chess.PAWN, chess.BLACK):
+                b_shield += 1
 
     # Pawn structure (isolated, doubled, passed)
     w_pawns = board.pieces(chess.PAWN, chess.WHITE)
@@ -186,4 +195,5 @@ def extract_position_features(board: chess.Board) -> PositionFeatures:
         black_isolated_pawns=b_isolated,
         white_doubled_pawns=w_doubled,
         black_doubled_pawns=b_doubled,
+        game_phase_numeric=phase_numeric,
     )
