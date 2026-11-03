@@ -223,8 +223,8 @@ def predict_position(req: PredictRequest) -> dict[str, Any]:
         san="move",
         uci="e2e4",
         fen=req.fen,
-        time_spent=int(req.think_time_sec * 1000),
-        clock_after=int(req.time_remaining_sec * 1000),
+        time_spent=int(req.think_time_sec * 1000) if req.think_time_sec is not None else None,
+        clock_after=int(req.time_remaining_sec * 1000) if req.time_remaining_sec is not None else None,
     )
 
     time_feats = extract_time_features(
@@ -248,6 +248,7 @@ def predict_position(req: PredictRequest) -> dict[str, Any]:
     return {
         "win_probability": round(pred.win_probability, 4),
         "collapse_probability": round(pred.collapse_probability, 4),
+        "black_collapse_probability": round(pred.black_collapse_probability, 4),
         "time_pressure_risk_multiplier": pred.time_pressure_risk_multiplier,
         "narrative_summary": exp.narrative_summary,
         "top_positive_factors": [

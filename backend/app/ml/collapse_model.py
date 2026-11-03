@@ -85,6 +85,7 @@ class PredictionResult:
     win_probability: float
     collapse_probability: float
     time_pressure_risk_multiplier: float
+    black_collapse_probability: float = 0.0
 
 
 class WinCollapsePredictor:
@@ -109,16 +110,33 @@ class WinCollapsePredictor:
     ) -> pd.DataFrame:
         """
         Construct single-row pandas DataFrame matching exact XGBoost feature ordering,
-        scaling, and units (seconds for time, integer counts for board features).
+        scaling, and units. If no clock data is available, neutral default values are
+        injected so time stress is not hallucinated.
         """
-        # Strict unit check: ensure timestamps are in seconds
-        think_sec = float(time_feats.think_time)
-        if think_sec > 18000.0:
-            think_sec /= 1000.0
+        if not time_feats.has_clock_data:
+            think_sec = 0.0
+            rem_sec = 300.0  # neutral baseline
+            is_120s = 0
+            is_60s = 0
+            is_30s = 0
+            usage_ratio = 0.0
+            running_avg = 0.0
+            dev = 0.0
+        else:
+            think_sec = float(time_feats.think_time)
+            if think_sec > 18000.0:
+                think_sec /= 1000.0
 
-        rem_sec = float(time_feats.time_remaining)
-        if rem_sec > 86400.0:
-            rem_sec /= 1000.0
+            rem_sec = float(time_feats.time_remaining)
+            if rem_sec > 86400.0:
+                rem_sec /= 1000.0
+
+            is_120s = int(time_feats.is_time_pressure_120s)
+            is_60s = int(time_feats.is_time_pressure_60s)
+            is_30s = int(time_feats.is_time_pressure_30s)
+            usage_ratio = float(np.clip(time_feats.time_usage_ratio, 0.0, 1.0))
+            running_avg = float(time_feats.running_avg_think_time)
+            dev = float(time_feats.think_time_deviation)
 
         data = {
             "material_balance": [int(pos_feats.material_balance)],
@@ -138,12 +156,12 @@ class WinCollapsePredictor:
             "black_doubled_pawns": [int(pos_feats.black_doubled_pawns)],
             "think_time": [think_sec],
             "time_remaining": [rem_sec],
-            "is_time_pressure_120s": [int(time_feats.is_time_pressure_120s)],
-            "is_time_pressure_60s": [int(time_feats.is_time_pressure_60s)],
-            "is_time_pressure_30s": [int(time_feats.is_time_pressure_30s)],
-            "time_usage_ratio": [float(np.clip(time_feats.time_usage_ratio, 0.0, 1.0))],
-            "running_avg_think_time": [float(time_feats.running_avg_think_time)],
-            "think_time_deviation": [float(time_feats.think_time_deviation)],
+            "is_time_pressure_120s": [is_120s],
+            "is_time_pressure_60s": [is_60s],
+            "is_time_pressure_30s": [is_30s],
+            "time_usage_ratio": [usage_ratio],
+            "running_avg_think_time": [running_avg],
+            "think_time_deviation": [dev],
         }
         return pd.DataFrame(data, columns=FEATURE_COLUMNS)
 
@@ -157,20 +175,8 @@ class WinCollapsePredictor:
     ) -> PredictionResult:
         """
         Run inference to predict win and collapse probability using trained XGBoost.
-        Synchronizes eval_cp perspective with ml_prob (White's POV).
-
-        Parameters
-        ----------
-        pos_feats
-            Extracted position metrics.
-        time_feats
-            Extracted time/clock metrics.
-        eval_cp
-            Stockfish evaluation in centipawns.
-        turn
-            Active side to move in the evaluated position.
-        is_already_white_pov
-            Whether eval_cp has already been inverted to White's perspective.
+        Synchronizes eval_cp perspective with ml_prob (White's POV) and computes
+        perspective-aware collapse risk for both White and Black.
         """
         X = self.feature_vector_from_dtos(pos_feats, time_feats)
 
@@ -179,7 +185,6 @@ class WinCollapsePredictor:
             raw_pred = float(self.model.predict(X)[0])
             ml_prob = float(np.clip(raw_pred, 0.0, 1.0))
         else:
-            # Fallback heuristic if model is not loaded
             base_score = 0.5 + (pos_feats.material_balance * 0.05)
             ml_prob = float(np.clip(base_score, 0.05, 0.95))
 
@@ -199,24 +204,35 @@ class WinCollapsePredictor:
         else:
             win_prob = ml_prob
 
-        # Compute time pressure risk multiplier
+        # Compute time pressure risk multiplier (only if genuine clock data exists)
         time_mult = 1.0
-        if time_feats.is_time_pressure_30s:
-            time_mult = 2.4
-        elif time_feats.is_time_pressure_60s:
-            time_mult = 1.7
-        elif time_feats.is_time_pressure_120s:
-            time_mult = 1.3
+        if time_feats.has_clock_data:
+            if time_feats.is_time_pressure_30s:
+                time_mult = 2.4
+            elif time_feats.is_time_pressure_60s:
+                time_mult = 1.7
+            elif time_feats.is_time_pressure_120s:
+                time_mult = 1.3
 
-        # Collapse risk is higher when position is volatile and time pressure is high
-        collapse_prob = float(
-            np.clip((1.0 - abs(win_prob - 0.5) * 2.0) * 0.4 * time_mult, 0.05, 0.95)
+        # Base volatility / game tension
+        tension = 1.0 - abs(win_prob - 0.5) * 2.0
+
+        # Perspective-dependent collapse factors: disadvantaged side is significantly more vulnerable
+        white_losing_factor = max(0.15, 1.0 - win_prob)
+        black_losing_factor = max(0.15, win_prob)
+
+        white_collapse = float(
+            np.clip((0.4 * tension + 0.6 * white_losing_factor) * time_mult, 0.05, 0.95)
+        )
+        black_collapse = float(
+            np.clip((0.4 * tension + 0.6 * black_losing_factor) * time_mult, 0.05, 0.95)
         )
 
         return PredictionResult(
             win_probability=win_prob,
-            collapse_probability=collapse_prob,
+            collapse_probability=white_collapse,
             time_pressure_risk_multiplier=time_mult,
+            black_collapse_probability=black_collapse,
         )
 
     def train_on_dataframe(
@@ -253,7 +269,7 @@ class WinCollapsePredictor:
             verbose=False,
         )
         self.model = model
-        set_shared_model(model)  # Update globally cached singleton
+        set_shared_model(model)
 
         val_preds = np.clip(model.predict(X_val), 0.0, 1.0)
         train_preds = np.clip(model.predict(X_train), 0.0, 1.0)

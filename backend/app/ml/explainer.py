@@ -3,6 +3,7 @@ SHAP Narrative Explainability Engine for ChessTrace.
 
 Generates human-readable explanations of win and collapse probability shifts
 using SHAP TreeExplainer feature attributions.
+Filters out time features when games have no clock telemetry.
 """
 
 from __future__ import annotations
@@ -47,6 +48,17 @@ FEATURE_NAME_MAP = {
     "think_time_deviation": "Rush/Overthink deviation",
 }
 
+TIME_FEATURE_KEYS = {
+    "think_time",
+    "time_remaining",
+    "is_time_pressure_120s",
+    "is_time_pressure_60s",
+    "is_time_pressure_30s",
+    "time_usage_ratio",
+    "running_avg_think_time",
+    "think_time_deviation",
+}
+
 
 @dataclass(slots=True, frozen=True)
 class FeatureImpact:
@@ -82,7 +94,7 @@ def get_shared_tree_explainer(model: Any) -> shap.TreeExplainer | None:
 
 class ShapExplainer:
     """
-    SHAP TreeExplainer wrapper providing natural language predictions explanations.
+    SHAP TreeExplainer wrapper providing natural language prediction explanations.
     """
 
     def __init__(self, predictor: WinCollapsePredictor) -> None:
@@ -127,6 +139,7 @@ class ShapExplainer:
     ) -> ExplanationResult:
         """
         Generate feature importance narrative explanation for position & time state.
+        When clock data is missing, time features are strictly excluded from explanations.
         """
         X = self.predictor.feature_vector_from_dtos(pos_feats, time_feats)
 
@@ -143,6 +156,10 @@ class ShapExplainer:
 
         impacts: list[FeatureImpact] = []
         for idx, col in enumerate(FEATURE_COLUMNS):
+            # Suppress time features if the game has no clock telemetry
+            if not time_feats.has_clock_data and col in TIME_FEATURE_KEYS:
+                continue
+
             val = float(X[col].iloc[0])
             s_val = float(shap_values[idx]) if idx < len(shap_values) else 0.0
             impacts.append(
@@ -199,7 +216,10 @@ class ShapExplainer:
             )
 
         if not narrative_parts:
-            summary = "Position evaluation is balanced — material is even and clock usage is normal."
+            if not time_feats.has_clock_data:
+                summary = "Position evaluation is balanced with even material, center control, and piece mobility."
+            else:
+                summary = "Position evaluation is balanced — material is even and clock usage is normal."
         else:
             summary = ". ".join(narrative_parts) + "."
 

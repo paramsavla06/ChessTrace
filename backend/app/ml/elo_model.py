@@ -136,9 +136,12 @@ class EloSimulatorManager:
 
         candidates: list[CandidateMovePrediction] = []
         
-        base_think = 3.0 + (time_feats.time_remaining / 30.0)
-        if time_feats.is_time_pressure_30s:
-            base_think = max(0.5, base_think * 0.3)
+        if time_feats.has_clock_data:
+            base_think = 3.0 + (time_feats.time_remaining / 30.0)
+            if time_feats.is_time_pressure_30s:
+                base_think = max(0.5, base_think * 0.3)
+        else:
+            base_think = 5.0
 
         # Probabilities distribution per ELO tier
         if target_elo_bucket == "2000+":

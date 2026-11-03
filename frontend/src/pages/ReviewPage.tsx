@@ -873,7 +873,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
                     <Zap className="w-4 h-4" style={{ color: 'var(--ct-gold)' }} />
                     <span>XGBoost Intelligence</span>
                   </div>
-                  {prediction.time_pressure_risk_multiplier > 1.0 && (
+                  {prediction.time_pressure_risk_multiplier > 1.0 && currentMove?.time_remaining_sec != null && (
                     <span
                       className="flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full animate-pulse"
                       style={{
@@ -888,39 +888,47 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-xl p-4" style={{ background: 'var(--ct-navy)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                    <p className="text-xs uppercase font-semibold" style={{ color: 'var(--ct-text-muted)' }}>
-                      Win Probability ({boardFlipped ? 'Black' : 'White'})
-                    </p>
-                    <p className="text-3xl font-extrabold mt-1 font-mono" style={{ color: '#30C670' }}>
-                      {((boardFlipped ? 1 - prediction.win_probability : prediction.win_probability) * 100).toFixed(1)}%
-                    </p>
-                    <p className="text-[10px] mt-1 font-mono" style={{ color: 'var(--ct-text-muted)' }}>
-                      {prediction.win_probability > 0.6 ? '▲ White is winning' :
-                       prediction.win_probability < 0.4 ? '▼ Black is winning' :
-                       '= Balanced position'}
-                    </p>
-                  </div>
-                  <div className="rounded-xl p-4" style={{ background: 'var(--ct-navy)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                    <p className="text-xs uppercase font-semibold" style={{ color: 'var(--ct-text-muted)' }}>
-                      Collapse Risk ({currentMove?.color === 'white' ? 'White' : 'Black'})
-                    </p>
-                    <p
-                      className="text-3xl font-extrabold mt-1 font-mono"
-                      style={{
-                        color: prediction.collapse_probability > 0.6 ? '#DC2626' :
-                               prediction.collapse_probability > 0.35 ? '#F97316' : '#30C670',
-                      }}
-                    >
-                      {(prediction.collapse_probability * 100).toFixed(1)}%
-                    </p>
-                    <p className="text-[10px] mt-1 font-mono" style={{ color: 'var(--ct-text-muted)' }}>
-                      {prediction.collapse_probability > 0.6 ? '⚠ High risk' :
-                       prediction.collapse_probability > 0.35 ? '~ Moderate risk' : '✓ Low risk'}
-                    </p>
-                  </div>
-                </div>
+                {(() => {
+                  const displayedCollapseProb = boardFlipped
+                    ? (prediction.black_collapse_probability ?? (1 - prediction.collapse_probability))
+                    : prediction.collapse_probability;
+
+                  return (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-xl p-4" style={{ background: 'var(--ct-navy)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <p className="text-xs uppercase font-semibold" style={{ color: 'var(--ct-text-muted)' }}>
+                          Win Probability ({boardFlipped ? 'Black' : 'White'})
+                        </p>
+                        <p className="text-3xl font-extrabold mt-1 font-mono" style={{ color: '#30C670' }}>
+                          {((boardFlipped ? 1 - prediction.win_probability : prediction.win_probability) * 100).toFixed(1)}%
+                        </p>
+                        <p className="text-[10px] mt-1 font-mono" style={{ color: 'var(--ct-text-muted)' }}>
+                          {prediction.win_probability > 0.6 ? '▲ White is winning' :
+                           prediction.win_probability < 0.4 ? '▼ Black is winning' :
+                           '= Balanced position'}
+                        </p>
+                      </div>
+                      <div className="rounded-xl p-4" style={{ background: 'var(--ct-navy)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <p className="text-xs uppercase font-semibold" style={{ color: 'var(--ct-text-muted)' }}>
+                          Collapse Risk ({boardFlipped ? 'Black' : 'White'})
+                        </p>
+                        <p
+                          className="text-3xl font-extrabold mt-1 font-mono"
+                          style={{
+                            color: displayedCollapseProb > 0.6 ? '#DC2626' :
+                                   displayedCollapseProb > 0.35 ? '#F97316' : '#30C670',
+                          }}
+                        >
+                          {(displayedCollapseProb * 100).toFixed(1)}%
+                        </p>
+                        <p className="text-[10px] mt-1 font-mono" style={{ color: 'var(--ct-text-muted)' }}>
+                          {displayedCollapseProb > 0.6 ? '⚠ High risk' :
+                           displayedCollapseProb > 0.35 ? '~ Moderate risk' : '✓ Low risk'}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* SHAP Factors */}
                 {(prediction.top_positive_factors?.length > 0 || prediction.top_negative_factors?.length > 0) && (

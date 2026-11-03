@@ -49,6 +49,7 @@ export interface TimelineMove {
 export interface PredictResponse {
   win_probability: number;
   collapse_probability: number;
+  black_collapse_probability?: number;
   time_pressure_risk_multiplier: number;
   narrative_summary: string;
   top_positive_factors: Array<{ feature: string; impact: number }>;
