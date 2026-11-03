@@ -889,94 +889,110 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
                 </div>
 
                 {(() => {
-                  const displayedCollapseProb = boardFlipped
-                    ? (prediction.black_collapse_probability ?? (1 - prediction.collapse_probability))
-                    : prediction.collapse_probability;
+                  const isUntimed = currentMove?.time_remaining_sec == null || currentMove?.time_remaining_sec === 0;
+                  const displayedWinProb = boardFlipped ? (1 - prediction.win_probability) : prediction.win_probability;
+                  const winProbColor = displayedWinProb >= 0.55 ? '#30C670' : displayedWinProb <= 0.45 ? '#EF4444' : '#E8B66A';
+
+                  const tension = 1.0 - Math.abs(displayedWinProb - 0.5) * 2.0;
+                  const sideLosingFactor = Math.max(0.15, 1.0 - displayedWinProb);
+                  const timeMult = !isUntimed ? (prediction.time_pressure_risk_multiplier || 1.0) : 1.0;
+                  const displayedCollapseProb = Math.min(0.95, Math.max(0.05, (0.4 * tension + 0.6 * sideLosingFactor) * timeMult));
+                  const collapseRiskColor = displayedCollapseProb > 0.6 ? '#DC2626' : displayedCollapseProb > 0.35 ? '#F97316' : '#30C670';
+
+                  const isTimeFeature = (f: string) => /time|clock|rush|panic|pace/i.test(f);
+                  const filteredPositive = (prediction.top_positive_factors || []).filter(f => !isUntimed || !isTimeFeature(f.feature));
+                  const filteredNegative = (prediction.top_negative_factors || []).filter(f => !isUntimed || !isTimeFeature(f.feature));
+                  const combinedFactors = [...filteredPositive, ...filteredNegative]
+                    .sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact))
+                    .slice(0, 5);
+
+                  let displayNarrative = prediction.narrative_summary;
+                  if (isUntimed && displayNarrative) {
+                    const cleanSentences = displayNarrative.split('. ').filter(s => !/time|clock|pace|rush|seconds/i.test(s));
+                    displayNarrative = cleanSentences.length > 0 ? cleanSentences.join('. ') : 'Position evaluation is driven by material balance, piece mobility, and center control.';
+                    if (!displayNarrative.endsWith('.')) displayNarrative += '.';
+                  }
 
                   return (
-                    <div className="grid grid-cols-2 gap-3">
+                    <>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="rounded-xl p-4" style={{ background: 'var(--ct-navy)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                          <p className="text-xs uppercase font-semibold" style={{ color: 'var(--ct-text-muted)' }}>
+                            Win Probability ({boardFlipped ? 'Black' : 'White'})
+                          </p>
+                          <p className="text-3xl font-extrabold mt-1 font-mono transition-colors duration-200" style={{ color: winProbColor }}>
+                            {(displayedWinProb * 100).toFixed(1)}%
+                          </p>
+                          <p className="text-[10px] mt-1 font-mono" style={{ color: 'var(--ct-text-muted)' }}>
+                            {displayedWinProb >= 0.55 ? `▲ ${boardFlipped ? 'Black' : 'White'} is winning` :
+                             displayedWinProb <= 0.45 ? `▼ ${boardFlipped ? 'Black' : 'White'} is losing` :
+                             '= Balanced position'}
+                          </p>
+                        </div>
+                        <div className="rounded-xl p-4" style={{ background: 'var(--ct-navy)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                          <p className="text-xs uppercase font-semibold" style={{ color: 'var(--ct-text-muted)' }}>
+                            Collapse Risk ({boardFlipped ? 'Black' : 'White'})
+                          </p>
+                          <p
+                            className="text-3xl font-extrabold mt-1 font-mono transition-colors duration-200"
+                            style={{ color: collapseRiskColor }}
+                          >
+                            {(displayedCollapseProb * 100).toFixed(1)}%
+                          </p>
+                          <p className="text-[10px] mt-1 font-mono" style={{ color: 'var(--ct-text-muted)' }}>
+                            {displayedCollapseProb > 0.6 ? '⚠ High risk' :
+                             displayedCollapseProb > 0.35 ? '~ Moderate risk' : '✓ Low risk'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* SHAP Factors */}
+                      {combinedFactors.length > 0 && (
+                        <div className="rounded-xl p-4 space-y-3" style={{ background: 'var(--ct-navy)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                          <div className="flex items-center gap-2 text-xs font-bold" style={{ color: 'var(--ct-text-secondary)' }}>
+                            <Brain className="w-4 h-4" style={{ color: 'var(--ct-gold)' }} />
+                            Position Factors (SHAP)
+                          </div>
+                          <div className="space-y-2">
+                            {combinedFactors.map((f, i) => (
+                              <div key={i} className="flex items-center gap-2">
+                                <span
+                                  className="text-[10px] font-bold w-[36px] text-right font-mono"
+                                  style={{ color: f.impact >= 0 ? '#30C670' : '#EF4444' }}
+                                >
+                                  {f.impact >= 0 ? '+' : ''}{(f.impact * 100).toFixed(1)}%
+                                </span>
+                                <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--ct-navy-2)' }}>
+                                  <div
+                                    className="h-full rounded-full"
+                                    style={{
+                                      width: `${Math.min(100, Math.abs(f.impact) * 400)}%`,
+                                      background: f.impact >= 0 ? '#30C670' : '#EF4444',
+                                    }}
+                                  />
+                                </div>
+                                <span className="text-[10px] font-mono truncate max-w-[130px]" style={{ color: 'var(--ct-text-muted)' }}>
+                                  {f.feature}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* SHAP Narrative */}
                       <div className="rounded-xl p-4" style={{ background: 'var(--ct-navy)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                        <p className="text-xs uppercase font-semibold" style={{ color: 'var(--ct-text-muted)' }}>
-                          Win Probability ({boardFlipped ? 'Black' : 'White'})
-                        </p>
-                        <p className="text-3xl font-extrabold mt-1 font-mono" style={{ color: '#30C670' }}>
-                          {((boardFlipped ? 1 - prediction.win_probability : prediction.win_probability) * 100).toFixed(1)}%
-                        </p>
-                        <p className="text-[10px] mt-1 font-mono" style={{ color: 'var(--ct-text-muted)' }}>
-                          {prediction.win_probability > 0.6 ? '▲ White is winning' :
-                           prediction.win_probability < 0.4 ? '▼ Black is winning' :
-                           '= Balanced position'}
+                        <div className="flex items-center gap-2 text-xs font-bold mb-2" style={{ color: 'var(--ct-text-secondary)' }}>
+                          <Brain className="w-4 h-4" style={{ color: 'var(--ct-gold)' }} />
+                          SHAP Narrative
+                        </div>
+                        <p className="text-sm italic" style={{ color: 'var(--ct-text-secondary)' }}>
+                          {displayNarrative}
                         </p>
                       </div>
-                      <div className="rounded-xl p-4" style={{ background: 'var(--ct-navy)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                        <p className="text-xs uppercase font-semibold" style={{ color: 'var(--ct-text-muted)' }}>
-                          Collapse Risk ({boardFlipped ? 'Black' : 'White'})
-                        </p>
-                        <p
-                          className="text-3xl font-extrabold mt-1 font-mono"
-                          style={{
-                            color: displayedCollapseProb > 0.6 ? '#DC2626' :
-                                   displayedCollapseProb > 0.35 ? '#F97316' : '#30C670',
-                          }}
-                        >
-                          {(displayedCollapseProb * 100).toFixed(1)}%
-                        </p>
-                        <p className="text-[10px] mt-1 font-mono" style={{ color: 'var(--ct-text-muted)' }}>
-                          {displayedCollapseProb > 0.6 ? '⚠ High risk' :
-                           displayedCollapseProb > 0.35 ? '~ Moderate risk' : '✓ Low risk'}
-                        </p>
-                      </div>
-                    </div>
+                    </>
                   );
                 })()}
-
-                {/* SHAP Factors */}
-                {(prediction.top_positive_factors?.length > 0 || prediction.top_negative_factors?.length > 0) && (
-                  <div className="rounded-xl p-4 space-y-3" style={{ background: 'var(--ct-navy)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div className="flex items-center gap-2 text-xs font-bold" style={{ color: 'var(--ct-text-secondary)' }}>
-                      <Brain className="w-4 h-4" style={{ color: 'var(--ct-gold)' }} />
-                      Position Factors (SHAP)
-                    </div>
-                    <div className="space-y-2">
-                      {[...(prediction.top_positive_factors || []), ...(prediction.top_negative_factors || [])]
-                        .sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact))
-                        .slice(0, 5)
-                        .map((f, i) => (
-                          <div key={i} className="flex items-center gap-2">
-                            <span
-                              className="text-[10px] font-bold w-[36px] text-right font-mono"
-                              style={{ color: f.impact >= 0 ? '#30C670' : '#EF4444' }}
-                            >
-                              {f.impact >= 0 ? '+' : ''}{(f.impact * 100).toFixed(1)}%
-                            </span>
-                            <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--ct-navy-2)' }}>
-                              <div
-                                className="h-full rounded-full"
-                                style={{
-                                  width: `${Math.min(100, Math.abs(f.impact) * 400)}%`,
-                                  background: f.impact >= 0 ? '#30C670' : '#EF4444',
-                                }}
-                              />
-                            </div>
-                            <span className="text-[10px] font-mono truncate max-w-[130px]" style={{ color: 'var(--ct-text-muted)' }}>
-                              {f.feature}
-                            </span>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* SHAP Narrative */}
-                <div className="rounded-xl p-4" style={{ background: 'var(--ct-navy)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <div className="flex items-center gap-2 text-xs font-bold mb-2" style={{ color: 'var(--ct-text-secondary)' }}>
-                    <Brain className="w-4 h-4" style={{ color: 'var(--ct-gold)' }} />
-                    SHAP Narrative
-                  </div>
-                  <p className="text-sm italic" style={{ color: 'var(--ct-text-secondary)' }}>
-                    {prediction.narrative_summary}
-                  </p>
-                </div>
               </motion.div>
             )}
           </AnimatePresence>
