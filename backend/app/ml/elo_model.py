@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 import chess
+import xgboost as xgb
 
 from app.core.constants import ELO_BUCKETS
 from app.features.position_features import PositionFeatures
@@ -70,7 +71,9 @@ class EloSimulatorManager:
             weights_file = WEIGHTS_DIR / f"elo_xgboost_{safe_bucket_name}.json"
             if weights_file.exists():
                 try:
-                    predictor = WinCollapsePredictor.load(weights_file)
+                    model = xgb.XGBRegressor()
+                    model.load_model(str(weights_file))
+                    predictor = WinCollapsePredictor(model=model)
                     _GLOBAL_ELO_MODELS[bucket] = predictor
                     logger.info("Loaded trained ELO model artifact for bucket '%s'", bucket)
                 except Exception as exc:

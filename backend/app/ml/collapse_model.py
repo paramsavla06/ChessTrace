@@ -300,9 +300,13 @@ class WinCollapsePredictor:
         set_shared_model(self.model)
 
     @classmethod
-    def load(cls, path: Path) -> WinCollapsePredictor:
-        """Load model artifact from disk and return new predictor instance."""
+    def load(cls, path: Path, set_as_shared: bool = False) -> WinCollapsePredictor:
+        """
+        Load model artifact from disk and return new predictor instance.
+        Only updates the shared global model if set_as_shared is True.
+        """
         model = xgb.XGBRegressor()
         model.load_model(str(path))
-        set_shared_model(model)
+        if set_as_shared:
+            set_shared_model(model)
         return cls(model=model)

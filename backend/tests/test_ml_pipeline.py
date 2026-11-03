@@ -97,7 +97,31 @@ def test_personal_profile_generator():
     assert profile.time_distribution.opening_time_pct == 100.0
 
 
+def test_elo_model_cache_isolation():
+    import xgboost as xgb
+    from app.ml.collapse_model import get_shared_model, set_shared_model
+    from app.ml.elo_model import EloSimulatorManager
+
+    # Store baseline global model
+    original_global = get_shared_model()
+
+    # Create dummy custom model
+    dummy_model = xgb.XGBRegressor()
+    set_shared_model(dummy_model)
+    assert get_shared_model() is dummy_model
+
+    # Instantiate EloSimulatorManager which loads ELO models
+    manager = EloSimulatorManager()
+
+    # The shared model MUST remain the dummy model and not be overwritten by ELO bucket weights
+    assert get_shared_model() is dummy_model
+
+    # Restore original
+    set_shared_model(original_global)
+
+
 if __name__ == "__main__":
     test_win_collapse_predictor_and_shap()
     test_personal_profile_generator()
+    test_elo_model_cache_isolation()
     print("All ML pipeline tests passed!")
