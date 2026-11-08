@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -15,6 +15,8 @@ interface LiveFrame {
   fen: string;
   win_probability?: number;
   collapse_probability?: number;
+  black_collapse_probability?: number;
+  time_pressure_risk_multiplier?: number;
   narrative_summary?: string;
   ply?: number;
   san?: string;
@@ -61,12 +63,19 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, onSelectGame }) => {
   const [history, setHistory] = useState<LiveFrame[]>([]);
   const [viewIndex, setViewIndex] = useState(-1);
   const [connected, setConnected] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
   const [gameResultText, setGameResultText] = useState<string | null>(null);
   const [inputGameId, setInputGameId] = useState('');
   const [boardOrientation, setBoardOrientation] = useState<'white' | 'black'>('white');
   const [isExporting, setIsExporting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const isGameOverRef = useRef(false);
+  const reconnectTimerRef = useRef<any>(null);
+  const reconnectAttemptRef = useRef(0);
+  const currentWsRef = useRef<WebSocket | null>(null);
+  const lastCleanIdRef = useRef<string | null>(null);
 
   const currentFrame = viewIndex === -1
     ? (history[history.length - 1] || { fen: 'start' })
@@ -167,51 +176,144 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, onSelectGame }) => {
   useEffect(() => {
     const { gameId: cleanId, orientation } = extractLichessGame(inputGameId);
     setBoardOrientation(orientation);
-    if (!cleanId || cleanId.length < 8) { setConnected(false); setIsGameOver(false); setGameResultText(null); return; }
 
-    const apiBase = import.meta.env.VITE_API_URL as string | undefined;
-    let wsUrl: string;
-    if (apiBase) {
-      const wsBase = apiBase.replace(/^https/, 'wss').replace(/^http/, 'ws');
-      if (wsBase.endsWith('/api/v1') || wsBase.endsWith('/api/v1/')) {
-        wsUrl = `${wsBase.endsWith('/') ? wsBase.slice(0, -1) : wsBase}/ws/live/${cleanId}`;
-      } else {
-        wsUrl = `${wsBase.endsWith('/') ? wsBase : `${wsBase}/`}api/v1/ws/live/${cleanId}`;
-      }
-    } else {
-      const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-      wsUrl = `${proto}://${window.location.host}/api/v1/ws/live/${cleanId}`;
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
     }
 
-    const socket = new WebSocket(wsUrl);
-    socket.onopen = () => {
-      setConnected(true);
+    if (!cleanId || cleanId.length < 8) {
+      setConnected(false);
+      setIsReconnecting(false);
       setIsGameOver(false);
+      isGameOverRef.current = false;
       setGameResultText(null);
-      setErrorMsg(null);
+      if (currentWsRef.current) {
+        currentWsRef.current.close();
+        currentWsRef.current = null;
+      }
+      return;
+    }
+
+    // Reset history only when switching to a completely different game
+    if (lastCleanIdRef.current !== cleanId) {
       setHistory([]);
       setViewIndex(-1);
-    };
-    socket.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.error) { setErrorMsg(data.error); socket.close(); return; }
-        if (data.game_over || data.status === 'completed') {
-          setIsGameOver(true);
-          if (data.result_text) setGameResultText(data.result_text);
-          if (!data.ply) return;
+      setIsGameOver(false);
+      isGameOverRef.current = false;
+      setGameResultText(null);
+      setErrorMsg(null);
+      reconnectAttemptRef.current = 0;
+      lastCleanIdRef.current = cleanId;
+    }
+
+    let isMounted = true;
+
+    const connectWs = () => {
+      if (!isMounted || isGameOverRef.current) return;
+
+      const apiBase = import.meta.env.VITE_API_URL as string | undefined;
+      let wsUrl: string;
+      if (apiBase) {
+        const wsBase = apiBase.replace(/^https/, 'wss').replace(/^http/, 'ws');
+        if (wsBase.endsWith('/api/v1') || wsBase.endsWith('/api/v1/')) {
+          wsUrl = `${wsBase.endsWith('/') ? wsBase.slice(0, -1) : wsBase}/ws/live/${cleanId}`;
+        } else {
+          wsUrl = `${wsBase.endsWith('/') ? wsBase : `${wsBase}/`}api/v1/ws/live/${cleanId}`;
         }
-        setHistory(prev => {
-          const newHistory = [...prev];
-          const existingIdx = newHistory.findIndex(f => f.ply === data.ply);
-          if (existingIdx !== -1) newHistory[existingIdx] = data;
-          else newHistory.push(data);
-          return newHistory.sort((a, b) => (a.ply || 0) - (b.ply || 0));
-        });
-      } catch (err) { console.error('Failed parsing WS frame', err); }
+      } else {
+        const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        wsUrl = `${proto}://${window.location.host}/api/v1/ws/live/${cleanId}`;
+      }
+
+      if (currentWsRef.current) {
+        try { currentWsRef.current.close(); } catch { /* ignore */ }
+      }
+
+      const socket = new WebSocket(wsUrl);
+      currentWsRef.current = socket;
+
+      socket.onopen = () => {
+        if (!isMounted) { socket.close(); return; }
+        setConnected(true);
+        setIsReconnecting(false);
+        setErrorMsg(null);
+        reconnectAttemptRef.current = 0;
+      };
+
+      socket.onmessage = (event) => {
+        if (!isMounted) return;
+        try {
+          const data = JSON.parse(event.data);
+          // Ping-Pong keepalive heartbeat
+          if (data.type === 'ping') {
+            if (socket.readyState === WebSocket.OPEN) {
+              socket.send(JSON.stringify({ type: 'pong' }));
+            }
+            return;
+          }
+          if (data.type === 'pong') return;
+
+          if (data.error) {
+            setErrorMsg(data.error);
+            return;
+          }
+
+          if (data.game_over || data.status === 'completed') {
+            setIsGameOver(true);
+            isGameOverRef.current = true;
+            setIsReconnecting(false);
+            if (data.result_text) setGameResultText(data.result_text);
+            if (!data.ply) return;
+          }
+
+          setHistory(prev => {
+            const newHistory = [...prev];
+            const existingIdx = newHistory.findIndex(f => f.ply === data.ply);
+            if (existingIdx !== -1) newHistory[existingIdx] = data;
+            else newHistory.push(data);
+            return newHistory.sort((a, b) => (a.ply || 0) - (b.ply || 0));
+          });
+        } catch (err) {
+          console.error('Failed parsing WS frame', err);
+        }
+      };
+
+      socket.onclose = () => {
+        if (!isMounted) return;
+        setConnected(false);
+        // Resilient reconnect if game is still active
+        if (!isGameOverRef.current && cleanId && cleanId.length >= 8) {
+          setIsReconnecting(true);
+          const delay = Math.min(6000, 1000 * Math.pow(1.3, reconnectAttemptRef.current));
+          reconnectAttemptRef.current += 1;
+          reconnectTimerRef.current = setTimeout(() => {
+            if (isMounted && !isGameOverRef.current) {
+              connectWs();
+            }
+          }, delay);
+        }
+      };
+
+      socket.onerror = () => {
+        if (!isMounted) return;
+        setConnected(false);
+      };
     };
-    socket.onclose = () => setConnected(false);
-    return () => socket.close();
+
+    connectWs();
+
+    return () => {
+      isMounted = false;
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      if (currentWsRef.current) {
+        currentWsRef.current.close();
+        currentWsRef.current = null;
+      }
+    };
   }, [inputGameId, gameId]);
 
   useEffect(() => {
@@ -276,6 +378,11 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, onSelectGame }) => {
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-[#EF4444] animate-pulse" />
                 Streaming Live — game #{displayId}
+              </span>
+            ) : isReconnecting ? (
+              <span className="flex items-center gap-1.5 text-amber-400 font-medium">
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                Reconnecting stream…
               </span>
             ) : (
               'Enter a Lichess game ID or URL to begin spectating'
@@ -499,56 +606,98 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, onSelectGame }) => {
         {/* Analysis Column */}
         <div className="lg:col-span-7 space-y-4">
           <div className="glass-panel p-5 rounded-2xl space-y-5">
-            {/* Win Gauge */}
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-xs uppercase font-bold tracking-wider" style={{ color: '#30C670' }}>
-                  Win Probability
-                </span>
-                <span className="text-xl font-extrabold font-mono" style={{ color: '#30C670' }}>
-                  {((currentFrame.win_probability ?? 0.5) * 100).toFixed(1)}%
-                </span>
-              </div>
-              <div className="h-3 rounded-full overflow-hidden" style={{ background: 'var(--ct-navy)' }}>
-                <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{
-                    width: `${(currentFrame.win_probability ?? 0.5) * 100}%`,
-                    background: 'linear-gradient(90deg, #30C670, var(--ct-gold))',
-                  }}
-                />
-              </div>
-            </div>
+            {(() => {
+              const isFlipped = boardOrientation === 'black';
+              const rawWinProb = currentFrame.win_probability ?? 0.5;
+              const displayedWinProb = isFlipped ? (1.0 - rawWinProb) : rawWinProb;
+              const winProbColor = displayedWinProb >= 0.55 ? '#30C670' : displayedWinProb <= 0.45 ? '#EF4444' : '#E8B66A';
+              const winProbGradient = displayedWinProb >= 0.55
+                ? 'linear-gradient(90deg, #30C670, var(--ct-gold))'
+                : displayedWinProb <= 0.45
+                ? 'linear-gradient(90deg, #EF4444, #F97316)'
+                : 'linear-gradient(90deg, var(--ct-gold), #30C670)';
 
-            {/* Collapse Gauge */}
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-xs uppercase font-bold tracking-wider" style={{ color: '#EF4444' }}>
-                  Collapse Risk
-                </span>
-                <span className="text-xl font-extrabold font-mono" style={{ color: '#EF4444' }}>
-                  {((currentFrame.collapse_probability ?? 0.1) * 100).toFixed(1)}%
-                </span>
-              </div>
-              <div className="h-3 rounded-full overflow-hidden" style={{ background: 'var(--ct-navy)' }}>
-                <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{
-                    width: `${(currentFrame.collapse_probability ?? 0.1) * 100}%`,
-                    background: 'linear-gradient(90deg, #F97316, #DC2626)',
-                  }}
-                />
-              </div>
-            </div>
+              const rawWhiteCollapse = currentFrame.collapse_probability ?? 0.1;
+              const rawBlackCollapse = currentFrame.black_collapse_probability;
+              let displayedCollapseRisk: number;
+              if (isFlipped) {
+                if (rawBlackCollapse != null) {
+                  displayedCollapseRisk = rawBlackCollapse;
+                } else {
+                  const tension = 1.0 - Math.abs(displayedWinProb - 0.5) * 2.0;
+                  const losingFactor = Math.max(0.15, 1.0 - displayedWinProb);
+                  const timeMult = currentFrame.time_pressure_risk_multiplier || 1.0;
+                  displayedCollapseRisk = Math.min(0.95, Math.max(0.05, (0.4 * tension + 0.6 * losingFactor) * timeMult));
+                }
+              } else {
+                displayedCollapseRisk = rawWhiteCollapse;
+              }
+
+              const collapseRiskColor = displayedCollapseRisk > 0.6 ? '#DC2626' : displayedCollapseRisk > 0.35 ? '#F97316' : '#30C670';
+              const collapseRiskGradient = displayedCollapseRisk > 0.35
+                ? 'linear-gradient(90deg, #F97316, #DC2626)'
+                : 'linear-gradient(90deg, #10B981, #30C670)';
+
+              return (
+                <>
+                  {/* Win Gauge */}
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xs uppercase font-bold tracking-wider" style={{ color: winProbColor }}>
+                        Win Probability ({isFlipped ? 'Black' : 'White'})
+                      </span>
+                      <span className="text-xl font-extrabold font-mono" style={{ color: winProbColor }}>
+                        {(displayedWinProb * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                    <div className="h-3 rounded-full overflow-hidden" style={{ background: 'var(--ct-navy)' }}>
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${Math.min(100, Math.max(0, displayedWinProb * 100))}%`,
+                          background: winProbGradient,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Collapse Gauge */}
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xs uppercase font-bold tracking-wider" style={{ color: collapseRiskColor }}>
+                        Collapse Risk ({isFlipped ? 'Black' : 'White'})
+                      </span>
+                      <span className="text-xl font-extrabold font-mono" style={{ color: collapseRiskColor }}>
+                        {(displayedCollapseRisk * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                    <div className="h-3 rounded-full overflow-hidden" style={{ background: 'var(--ct-navy)' }}>
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${Math.min(100, Math.max(0, displayedCollapseRisk * 100))}%`,
+                          background: collapseRiskGradient,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
 
             {/* SHAP Narrative */}
             <div
               className="rounded-xl p-4 space-y-2"
               style={{ background: 'var(--ct-navy)', border: '1px solid rgba(255,255,255,0.05)' }}
             >
-              <div className="flex items-center gap-2 text-xs font-bold" style={{ color: 'var(--ct-text-secondary)' }}>
-                <Zap className="w-4 h-4" style={{ color: '#EF4444' }} />
-                Live SHAP Narrative
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-bold" style={{ color: 'var(--ct-text-secondary)' }}>
+                  <Zap className="w-4 h-4" style={{ color: '#EF4444' }} />
+                  Live SHAP Narrative
+                </div>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[rgba(255,255,255,0.06)] text-[var(--ct-text-muted)]">
+                  Perspective: {boardOrientation === 'black' ? 'Black' : 'White'}
+                </span>
               </div>
               <p className="text-sm italic leading-relaxed" style={{ color: 'var(--ct-text-secondary)' }}>
                 {currentFrame.narrative_summary || 'Spectating live game stream…'}
