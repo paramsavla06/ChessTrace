@@ -26,7 +26,7 @@ import {
   Download,
   Loader2,
 } from 'lucide-react';
-import { api } from '../api/client';
+import { api, API_BASE } from '../api/client';
 import type { TimelineMove, PredictResponse, WhatIfResponse, EloSimResponse } from '../api/client';
 
 function fenToPositionObj(fen: string): Record<string, string> | 'start' {
@@ -517,7 +517,7 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
           )}
 
           <a
-            href={`/api/v1/games/${activeGameId || gameId}/export-pgn`}
+            href={`${API_BASE}/games/${activeGameId || gameId}/export-pgn`}
             download
             className="btn-app text-xs gap-2"
           >
