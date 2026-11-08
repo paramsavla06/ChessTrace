@@ -9,7 +9,7 @@ def normalize_database_url(url: str) -> str:
     Safely normalize database connection URLs for SQLAlchemy.
 
     Ensures PostgreSQL URLs use the psycopg2 driver (psycopg2-binary) by
-    converting 'postgresql+psycopg://' and legacy 'postgres://' schemes.
+    converting 'postgresql://', 'postgresql+psycopg://', and legacy 'postgres://' schemes.
     Preserves all credentials, host, port, database name, and query parameters.
     """
     if not url:
@@ -18,6 +18,8 @@ def normalize_database_url(url: str) -> str:
         return url.replace("postgresql+psycopg://", "postgresql+psycopg2://", 1)
     if url.startswith("postgres://"):
         return url.replace("postgres://", "postgresql+psycopg2://", 1)
+    if url.startswith("postgresql://") and not url.startswith("postgresql+"):
+        return url.replace("postgresql://", "postgresql+psycopg2://", 1)
     return url
 
 

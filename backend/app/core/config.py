@@ -23,6 +23,8 @@ if _db_url.startswith("postgresql+psycopg://"):
     _db_url = _db_url.replace("postgresql+psycopg://", "postgresql+psycopg2://", 1)
 elif _db_url.startswith("postgres://"):
     _db_url = _db_url.replace("postgres://", "postgresql+psycopg2://", 1)
+elif _db_url.startswith("postgresql://") and not _db_url.startswith("postgresql+"):
+    _db_url = _db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
 DATABASE_URL: str = _db_url
 
 
