@@ -70,6 +70,8 @@ async def stream_live_game(websocket: WebSocket, game_id: str) -> None:
                 prev_black_moves: list[Move] = []
                 white_player = "White"
                 black_player = "Black"
+                initial_clock_sec: int | None = None
+                time_control_str: str | None = None
 
                 async for line in response.aiter_lines():
                     if not line.strip():
@@ -79,6 +81,19 @@ async def stream_live_game(websocket: WebSocket, game_id: str) -> None:
                         data = json.loads(line)
                     except json.JSONDecodeError:
                         continue
+
+                    # Extract time control if present in block
+                    if "clock" in data and isinstance(data["clock"], dict):
+                        c_init = data["clock"].get("initial")
+                        c_inc = data["clock"].get("increment", 0)
+                        if c_init is not None:
+                            initial_clock_sec = int(c_init)
+                            time_control_str = f"{c_init}+{c_inc}"
+                    elif initial_clock_sec is None and ("wc" in data or "bc" in data):
+                        c_sec = data.get("wc") or data.get("bc")
+                        if c_sec is not None:
+                            initial_clock_sec = int(c_sec)
+                            time_control_str = f"{initial_clock_sec}+0"
 
                     # Extract player names if metadata is present in this block
                     if "players" in data:
@@ -105,6 +120,8 @@ async def stream_live_game(websocket: WebSocket, game_id: str) -> None:
                             "black_player": black_player,
                             "white_clock": data.get("wc"),
                             "black_clock": data.get("bc"),
+                            "time_control": time_control_str,
+                            "initial_clock_seconds": initial_clock_sec,
                             "win_probability": 0.5,
                             "collapse_probability": 0.1,
                             "time_pressure_risk_multiplier": 1.0,
@@ -170,6 +187,7 @@ async def stream_live_game(websocket: WebSocket, game_id: str) -> None:
                     time_feats = extract_time_features(
                         move_obj,
                         previous_moves_same_color=prev_same,
+                        initial_clock_seconds=initial_clock_sec,
                     )
 
                     pred = predictor.predict(pos_feats, time_feats)
@@ -186,6 +204,8 @@ async def stream_live_game(websocket: WebSocket, game_id: str) -> None:
                         "black_player": black_player,
                         "white_clock": data.get("wc"),
                         "black_clock": data.get("bc"),
+                        "time_control": time_control_str,
+                        "initial_clock_seconds": initial_clock_sec,
                         # ML Predictions
                         "win_probability": round(pred.win_probability, 4),
                         "collapse_probability": round(pred.collapse_probability, 4),
@@ -250,7 +270,7 @@ async def stream_live_game(websocket: WebSocket, game_id: str) -> None:
                                 
                                 pos_feats = extract_position_features(board)
                                 prev_same = prev_white_moves if active_color == MoveColor.WHITE else prev_black_moves
-                                time_feats = extract_time_features(move_obj, previous_moves_same_color=prev_same)
+                                time_feats = extract_time_features(move_obj, previous_moves_same_color=prev_same, initial_clock_seconds=initial_clock_sec)
                                 pred = predictor.predict(pos_feats, time_feats)
                                 exp = explainer.explain(pos_feats, time_feats)
                                 
@@ -266,6 +286,8 @@ async def stream_live_game(websocket: WebSocket, game_id: str) -> None:
                                     "black_player": black_player,
                                     "white_clock": previous_clock // 1000 if previous_clock else None,
                                     "black_clock": previous_clock // 1000 if previous_clock else None,
+                                    "time_control": time_control_str,
+                                    "initial_clock_seconds": initial_clock_sec,
                                     "win_probability": round(pred.win_probability, 4),
                                     "collapse_probability": round(pred.collapse_probability, 4),
                                     "time_pressure_risk_multiplier": pred.time_pressure_risk_multiplier,

@@ -26,6 +26,8 @@ interface LiveFrame {
   white_clock?: number;
   black_clock?: number;
   time_remaining_sec?: number;
+  time_control?: string;
+  initial_clock_seconds?: number;
   game_over?: boolean;
   result_text?: string;
 }
@@ -74,20 +76,72 @@ export const LivePage: React.FC<LivePageProps> = ({ gameId, onSelectGame }) => {
     if (history.length === 0) return;
     setIsExporting(true);
     try {
-      const game = new Chess();
-      for (const frame of history) {
-        if (!frame.uci) continue;
+      const { gameId: cleanId } = extractLichessGame(inputGameId);
+      let pgnStr = '';
+
+      // 1. Try to fetch the full official PGN with clocks and time control from Lichess export API
+      if (cleanId && cleanId.length >= 8) {
         try {
-          game.move({ from: frame.uci.substring(0, 2), to: frame.uci.substring(2, 4), promotion: frame.uci.length > 4 ? frame.uci[4] : undefined });
-        } catch { /* skip invalid */ }
+          const lichessResp = await fetch(`https://lichess.org/game/export/${cleanId}?clocks=true&evals=false`, {
+            headers: { 'Accept': 'application/x-chess-pgn' }
+          });
+          if (lichessResp.ok) {
+            const fetchedPgn = await lichessResp.text();
+            if (fetchedPgn && fetchedPgn.includes('[Event')) {
+              pgnStr = fetchedPgn;
+            }
+          }
+        } catch {
+          // Fall back to building PGN from live history with clocks
+        }
       }
-      const pgnMoves = game.history().reduce((acc, move, i) => {
-        if (i % 2 === 0) return acc + `${Math.floor(i / 2) + 1}. ${move} `;
-        return acc + `${move} `;
-      }, '').trim();
-      const whiteName = currentFrame.white_player || 'White';
-      const blackName = currentFrame.black_player || 'Black';
-      const pgnStr = `[Event "Live Spectate Export"]\n[Site "ChessTrace"]\n[Date "${new Date().toISOString().split('T')[0]}"]\n[White "${whiteName}"]\n[Black "${blackName}"]\n[Result "*"]\n\n${pgnMoves} *`;
+
+      // 2. If Lichess export is unavailable or game is live in progress, construct PGN carrying full clocks & time control
+      if (!pgnStr) {
+        const game = new Chess();
+        const pgnMoves: string[] = [];
+
+        // Determine starting time control
+        const initTc = currentFrame.time_control || 
+                       (history[0]?.white_clock ? `${history[0].white_clock}+0` : '300+0');
+        const whiteName = currentFrame.white_player || 'White';
+        const blackName = currentFrame.black_player || 'Black';
+
+        const formatPgnClock = (seconds: number): string => {
+          const h = Math.floor(seconds / 3600);
+          const m = Math.floor((seconds % 3600) / 60);
+          const s = Math.floor(seconds % 60);
+          return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        };
+
+        let moveNum = 1;
+        for (let i = 0; i < history.length; i++) {
+          const frame = history[i];
+          if (!frame.uci) continue;
+          try {
+            const moveRes = game.move({
+              from: frame.uci.substring(0, 2),
+              to: frame.uci.substring(2, 4),
+              promotion: frame.uci.length > 4 ? frame.uci[4] : undefined
+            });
+            if (moveRes) {
+              const isWhite = moveRes.color === 'w';
+              const clockSec = isWhite ? frame.white_clock : frame.black_clock;
+              const clkTag = clockSec != null ? ` { [%clk ${formatPgnClock(clockSec)}] }` : '';
+              if (isWhite) {
+                pgnMoves.push(`${moveNum}. ${moveRes.san}${clkTag}`);
+              } else {
+                pgnMoves.push(`${moveRes.san}${clkTag}`);
+                moveNum++;
+              }
+            }
+          } catch { /* skip */ }
+        }
+
+        const resultStr = isGameOver ? (gameResultText?.includes('1-0') ? '1-0' : gameResultText?.includes('0-1') ? '0-1' : '1/2-1/2') : '*';
+        pgnStr = `[Event "Live Spectate Export"]\n[Site "ChessTrace"]\n[Date "${new Date().toISOString().split('T')[0]}"]\n[White "${whiteName}"]\n[Black "${blackName}"]\n[Result "${resultStr}"]\n[TimeControl "${initTc}"]\n\n${pgnMoves.join(' ')} ${resultStr}`;
+      }
+
       const blob = new Blob([pgnStr], { type: 'text/plain' });
       const file = new File([blob], 'live_export.pgn', { type: 'text/plain' });
       const formData = new FormData();

@@ -25,6 +25,8 @@ import {
   User,
   Download,
   Loader2,
+  Clock,
+  FileText,
 } from 'lucide-react';
 import { api, API_BASE } from '../api/client';
 import type { TimelineMove, PredictResponse, WhatIfResponse, EloSimResponse } from '../api/client';
@@ -414,6 +416,152 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
     return Math.min(2100, Math.max(650, perfElo));
   };
 
+  const formatTimeControl = (tc?: string | null): string => {
+    if (!tc || tc === '-' || tc === 'unknown') return 'Untimed';
+    const parts = tc.split('+');
+    const baseSec = parseInt(parts[0], 10);
+    if (isNaN(baseSec)) return tc;
+    const incSec = parts.length > 1 ? parseInt(parts[1], 10) : 0;
+    const mins = Math.floor(baseSec / 60);
+    const secs = baseSec % 60;
+    const timeStr = secs > 0 ? `${mins}m ${secs}s` : `${mins} min`;
+    const incStr = incSec > 0 ? `+${incSec}` : '';
+
+    let category = 'Classical';
+    if (baseSec < 180) category = 'Bullet';
+    else if (baseSec <= 600) category = 'Blitz';
+    else if (baseSec <= 1800) category = 'Rapid';
+
+    return `${timeStr}${incStr} · ${category}`;
+  };
+
+  const handleDownloadPdf = () => {
+    if (!gameMeta || timeline.length === 0) return;
+
+    const whiteAccuracy = computeAccuracy(getMoveTypeCounts('white'));
+    const blackAccuracy = computeAccuracy(getMoveTypeCounts('black'));
+    const tcFormatted = formatTimeControl(gameMeta?.time_control);
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${gameMeta.white_player || 'White'} vs ${gameMeta.black_player || 'Black'} - ChessTrace Review</title>
+  <style>
+    @page { size: A4 portrait; margin: 12mm; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1e293b; margin: 0; padding: 16px; font-size: 11px; }
+    .header { border-bottom: 2px solid #3b82f6; padding-bottom: 10px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-start; }
+    .title { font-size: 18px; font-weight: bold; color: #0f172a; margin: 0 0 6px 0; }
+    .badges { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+    .meta-badge { display: inline-block; padding: 3px 8px; background: #f1f5f9; border-radius: 4px; font-weight: 600; font-size: 10px; }
+    .tc-badge { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; font-weight: bold; }
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+    .player-card { border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; background: #f8fafc; }
+    .player-name { font-size: 13px; font-weight: bold; margin-bottom: 4px; }
+    .acc-bar { height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; margin-top: 4px; }
+    .acc-fill { height: 100%; background: #10b981; }
+    .moves-table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 10px; }
+    .moves-table th { background: #f1f5f9; padding: 5px 6px; text-align: left; border-bottom: 1px solid #cbd5e1; font-weight: 600; }
+    .moves-table td { padding: 4px 6px; border-bottom: 1px solid #f1f5f9; }
+    .moves-table tr:nth-child(even) { background: #fafafa; }
+    .clock-tag { color: #64748b; font-family: monospace; font-size: 9px; margin-left: 4px; }
+    .footer { margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 8px; font-size: 9px; color: #94a3b8; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1 class="title">${gameMeta.white_player || 'White'} (${gameMeta.white_elo || '?'}) vs ${gameMeta.black_player || 'Black'} (${gameMeta.black_elo || '?'})</h1>
+      <div class="badges">
+        <span class="meta-badge">${gameMeta.event || 'ChessTrace Game'}</span>
+        <span class="meta-badge tc-badge">⏱️ Time Control: ${tcFormatted}</span>
+        <span class="meta-badge">Result: ${gameMeta.result || '*'}</span>
+        <span class="meta-badge">ECO: ${gameMeta.eco || 'A00'}</span>
+        <span class="meta-badge">Date: ${gameMeta.date || new Date().toISOString().split('T')[0]}</span>
+      </div>
+    </div>
+    <div style="text-align: right;">
+      <strong style="color: #3b82f6; font-size: 13px;">ChessTrace</strong>
+      <div style="font-size: 9px; color: #64748b;">Game Intelligence Report</div>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="player-card">
+      <div class="player-name">White: ${gameMeta.white_player || 'White'}</div>
+      <div>Accuracy: <strong>${whiteAccuracy}%</strong> (Est. Rating: ${estimateRating(whiteAccuracy, gameMeta.white_elo)})</div>
+      <div class="acc-bar"><div class="acc-fill" style="width: ${whiteAccuracy}%;"></div></div>
+    </div>
+    <div class="player-card">
+      <div class="player-name">Black: ${gameMeta.black_player || 'Black'}</div>
+      <div>Accuracy: <strong>${blackAccuracy}%</strong> (Est. Rating: ${estimateRating(blackAccuracy, gameMeta.black_elo)})</div>
+      <div class="acc-bar"><div class="acc-fill" style="width: ${blackAccuracy}%;"></div></div>
+    </div>
+  </div>
+
+  <h4 style="margin: 0 0 6px 0; font-size: 12px;">Move-by-Move Analysis & Clock Telemetry</h4>
+  <table class="moves-table">
+    <thead>
+      <tr>
+        <th style="width: 32px;">#</th>
+        <th>White Move</th>
+        <th>Eval</th>
+        <th>Classification</th>
+        <th>Black Move</th>
+        <th>Eval</th>
+        <th>Classification</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${(() => {
+        const rows = [];
+        for (let i = 0; i < timeline.length; i += 2) {
+          const wMove = timeline[i];
+          const bMove = timeline[i + 1];
+          const moveNum = wMove ? wMove.move_number : Math.floor(i / 2) + 1;
+          const wClock = wMove?.time_remaining_sec != null ? '<span class="clock-tag">[' + formatClock(wMove.time_remaining_sec) + ']</span>' : '';
+          const bClock = bMove?.time_remaining_sec != null ? '<span class="clock-tag">[' + formatClock(bMove.time_remaining_sec) + ']</span>' : '';
+          rows.push('<tr>' +
+            '<td>' + moveNum + '.</td>' +
+            '<td><strong>' + (wMove ? wMove.san : '') + '</strong> ' + wClock + '</td>' +
+            '<td>' + (wMove ? ((wMove as any).eval_score || '-') : '-') + '</td>' +
+            '<td>' + (wMove ? ((wMove as any).move_classification || 'good') : '') + '</td>' +
+            '<td><strong>' + (bMove ? bMove.san : '') + '</strong> ' + bClock + '</td>' +
+            '<td>' + (bMove ? ((bMove as any).eval_score || '-') : '-') + '</td>' +
+            '<td>' + (bMove ? ((bMove as any).move_classification || 'good') : '') + '</td>' +
+          '</tr>');
+        }
+        return rows.join('');
+      })()}
+    </tbody>
+  </table>
+
+  <div class="footer">
+    Generated by ChessTrace — Cognitive Chess Intelligence & Collapse Analytics
+  </div>
+
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        window.print();
+      }, 250);
+    };
+  </script>
+</body>
+</html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   // Chart data
   const chartData: any[] = [];
   const movesByNumber = new Map<number, any>();
@@ -485,8 +633,15 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
               {gameMeta?.eco || 'A00'}
             </span>
           </div>
-          <p className="text-xs font-mono mt-1" style={{ color: 'var(--ct-text-muted)' }}>
-            {gameMeta?.event} &nbsp;·&nbsp; {gameMeta?.result} &nbsp;·&nbsp; {gameMeta?.time_control}
+          <p className="text-xs font-mono mt-1 flex items-center gap-2 flex-wrap" style={{ color: 'var(--ct-text-muted)' }}>
+            <span>{gameMeta?.event || 'ChessTrace Game'}</span>
+            <span>·</span>
+            <span className="font-bold" style={{ color: 'var(--ct-gold)' }}>{gameMeta?.result || '*'}</span>
+            <span>·</span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 font-bold">
+              <Clock className="w-3 h-3" />
+              {formatTimeControl(gameMeta?.time_control)}
+            </span>
           </p>
         </div>
 
@@ -520,10 +675,20 @@ export const ReviewPage: React.FC<ReviewPageProps> = ({ gameId, username }) => {
             href={`${API_BASE}/games/${activeGameId || gameId}/export-pgn`}
             download
             className="btn-app text-xs gap-2"
+            title="Download annotated PGN file"
           >
             <Download className="w-3.5 h-3.5" />
             PGN
           </a>
+
+          <button
+            onClick={handleDownloadPdf}
+            className="btn-app text-xs gap-2 cursor-pointer"
+            title="Download Game Review Report as PDF"
+          >
+            <FileText className="w-3.5 h-3.5 text-amber-400" />
+            PDF
+          </button>
         </div>
       </div>
 

@@ -123,6 +123,13 @@ def get_game_timeline(
     try:
         start_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
+        init_clock = None
+        if game.time_control:
+            try:
+                init_clock = int(game.time_control.split("+")[0])
+            except Exception:
+                pass
+
         for idx, move in enumerate(game.moves):
             # Position BEFORE this move was played
             prev_fen = game.moves[idx - 1].fen if idx > 0 else start_fen
@@ -133,6 +140,7 @@ def get_game_timeline(
             time_feats = extract_time_features(
                 move,
                 previous_moves_same_color=prev_same,
+                initial_clock_seconds=init_clock,
             )
 
             # Compute eval for PLAYED move and BEST move
@@ -510,7 +518,14 @@ def export_annotated_pgn(game_id: int, db: Session = Depends(get_db)):
     move_tokens = []
     for m in game.moves:
         token = f"{m.move_number}. " if m.color.value == "white" else ""
-        clk_str = f" {{ [%clk {(m.clock_after // 1000) if m.clock_after else 0}s] }}"
+        if m.clock_after is not None:
+            total_sec = max(0, m.clock_after // 1000)
+            h = total_sec // 3600
+            mins = (total_sec % 3600) // 60
+            secs = total_sec % 60
+            clk_str = f" {{ [%clk {h}:{mins:02d}:{secs:02d}] }}"
+        else:
+            clk_str = ""
         token += f"{m.san}{clk_str}"
         move_tokens.append(token)
 
