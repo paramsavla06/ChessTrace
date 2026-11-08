@@ -32,8 +32,18 @@ def test_win_collapse_predictor_and_shap():
     predictor = WinCollapsePredictor()
     pred = predictor.predict(pos_feats, time_feats)
 
-    assert 0.0 <= pred.win_probability <= 1.0
-    assert 0.0 <= pred.collapse_probability <= 1.0
+    # Core target semantics: Expected match score in [0, 1]
+    assert 0.0 <= pred.expected_score <= 1.0
+    assert 0.0 <= pred.black_expected_score <= 1.0
+    assert abs((pred.expected_score + pred.black_expected_score) - 1.0) < 1e-4
+
+    # Collapse risk index: Heuristic index [0, 1]
+    assert 0.0 <= pred.collapse_risk_index <= 1.0
+    assert 0.0 <= pred.black_collapse_risk_index <= 1.0
+
+    # Backward compatibility aliases
+    assert pred.win_probability == pred.expected_score
+    assert pred.collapse_probability == pred.collapse_risk_index
     assert pred.time_pressure_risk_multiplier == 2.4
 
     explainer = ShapExplainer(predictor)
@@ -120,8 +130,40 @@ def test_elo_model_cache_isolation():
     set_shared_model(original_global)
 
 
+def test_v2_model_resolution_and_fallback():
+    import os
+    from app.ml.collapse_model import resolve_model_weights_path, V2_WEIGHTS_PATH, DEFAULT_WEIGHTS_PATH
+
+    # Default preference is V2
+    if "CHESSTRACE_MODEL_VERSION" in os.environ:
+        del os.environ["CHESSTRACE_MODEL_VERSION"]
+    active = resolve_model_weights_path()
+    assert active == V2_WEIGHTS_PATH
+
+    # Fallback when forced to V1
+    os.environ["CHESSTRACE_MODEL_VERSION"] = "v1"
+    active_v1 = resolve_model_weights_path()
+    assert active_v1 == DEFAULT_WEIGHTS_PATH
+
+    # Clean up env
+    del os.environ["CHESSTRACE_MODEL_VERSION"]
+
+
+def test_all_seven_elo_v2_models_present():
+    from app.core.constants import ELO_BUCKETS
+    from app.ml.elo_model import EloSimulatorManager
+
+    manager = EloSimulatorManager()
+    for bucket in ELO_BUCKETS:
+        assert bucket in manager.elo_models
+        pred = manager.elo_models[bucket]
+        assert pred.model is not None
+
+
 if __name__ == "__main__":
     test_win_collapse_predictor_and_shap()
     test_personal_profile_generator()
     test_elo_model_cache_isolation()
+    test_v2_model_resolution_and_fallback()
+    test_all_seven_elo_v2_models_present()
     print("All ML pipeline tests passed!")

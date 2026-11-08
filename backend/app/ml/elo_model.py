@@ -8,6 +8,7 @@ would play in a given position + clock state vs Stockfish recommendations.
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -49,6 +50,7 @@ _MODELS_LOADED: bool = False
 class EloSimulatorManager:
     """
     Manager for rating-bucket segmented human move prediction.
+    Enforces V2 as the authoritative model suite.
     """
 
     def __init__(self) -> None:
@@ -57,29 +59,69 @@ class EloSimulatorManager:
         self._load_elo_models()
 
     def _load_elo_models(self) -> None:
-        """Load trained XGBoost weights for each ELO bucket globally."""
+        """Load trained XGBoost weights for each ELO bucket. V2 is authoritative by default."""
         global _MODELS_LOADED, _GLOBAL_ELO_MODELS
         if _MODELS_LOADED:
             return
-            
-        if not WEIGHTS_DIR.exists():
-            _MODELS_LOADED = True
-            return
+
+        pref = os.environ.get("CHESSTRACE_MODEL_VERSION", "v2").lower()
+        is_v1_explicit = (pref == "v1")
+        target_dir = WEIGHTS_DIR if is_v1_explicit else WEIGHTS_DIR / "v2"
+        version_label = "V1" if is_v1_explicit else "V2"
+
+        if not target_dir.exists():
+            err_msg = (
+                f"Authoritative {version_label} ELO weights directory missing at {target_dir}. "
+                "Automatic fallback between versions is strictly prohibited."
+            )
+            logger.error(err_msg)
+            raise FileNotFoundError(err_msg)
 
         for bucket in self.elo_buckets:
             safe_bucket_name = bucket.replace("<", "under_").replace("+", "_plus").replace("-", "_to_")
-            weights_file = WEIGHTS_DIR / f"elo_xgboost_{safe_bucket_name}.json"
-            if weights_file.exists():
-                try:
-                    model = xgb.XGBRegressor()
-                    model.load_model(str(weights_file))
-                    predictor = WinCollapsePredictor(model=model)
-                    _GLOBAL_ELO_MODELS[bucket] = predictor
-                    logger.info("Loaded trained ELO model artifact for bucket '%s'", bucket)
-                except Exception as exc:
-                    logger.warning("Could not load ELO model for %s: %s", bucket, exc)
-                    
+            filename = f"elo_xgboost_{safe_bucket_name}.json"
+            weights_file = target_dir / filename
+
+            if not weights_file.exists():
+                err_msg = (
+                    f"Authoritative {version_label} ELO model artifact missing for bucket '{bucket}' at {weights_file}. "
+                    "Automatic fallback to legacy versions is strictly prohibited."
+                )
+                logger.error(err_msg)
+                raise FileNotFoundError(err_msg)
+
+            try:
+                model = xgb.XGBRegressor()
+                model.load_model(str(weights_file))
+                predictor = WinCollapsePredictor(model=model)
+                _GLOBAL_ELO_MODELS[bucket] = predictor
+                logger.info(
+                    "Loaded authoritative %s ELO model for bucket '%s' from %s",
+                    version_label,
+                    bucket,
+                    weights_file,
+                )
+            except Exception as exc:
+                err_msg = f"Failed to load {version_label} ELO model for bucket '{bucket}' from {weights_file}: {exc}"
+                logger.critical(err_msg)
+                raise RuntimeError(err_msg) from exc
+
         _MODELS_LOADED = True
+
+    def get_model(self, bucket: str) -> WinCollapsePredictor:
+        """
+        Return the WinCollapsePredictor for a specific ELO bucket.
+        If the bucket cannot be matched, falls back to the authoritative General V2 model
+        without substituting V1.
+        """
+        if bucket in self.elo_models:
+            return self.elo_models[bucket]
+        logger.warning(
+            "Requested ELO bucket '%s' not found among %s. Falling back to authoritative General V2 model.",
+            bucket,
+            list(self.elo_models.keys()),
+        )
+        return WinCollapsePredictor()
 
     def predict_for_elo(
         self,

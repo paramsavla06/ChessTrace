@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import math
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -18,8 +19,8 @@ import chess
 import numpy as np
 import pandas as pd
 import xgboost as xgb
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error, mean_absolute_error
+from sklearn.model_selection import train_test_split, GroupShuffleSplit
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 from app.features.position_features import PositionFeatures
 from app.features.time_features import TimeFeatures
@@ -55,22 +56,63 @@ FEATURE_COLUMNS = [
 ]
 
 DEFAULT_WEIGHTS_PATH = Path(__file__).resolve().parent / "weights" / "collapse_xgboost.json"
+V2_WEIGHTS_PATH = Path(__file__).resolve().parent / "weights" / "v2" / "collapse_xgboost.json"
 _GLOBAL_MODEL: xgb.XGBRegressor | None = None
 
 
-def get_shared_model() -> xgb.XGBRegressor | None:
-    """Return a globally cached XGBoost model instance, loading from weights if available."""
+def resolve_model_weights_path() -> Path:
+    """
+    Resolve active model weights path.
+    V2 is the authoritative, permanent model version.
+    V1 fallback is ONLY allowed if CHESSTRACE_MODEL_VERSION is explicitly set to 'v1'.
+    Automatic/silent fallback to V1 when V2 is missing or corrupt is strictly prohibited.
+    """
+    pref = os.environ.get("CHESSTRACE_MODEL_VERSION", "v2").lower()
+    if pref == "v1":
+        if not DEFAULT_WEIGHTS_PATH.exists():
+            err_msg = f"Explicitly requested V1 compatibility model artifact not found at: {DEFAULT_WEIGHTS_PATH}"
+            logger.error(err_msg)
+            raise FileNotFoundError(err_msg)
+        logger.warning(
+            "Using explicitly requested legacy V1 model artifact: %s (Compatibility mode)",
+            DEFAULT_WEIGHTS_PATH,
+        )
+        return DEFAULT_WEIGHTS_PATH
+
+    # Authoritative V2 resolution
+    if not V2_WEIGHTS_PATH.exists():
+        err_msg = (
+            f"Authoritative ChessTrace V2 model artifact is missing at: {V2_WEIGHTS_PATH}. "
+            "Automatic fallback to legacy V1 is strictly prohibited. "
+            "Ensure existing V2 trained artifacts are present under weights/v2/."
+        )
+        logger.error(err_msg)
+        raise FileNotFoundError(err_msg)
+
+    logger.info("Using authoritative ChessTrace V2 model artifact: %s", V2_WEIGHTS_PATH)
+    return V2_WEIGHTS_PATH
+
+
+def get_shared_model() -> xgb.XGBRegressor:
+    """Return a globally cached XGBoost model instance, loading from weights."""
     global _GLOBAL_MODEL
     if _GLOBAL_MODEL is not None:
         return _GLOBAL_MODEL
-    if DEFAULT_WEIGHTS_PATH.exists():
-        try:
-            loaded = xgb.XGBRegressor()
-            loaded.load_model(str(DEFAULT_WEIGHTS_PATH))
-            _GLOBAL_MODEL = loaded
-            logger.info("Loaded shared XGBoost model from %s", DEFAULT_WEIGHTS_PATH)
-        except Exception as exc:
-            logger.warning("Could not load default XGBoost model from %s: %s", DEFAULT_WEIGHTS_PATH, exc)
+    weights_path = resolve_model_weights_path()
+    try:
+        loaded = xgb.XGBRegressor()
+        loaded.load_model(str(weights_path))
+        _GLOBAL_MODEL = loaded
+        active_version = "V1" if "v2" not in str(weights_path) else "V2"
+        logger.info(
+            "Loaded shared XGBoost model [Version=%s] from %s",
+            active_version,
+            weights_path,
+        )
+    except Exception as exc:
+        err_msg = f"Failed to load authoritative model artifact from {weights_path}: {exc}"
+        logger.critical(err_msg)
+        raise RuntimeError(err_msg) from exc
     return _GLOBAL_MODEL
 
 
@@ -80,12 +122,43 @@ def set_shared_model(model: xgb.XGBRegressor | None) -> None:
     _GLOBAL_MODEL = model
 
 
+def get_model_diagnostics() -> dict[str, Any]:
+    """Return runtime diagnostic metadata for model loading and active weights."""
+    weights_path = resolve_model_weights_path()
+    is_v2 = "v2" in str(weights_path)
+    return {
+        "active_model_version": "v2" if is_v2 else "v1",
+        "authoritative_v2": is_v2,
+        "artifact_path": str(weights_path),
+        "artifact_exists": weights_path.exists(),
+        "model_loaded": _GLOBAL_MODEL is not None,
+    }
+
+
 @dataclass(slots=True, frozen=True)
 class PredictionResult:
+    """
+    Prediction result carrying both statistically accurate expected-score semantics
+    and backward-compatible win_probability / collapse_probability aliases.
+    
+    Target Semantics:
+    - expected_score: Expected match points from White's perspective: E[Y] = P(White Win) + 0.5 * P(Draw).
+    - black_expected_score: Expected match points from Black's perspective: 1.0 - expected_score.
+    - collapse_risk_index: Analytical vulnerability index [0.05, 0.95] for White based on
+      game tension, score deficit, and clock stress multiplier.
+    - black_collapse_risk_index: Analytical vulnerability index [0.05, 0.95] for Black.
+    - win_probability: Backward-compatible alias for expected_score.
+    - collapse_probability: Backward-compatible alias for collapse_risk_index.
+    - black_collapse_probability: Backward-compatible alias for black_collapse_risk_index.
+    """
     win_probability: float
     collapse_probability: float
     time_pressure_risk_multiplier: float
     black_collapse_probability: float = 0.0
+    expected_score: float = 0.0
+    black_expected_score: float = 0.0
+    collapse_risk_index: float = 0.0
+    black_collapse_risk_index: float = 0.0
 
 
 class WinCollapsePredictor:
@@ -93,8 +166,10 @@ class WinCollapsePredictor:
     Predictor service running XGBoost inference on position + time features.
     
     Target Semantics:
-    - win_probability: Data-driven expected outcome from White's perspective (1.0 = White Win).
-    - collapse_probability: Analytical risk index derived from position volatility and clock pressure.
+    - Target `game_result_score` in training data is 1.0 for White win, 0.5 for draw, 0.0 for Black win.
+    - The model outputs conditional expected score E[Score|X] in [0, 1] from White's perspective.
+    - Collapse risk is an analytical heuristic index (not a calibrated probability), capturing
+      structural vulnerability under acute time pressure and disadvantage.
     """
 
     def __init__(self, model: xgb.XGBRegressor | None = None) -> None:
@@ -228,29 +303,45 @@ class WinCollapsePredictor:
             np.clip((0.4 * tension + 0.6 * black_losing_factor) * time_mult, 0.05, 0.95)
         )
 
+        white_expected_score = win_prob
+        black_expected_score = float(round(1.0 - win_prob, 4))
+
         return PredictionResult(
             win_probability=win_prob,
             collapse_probability=white_collapse,
             time_pressure_risk_multiplier=time_mult,
             black_collapse_probability=black_collapse,
+            expected_score=white_expected_score,
+            black_expected_score=black_expected_score,
+            collapse_risk_index=white_collapse,
+            black_collapse_risk_index=black_collapse,
         )
 
-    def train_on_dataframe(
+    def fit_partitions(
         self,
-        df: pd.DataFrame,
-        test_size: float = 0.2,
+        train_df: pd.DataFrame,
+        val_df: pd.DataFrame,
         random_state: int = 42,
-    ) -> dict[str, float]:
+    ) -> dict[str, Any]:
         """
-        Train XGBoost Regressor model on dataset DataFrame with train/test split.
-        Automatically updates the cached global model singleton.
+        Train XGBoost Regressor directly on pre-partitioned train and val sets.
+        Enforces strict disjointness assertion and zero leakage.
         """
-        X = df[FEATURE_COLUMNS]
-        y = df["game_result_score"].astype(float)
+        if "game_id" in train_df.columns and "game_id" in val_df.columns:
+            train_gids = set(train_df["game_id"])
+            val_gids = set(val_df["game_id"])
+            overlap = train_gids & val_gids
+            if overlap:
+                raise ValueError(f"DATA LEAKAGE DETECTED: {len(overlap)} games in both train and validation partitions!")
+            logger.info(
+                "Training with pre-split partitions: %d train rows (%d games) | %d val rows (%d games) | 0 overlapping",
+                len(train_df), len(train_gids), len(val_df), len(val_gids)
+            )
 
-        X_train, X_val, y_train, y_val = train_test_split(
-            X, y, test_size=test_size, random_state=random_state, shuffle=True
-        )
+        X_train = train_df[FEATURE_COLUMNS]
+        y_train = train_df["game_result_score"].astype(float)
+        X_val = val_df[FEATURE_COLUMNS]
+        y_val = val_df["game_result_score"].astype(float)
 
         model = xgb.XGBRegressor(
             n_estimators=250,
@@ -271,24 +362,111 @@ class WinCollapsePredictor:
         self.model = model
         set_shared_model(model)
 
+        best_iteration = int(getattr(model, "best_iteration", model.n_estimators))
         val_preds = np.clip(model.predict(X_val), 0.0, 1.0)
         train_preds = np.clip(model.predict(X_train), 0.0, 1.0)
 
         train_rmse = float(np.sqrt(mean_squared_error(y_train, train_preds)))
         val_rmse = float(np.sqrt(mean_squared_error(y_val, val_preds)))
         val_mae = float(mean_absolute_error(y_val, val_preds))
+        val_r2 = float(r2_score(y_val, val_preds))
 
         logger.info(
-            "XGBoost trained successfully. Train RMSE: %.4f | Val RMSE: %.4f | Val MAE: %.4f",
-            train_rmse,
-            val_rmse,
-            val_mae,
+            "XGBoost fit complete: Train RMSE: %.4f | Val RMSE: %.4f | Val MAE: %.4f | Val R2: %.4f | Best iter: %d",
+            train_rmse, val_rmse, val_mae, val_r2, best_iteration,
         )
         return {
             "train_rmse": train_rmse,
             "val_rmse": val_rmse,
             "val_mae": val_mae,
+            "val_r2": val_r2,
             "rmse": val_rmse,
+            "best_iteration": best_iteration,
+            "train_samples": len(X_train),
+            "val_samples": len(X_val),
+            "train_games": int(train_df["game_id"].nunique()) if "game_id" in train_df.columns else -1,
+            "val_games": int(val_df["game_id"].nunique()) if "game_id" in val_df.columns else -1,
+        }
+
+    def train_on_dataframe(
+        self,
+        df: pd.DataFrame,
+        test_size: float = 0.2,
+        random_state: int = 42,
+    ) -> dict[str, float]:
+        """
+        Train XGBoost Regressor model on dataset DataFrame with train/test split.
+        Automatically updates the cached global model singleton.
+        """
+        df = df.reset_index(drop=True)
+        X = df[FEATURE_COLUMNS]
+        y = df["game_result_score"].astype(float)
+
+        if "game_id" in df.columns:
+            gss = GroupShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
+            train_idx, val_idx = next(gss.split(X, y, groups=df["game_id"]))
+            X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
+            y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
+            train_game_ids = set(df.iloc[train_idx]["game_id"].unique())
+            val_game_ids = set(df.iloc[val_idx]["game_id"].unique())
+            leakage = train_game_ids & val_game_ids
+            if leakage:
+                logger.error("DATA LEAKAGE DETECTED: %d game IDs in both train and val!", len(leakage))
+            logger.info(
+                "Using GroupShuffleSplit on 'game_id' (%d train samples / %d games, %d val samples / %d games, 0 leaking)",
+                len(X_train), len(train_game_ids), len(X_val), len(val_game_ids),
+            )
+        else:
+            X_train, X_val, y_train, y_val = train_test_split(
+                X, y, test_size=test_size, random_state=random_state, shuffle=True
+            )
+
+        model = xgb.XGBRegressor(
+            n_estimators=250,
+            max_depth=6,
+            learning_rate=0.04,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            early_stopping_rounds=20,
+            eval_metric="rmse",
+            random_state=random_state,
+        )
+        model.fit(
+            X_train,
+            y_train,
+            eval_set=[(X_val, y_val)],
+            verbose=False,
+        )
+        self.model = model
+        set_shared_model(model)
+
+        best_iteration = getattr(model, "best_iteration", model.n_estimators)
+
+        val_preds = np.clip(model.predict(X_val), 0.0, 1.0)
+        train_preds = np.clip(model.predict(X_train), 0.0, 1.0)
+
+        train_rmse = float(np.sqrt(mean_squared_error(y_train, train_preds)))
+        val_rmse = float(np.sqrt(mean_squared_error(y_val, val_preds)))
+        val_mae = float(mean_absolute_error(y_val, val_preds))
+        val_r2 = float(r2_score(y_val, val_preds))
+
+        logger.info(
+            "XGBoost trained successfully. Train RMSE: %.4f | Val RMSE: %.4f | Val MAE: %.4f | Val R2: %.4f | Best iter: %d",
+            train_rmse,
+            val_rmse,
+            val_mae,
+            val_r2,
+            best_iteration,
+        )
+        return {
+            "train_rmse": train_rmse,
+            "val_rmse": val_rmse,
+            "val_mae": val_mae,
+            "val_r2": val_r2,
+            "rmse": val_rmse,
+            "best_iteration": best_iteration,
+            "train_samples": len(X_train),
+            "val_samples": len(X_val),
         }
 
     def save(self, path: Path) -> None:

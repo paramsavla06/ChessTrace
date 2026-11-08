@@ -36,7 +36,12 @@ def test_prediction_endpoint():
     data = response.json()
     assert "win_probability" in data
     assert "collapse_probability" in data
+    assert "expected_score" in data
+    assert "black_expected_score" in data
+    assert "collapse_risk_index" in data
+    assert "black_collapse_risk_index" in data
     assert "narrative_summary" in data
+    assert round(data["expected_score"] + data["black_expected_score"], 2) == 1.0
 
 
 if __name__ == "__main__":

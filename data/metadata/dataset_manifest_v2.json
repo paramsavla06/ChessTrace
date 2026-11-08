@@ -1,0 +1,167 @@
+{
+  "valid": true,
+  "dataset_directory": "C:\\Users\\param\\Downloads\\ChessTrace\\data\\processed\\v2",
+  "total_parquet_chunks": 20,
+  "total_dataset_size_mb": 214.42,
+  "total_move_samples": 13471013,
+  "total_unique_games": 200000,
+  "duplicate_game_ids": 0,
+  "clock_telemetry_percentage": 79.59,
+  "schema_errors": [],
+  "null_counts": {},
+  "infinite_counts": {},
+  "elo_distribution": {
+    "<1000": 129168,
+    "1000-1200": 673072,
+    "1200-1400": 1879319,
+    "1400-1600": 3207430,
+    "1600-1800": 3663898,
+    "1800-2000": 2479273,
+    "2000+": 1438853
+  },
+  "time_control_distribution": {
+    "blitz": 9172874,
+    "bullet": 3681056,
+    "rapid": 493167,
+    "unknown": 110159,
+    "classical": 13757
+  },
+  "outcome_distribution": {
+    "1-0": 6377056,
+    "0-1": 6286192,
+    "1/2-1/2": 807765
+  },
+  "checkpoint_status": {
+    "checkpoint_exists": true,
+    "checkpoint_processed_games": 200000,
+    "checkpoint_plies": 13471013,
+    "last_completed_chunk": 20,
+    "reconciled_games": true,
+    "reconciled_plies": true,
+    "next_game_byte_offset": 424955671,
+    "pgn_path": "C:\\Users\\param\\Downloads\\ChessTrace\\data\\raw\\lichess_db_standard_rated_2017-11.pgn"
+  },
+  "chunk_summaries": [
+    {
+      "chunk_name": "features_chunk_001.parquet",
+      "rows": 671850,
+      "unique_games": 10000,
+      "size_mb": 10.66
+    },
+    {
+      "chunk_name": "features_chunk_002.parquet",
+      "rows": 669963,
+      "unique_games": 10000,
+      "size_mb": 10.59
+    },
+    {
+      "chunk_name": "features_chunk_003.parquet",
+      "rows": 672941,
+      "unique_games": 10000,
+      "size_mb": 10.71
+    },
+    {
+      "chunk_name": "features_chunk_004.parquet",
+      "rows": 674913,
+      "unique_games": 10000,
+      "size_mb": 10.74
+    },
+    {
+      "chunk_name": "features_chunk_005.parquet",
+      "rows": 665181,
+      "unique_games": 10000,
+      "size_mb": 10.58
+    },
+    {
+      "chunk_name": "features_chunk_006.parquet",
+      "rows": 659704,
+      "unique_games": 10000,
+      "size_mb": 10.5
+    },
+    {
+      "chunk_name": "features_chunk_007.parquet",
+      "rows": 670735,
+      "unique_games": 10000,
+      "size_mb": 10.67
+    },
+    {
+      "chunk_name": "features_chunk_008.parquet",
+      "rows": 672648,
+      "unique_games": 10000,
+      "size_mb": 10.71
+    },
+    {
+      "chunk_name": "features_chunk_009.parquet",
+      "rows": 671979,
+      "unique_games": 10000,
+      "size_mb": 10.83
+    },
+    {
+      "chunk_name": "features_chunk_010.parquet",
+      "rows": 665690,
+      "unique_games": 10000,
+      "size_mb": 10.55
+    },
+    {
+      "chunk_name": "features_chunk_011.parquet",
+      "rows": 676986,
+      "unique_games": 10000,
+      "size_mb": 10.78
+    },
+    {
+      "chunk_name": "features_chunk_012.parquet",
+      "rows": 673601,
+      "unique_games": 10000,
+      "size_mb": 10.73
+    },
+    {
+      "chunk_name": "features_chunk_013.parquet",
+      "rows": 677795,
+      "unique_games": 10000,
+      "size_mb": 10.83
+    },
+    {
+      "chunk_name": "features_chunk_014.parquet",
+      "rows": 681722,
+      "unique_games": 10000,
+      "size_mb": 10.87
+    },
+    {
+      "chunk_name": "features_chunk_015.parquet",
+      "rows": 685462,
+      "unique_games": 10000,
+      "size_mb": 10.91
+    },
+    {
+      "chunk_name": "features_chunk_016.parquet",
+      "rows": 681286,
+      "unique_games": 10000,
+      "size_mb": 10.84
+    },
+    {
+      "chunk_name": "features_chunk_017.parquet",
+      "rows": 674846,
+      "unique_games": 10000,
+      "size_mb": 10.74
+    },
+    {
+      "chunk_name": "features_chunk_018.parquet",
+      "rows": 677679,
+      "unique_games": 10000,
+      "size_mb": 10.77
+    },
+    {
+      "chunk_name": "features_chunk_019.parquet",
+      "rows": 673267,
+      "unique_games": 10000,
+      "size_mb": 10.71
+    },
+    {
+      "chunk_name": "features_chunk_020.parquet",
+      "rows": 672765,
+      "unique_games": 10000,
+      "size_mb": 10.71
+    }
+  ],
+  "validated_at": "2026-11-08T20:02:11.589105+00:00"
+}

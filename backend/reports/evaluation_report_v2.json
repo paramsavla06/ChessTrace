@@ -1,0 +1,436 @@
+{
+  "timestamp": "2026-11-08T20:13:58.444586+00:00",
+  "total_test_samples": 2028228,
+  "unique_test_games": 30000,
+  "v2_models": {
+    "general": {
+      "rmse": 0.4744,
+      "mae": 0.454,
+      "r2": 0.0401,
+      "median_absolute_error": 0.4902,
+      "max_error": 1.0,
+      "p95_error": 0.5834,
+      "mean_residual": 0.0,
+      "std_residual": 0.4744
+    },
+    "elo_<1000": {
+      "samples": 18417,
+      "metrics": {
+        "rmse": 0.4608,
+        "mae": 0.4308,
+        "r2": 0.0507,
+        "median_absolute_error": 0.3913,
+        "max_error": 0.9286,
+        "p95_error": 0.6658,
+        "mean_residual": 0.0098,
+        "std_residual": 0.4607
+      }
+    },
+    "elo_1000-1200": {
+      "samples": 100487,
+      "metrics": {
+        "rmse": 0.4729,
+        "mae": 0.4501,
+        "r2": 0.0386,
+        "median_absolute_error": 0.4749,
+        "max_error": 1.0,
+        "p95_error": 0.613,
+        "mean_residual": 0.0004,
+        "std_residual": 0.4729
+      }
+    },
+    "elo_1200-1400": {
+      "samples": 277082,
+      "metrics": {
+        "rmse": 0.4758,
+        "mae": 0.4565,
+        "r2": 0.0423,
+        "median_absolute_error": 0.4869,
+        "max_error": 0.9997,
+        "p95_error": 0.5879,
+        "mean_residual": -0.0017,
+        "std_residual": 0.4758
+      }
+    },
+    "elo_1400-1600": {
+      "samples": 482019,
+      "metrics": {
+        "rmse": 0.4756,
+        "mae": 0.4558,
+        "r2": 0.0406,
+        "median_absolute_error": 0.493,
+        "max_error": 1.0,
+        "p95_error": 0.5813,
+        "mean_residual": -0.0002,
+        "std_residual": 0.4756
+      }
+    },
+    "elo_1600-1800": {
+      "samples": 560632,
+      "metrics": {
+        "rmse": 0.4744,
+        "mae": 0.4535,
+        "r2": 0.0373,
+        "median_absolute_error": 0.491,
+        "max_error": 1.0,
+        "p95_error": 0.5864,
+        "mean_residual": 0.0009,
+        "std_residual": 0.4744
+      }
+    },
+    "elo_1800-2000": {
+      "samples": 375249,
+      "metrics": {
+        "rmse": 0.4708,
+        "mae": 0.4484,
+        "r2": 0.0414,
+        "median_absolute_error": 0.471,
+        "max_error": 1.0,
+        "p95_error": 0.6092,
+        "mean_residual": -0.0012,
+        "std_residual": 0.4708
+      }
+    },
+    "elo_2000+": {
+      "samples": 214342,
+      "metrics": {
+        "rmse": 0.4657,
+        "mae": 0.4405,
+        "r2": 0.0438,
+        "median_absolute_error": 0.4377,
+        "max_error": 1.0,
+        "p95_error": 0.636,
+        "mean_residual": 0.0006,
+        "std_residual": 0.4657
+      }
+    }
+  },
+  "v1_baseline_comparison": {
+    "general": {
+      "rmse": 0.4807,
+      "mae": 0.4634,
+      "r2": 0.0145,
+      "median_absolute_error": 0.4974,
+      "max_error": 1.0,
+      "p95_error": 0.5635,
+      "mean_residual": 0.0069,
+      "std_residual": 0.4807
+    },
+    "delta": {
+      "rmse_improvement": 0.0063,
+      "rmse_reduction_pct": 1.31,
+      "mae_improvement": 0.0094,
+      "mae_reduction_pct": 2.03,
+      "r2_improvement": 0.0256
+    },
+    "elo_<1000": {
+      "rmse": 0.4681,
+      "mae": 0.4341,
+      "r2": 0.0205,
+      "median_absolute_error": 0.383,
+      "max_error": 0.9416,
+      "p95_error": 0.7118,
+      "mean_residual": 0.0269,
+      "std_residual": 0.4673
+    },
+    "elo_1000-1200": {
+      "rmse": 0.4893,
+      "mae": 0.4669,
+      "r2": -0.0289,
+      "median_absolute_error": 0.4892,
+      "max_error": 1.0,
+      "p95_error": 0.6549,
+      "mean_residual": -0.0763,
+      "std_residual": 0.4833
+    },
+    "elo_1200-1400": {
+      "rmse": 0.4847,
+      "mae": 0.4665,
+      "r2": 0.006,
+      "median_absolute_error": 0.4873,
+      "max_error": 1.0,
+      "p95_error": 0.6351,
+      "mean_residual": 0.0058,
+      "std_residual": 0.4847
+    },
+    "elo_1400-1600": {
+      "rmse": 0.4844,
+      "mae": 0.4653,
+      "r2": 0.0047,
+      "median_absolute_error": 0.4873,
+      "max_error": 1.0,
+      "p95_error": 0.6289,
+      "mean_residual": -0.0145,
+      "std_residual": 0.4842
+    },
+    "elo_1600-1800": {
+      "rmse": 0.4961,
+      "mae": 0.4631,
+      "r2": -0.0527,
+      "median_absolute_error": 0.4846,
+      "max_error": 1.0,
+      "p95_error": 0.7498,
+      "mean_residual": -0.0524,
+      "std_residual": 0.4933
+    },
+    "elo_1800-2000": {
+      "rmse": 0.505,
+      "mae": 0.47,
+      "r2": -0.1025,
+      "median_absolute_error": 0.4826,
+      "max_error": 1.0,
+      "p95_error": 0.7465,
+      "mean_residual": 0.1205,
+      "std_residual": 0.4904
+    },
+    "elo_2000+": {
+      "rmse": 0.4775,
+      "mae": 0.4547,
+      "r2": -0.0051,
+      "median_absolute_error": 0.4708,
+      "max_error": 1.0,
+      "p95_error": 0.6475,
+      "mean_residual": 0.0131,
+      "std_residual": 0.4773
+    }
+  },
+  "naive_baseline": {
+    "rmse": 0.4842,
+    "mae": 0.469,
+    "r2": -0.0,
+    "median_absolute_error": 0.5,
+    "max_error": 0.5,
+    "p95_error": 0.5,
+    "mean_residual": 0.0033,
+    "std_residual": 0.4842
+  },
+  "phase_breakdown": {
+    "opening (ply <= 20)": {
+      "samples": 591473,
+      "metrics": {
+        "rmse": 0.4891,
+        "mae": 0.4791,
+        "r2": 0.0049,
+        "median_absolute_error": 0.4972,
+        "max_error": 0.9335,
+        "p95_error": 0.5366,
+        "mean_residual": -0.005,
+        "std_residual": 0.4891
+      }
+    },
+    "middlegame (ply 21-60)": {
+      "samples": 960051,
+      "metrics": {
+        "rmse": 0.4785,
+        "mae": 0.4609,
+        "r2": 0.0401,
+        "median_absolute_error": 0.4887,
+        "max_error": 1.0,
+        "p95_error": 0.586,
+        "mean_residual": -0.0014,
+        "std_residual": 0.4785
+      }
+    },
+    "endgame (ply > 60)": {
+      "samples": 476704,
+      "metrics": {
+        "rmse": 0.4469,
+        "mae": 0.4091,
+        "r2": 0.0879,
+        "median_absolute_error": 0.4591,
+        "max_error": 1.0,
+        "p95_error": 0.6237,
+        "mean_residual": 0.009,
+        "std_residual": 0.4468
+      }
+    }
+  },
+  "elo_breakdown": {
+    "<1000": {
+      "samples": 18417,
+      "metrics": {
+        "rmse": 0.471,
+        "mae": 0.4503,
+        "r2": 0.0084,
+        "median_absolute_error": 0.4899,
+        "max_error": 0.9898,
+        "p95_error": 0.584,
+        "mean_residual": -0.0968,
+        "std_residual": 0.4609
+      }
+    },
+    "1000-1200": {
+      "samples": 100487,
+      "metrics": {
+        "rmse": 0.4747,
+        "mae": 0.4529,
+        "r2": 0.0314,
+        "median_absolute_error": 0.4923,
+        "max_error": 0.9967,
+        "p95_error": 0.5906,
+        "mean_residual": -0.0399,
+        "std_residual": 0.473
+      }
+    },
+    "1200-1400": {
+      "samples": 277082,
+      "metrics": {
+        "rmse": 0.477,
+        "mae": 0.458,
+        "r2": 0.0373,
+        "median_absolute_error": 0.4924,
+        "max_error": 1.0,
+        "p95_error": 0.5822,
+        "mean_residual": -0.0275,
+        "std_residual": 0.4762
+      }
+    },
+    "1400-1600": {
+      "samples": 482019,
+      "metrics": {
+        "rmse": 0.4762,
+        "mae": 0.457,
+        "r2": 0.0379,
+        "median_absolute_error": 0.4919,
+        "max_error": 1.0,
+        "p95_error": 0.5798,
+        "mean_residual": -0.0202,
+        "std_residual": 0.4758
+      }
+    },
+    "1600-1800": {
+      "samples": 560632,
+      "metrics": {
+        "rmse": 0.4747,
+        "mae": 0.4542,
+        "r2": 0.036,
+        "median_absolute_error": 0.4905,
+        "max_error": 1.0,
+        "p95_error": 0.5819,
+        "mean_residual": -0.0003,
+        "std_residual": 0.4747
+      }
+    },
+    "1800-2000": {
+      "samples": 375249,
+      "metrics": {
+        "rmse": 0.4719,
+        "mae": 0.4503,
+        "r2": 0.0371,
+        "median_absolute_error": 0.4885,
+        "max_error": 0.9925,
+        "p95_error": 0.5849,
+        "mean_residual": 0.0257,
+        "std_residual": 0.4712
+      }
+    },
+    "2000+": {
+      "samples": 214342,
+      "metrics": {
+        "rmse": 0.4708,
+        "mae": 0.4494,
+        "r2": 0.0227,
+        "median_absolute_error": 0.485,
+        "max_error": 1.0,
+        "p95_error": 0.5908,
+        "mean_residual": 0.0636,
+        "std_residual": 0.4665
+      }
+    }
+  },
+  "clock_breakdown": {
+    "with_clock": {
+      "samples": 1615507,
+      "metrics": {
+        "rmse": 0.4742,
+        "mae": 0.4534,
+        "r2": 0.0429,
+        "median_absolute_error": 0.4897,
+        "max_error": 1.0,
+        "p95_error": 0.5855,
+        "mean_residual": 0.0003,
+        "std_residual": 0.4742
+      }
+    },
+    "without_clock": {
+      "samples": 412721,
+      "metrics": {
+        "rmse": 0.4755,
+        "mae": 0.4564,
+        "r2": 0.0285,
+        "median_absolute_error": 0.4918,
+        "max_error": 1.0,
+        "p95_error": 0.5744,
+        "mean_residual": -0.0012,
+        "std_residual": 0.4755
+      }
+    }
+  },
+  "time_control_breakdown": {
+    "bullet": {
+      "samples": 552890,
+      "metrics": {
+        "rmse": 0.4776,
+        "mae": 0.4597,
+        "r2": 0.0481,
+        "median_absolute_error": 0.4857,
+        "max_error": 0.9924,
+        "p95_error": 0.6042,
+        "mean_residual": -0.0006,
+        "std_residual": 0.4776
+      }
+    },
+    "blitz": {
+      "samples": 1383036,
+      "metrics": {
+        "rmse": 0.4731,
+        "mae": 0.4518,
+        "r2": 0.0378,
+        "median_absolute_error": 0.491,
+        "max_error": 1.0,
+        "p95_error": 0.5738,
+        "mean_residual": 0.0004,
+        "std_residual": 0.4731
+      }
+    },
+    "rapid": {
+      "samples": 73625,
+      "metrics": {
+        "rmse": 0.4751,
+        "mae": 0.4548,
+        "r2": 0.0261,
+        "median_absolute_error": 0.4961,
+        "max_error": 1.0,
+        "p95_error": 0.5531,
+        "mean_residual": 0.0032,
+        "std_residual": 0.4751
+      }
+    },
+    "unknown": {
+      "samples": 17298,
+      "metrics": {
+        "rmse": 0.4764,
+        "mae": 0.4552,
+        "r2": 0.0217,
+        "median_absolute_error": 0.4884,
+        "max_error": 0.9335,
+        "p95_error": 0.6159,
+        "mean_residual": -0.0253,
+        "std_residual": 0.4758
+      }
+    },
+    "classical": {
+      "samples": 1379,
+      "metrics": {
+        "rmse": 0.441,
+        "mae": 0.3956,
+        "r2": 0.0282,
+        "median_absolute_error": 0.4946,
+        "max_error": 0.8555,
+        "p95_error": 0.5277,
+        "mean_residual": -0.0085,
+        "std_residual": 0.4409
+      }
+    }
+  }
+}

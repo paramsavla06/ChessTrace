@@ -267,11 +267,18 @@ def predict_position(req: PredictRequest) -> dict[str, Any]:
     exp = explainer.explain(pos_feats, time_feats)
 
     return {
+        "expected_score": round(pred.expected_score, 4),
+        "black_expected_score": round(pred.black_expected_score, 4),
+        "collapse_risk_index": round(pred.collapse_risk_index, 4),
+        "black_collapse_risk_index": round(pred.black_collapse_risk_index, 4),
+        # Backward-compatible aliases for existing frontend displays:
         "win_probability": round(pred.win_probability, 4),
         "collapse_probability": round(pred.collapse_probability, 4),
         "black_collapse_probability": round(pred.black_collapse_probability, 4),
         "time_pressure_risk_multiplier": pred.time_pressure_risk_multiplier,
         "has_clock_data": time_feats.has_clock_data,
+        "target_semantics": "Expected match score (1.0 = White win, 0.5 = Draw, 0.0 = Black win)",
+        "collapse_semantics": "Analytical vulnerability index [0.05-0.95] from tension, deficit, and clock stress",
         "narrative_summary": exp.narrative_summary,
         "top_positive_factors": [
             {"feature": f.display_name, "impact": round(f.shap_value, 4)}

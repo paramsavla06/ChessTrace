@@ -76,19 +76,23 @@ class ExplanationResult:
 
 
 _SHARED_TREE_EXPLAINER: shap.TreeExplainer | None = None
+_SHARED_MODEL_REF: int | None = None
 
 
 def get_shared_tree_explainer(model: Any) -> shap.TreeExplainer | None:
     """Return globally cached SHAP TreeExplainer instance to avoid costly re-instantiation per request."""
-    global _SHARED_TREE_EXPLAINER
-    if _SHARED_TREE_EXPLAINER is not None:
+    global _SHARED_TREE_EXPLAINER, _SHARED_MODEL_REF
+    if model is None:
+        return None
+    model_id = id(model)
+    if _SHARED_TREE_EXPLAINER is not None and _SHARED_MODEL_REF == model_id:
         return _SHARED_TREE_EXPLAINER
-    if model is not None:
-        try:
-            _SHARED_TREE_EXPLAINER = shap.TreeExplainer(model)
-            logger.info("Initialized shared SHAP TreeExplainer successfully.")
-        except Exception as exc:
-            logger.warning("Could not initialize SHAP TreeExplainer: %s", exc)
+    try:
+        _SHARED_TREE_EXPLAINER = shap.TreeExplainer(model)
+        _SHARED_MODEL_REF = model_id
+        logger.info("Initialized shared SHAP TreeExplainer successfully.")
+    except Exception as exc:
+        logger.warning("Could not initialize SHAP TreeExplainer: %s", exc)
     return _SHARED_TREE_EXPLAINER
 
 
