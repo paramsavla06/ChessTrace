@@ -52,3 +52,4 @@ python backend/tests/test_full_pipeline.py
 2. **Zero In-flight Retraining**: `test_model_freeze_and_v2_enforcement.py` monitors XGBoost methods to assert that training (`.fit()`, `.train()`) is never called by application or inference logic.
 3. **Artifact Integrity**: V2 model weights in `backend/app/ml/weights/v2/` are verified for immutability; test fixtures do not modify frozen model weights on disk.
 4. **Dual Execution Support**: Every test file can be executed either via standard `pytest` runner or directly as an executable Python script (`python tests/<file>.py`).
+
