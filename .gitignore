@@ -42,6 +42,7 @@ data/raw/
 data/processed/
 data/cache/
 data/checkpoints/
+data/metadata/
 *.parquet
 
 # Keep folder structure
