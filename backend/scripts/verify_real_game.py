@@ -37,15 +37,27 @@ def run_verification():
     print(" ChessTrace V2 End-to-End Real Game Integration Verification ".center(70))
     print("=" * 70)
 
-    db = SessionLocal()
     try:
-        # 1. Fetch Game 1 from PostgreSQL
-        game = db.query(Game).filter(Game.id == 1).first()
-        if not game:
-            game = db.query(Game).first()
+        db = SessionLocal()
+    except Exception as exc:
+        print(f"\n[ERROR] Could not connect to database: {exc}")
+        print("Tip: Check DATABASE_URL in backend/.env or run with SQLite.")
+        return False
+
+    try:
+        # 1. Fetch Game 1 from database
+        try:
+            game = db.query(Game).filter(Game.id == 1).first()
             if not game:
-                print("[ERROR] No games found in database!")
-                return False
+                game = db.query(Game).first()
+                if not game:
+                    print("\n[ERROR] No games found in database!")
+                    print("Tip: Run 'python backend/scripts/seed_database.py' to seed reference games.")
+                    return False
+        except Exception as exc:
+            print(f"\n[ERROR] Failed querying games from database: {exc}")
+            print("Tip: Run 'python backend/scripts/seed_database.py' to initialize schema and seed reference data.")
+            return False
 
         print(f"\n[1] Fetched Game ID {game.id}:")
         print(f"    Event: {game.event}")

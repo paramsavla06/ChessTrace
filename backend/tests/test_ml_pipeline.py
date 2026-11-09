@@ -1,4 +1,16 @@
+"""
+Integration tests for ML pipeline, SHAP explanation, and profile generation.
+"""
+
 from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+# Ensure backend root is on sys.path
+backend_root = Path(__file__).resolve().parents[1]
+if str(backend_root) not in sys.path:
+    sys.path.insert(0, str(backend_root))
 
 import chess
 from app.features.position_features import extract_position_features

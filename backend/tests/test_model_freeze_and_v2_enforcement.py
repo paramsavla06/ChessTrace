@@ -14,8 +14,14 @@ from __future__ import annotations
 
 import hashlib
 import os
+import sys
 from pathlib import Path
 from unittest.mock import patch, MagicMock
+
+# Ensure backend root is on sys.path
+backend_root = Path(__file__).resolve().parents[1]
+if str(backend_root) not in sys.path:
+    sys.path.insert(0, str(backend_root))
 
 import chess
 import pytest
@@ -226,4 +232,10 @@ def test_shap_uses_exact_active_v2_model():
     
     # Restore legitimate explainer
     get_shared_tree_explainer(active_model)
+
+
+if __name__ == "__main__":
+    import pytest
+    sys.exit(pytest.main([__file__]))
+
 

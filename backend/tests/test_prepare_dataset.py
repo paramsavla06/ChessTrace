@@ -8,8 +8,14 @@ from __future__ import annotations
 import io
 import json
 import shutil
+import sys
 import tempfile
 from pathlib import Path
+
+# Ensure backend root is on sys.path
+backend_root = Path(__file__).resolve().parents[1]
+if str(backend_root) not in sys.path:
+    sys.path.insert(0, str(backend_root))
 
 import chess.pgn
 import pandas as pd
@@ -309,3 +315,9 @@ def test_malformed_and_incomplete_handling(temp_pgn_file: Path, tmp_path: Path):
     assert summary["total_games_rejected"] >= 1
     # Valid games must still be processed into the output
     assert summary["total_games_processed"] >= 3
+
+
+if __name__ == "__main__":
+    import pytest
+    sys.exit(pytest.main([__file__]))
+

@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from time import perf_counter
 
-from app.database.session import SessionLocal
+# Ensure backend root is on sys.path for direct execution
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from app.database.base import Base
 from app.services.import_services import ImportService
 
 
@@ -24,27 +31,32 @@ def row(key: str, value) -> None:
     print(f"{key:<12}: {value}")
 
 
-def main() -> None:
-    session = SessionLocal()
+def test_parser_pipeline_import() -> None:
+    """Hermetic unit test verifying PGN parsing and database import."""
+    engine = create_engine("sqlite:///:memory:", echo=False)
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    session = Session()
 
     start = perf_counter()
 
     try:
         heading("ChessTrace PGN Import Test")
 
-        pgn_file = Path("sample_multi.pgn")
+        backend_dir = Path(__file__).resolve().parent.parent
+        pgn_file = backend_dir / "sample_multi.pgn"
+        if not pgn_file.exists():
+            pgn_file = backend_dir / "sample_clock.pgn"
 
         row("File", pgn_file.name)
         print()
 
         service = ImportService(session)
-
         summary = service.import_file(pgn_file)
 
         elapsed = perf_counter() - start
 
         heading("SUMMARY")
-
         row("Processed", summary.processed)
         row("Imported", summary.imported)
         row("Skipped", summary.skipped)
@@ -52,35 +64,20 @@ def main() -> None:
         row("Time", f"{elapsed:.2f} s")
 
         if elapsed > 0:
-            row(
-                "Speed",
-                f"{summary.processed / elapsed:.2f} games/sec",
-            )
+            row("Speed", f"{summary.processed / elapsed:.2f} games/sec")
 
         print()
 
-        if summary.failed > 0:
-            print("⚠ Import completed with errors.")
-        elif summary.imported > 0:
-            print("✓ Import completed successfully.")
-        elif summary.skipped > 0:
-            print("✓ Duplicate game(s) detected. Nothing new imported.")
-        else:
-            print("✓ No games found in the PGN file.")
-
-    except Exception as e:
-        session.rollback()
-
-        print("\nERROR")
-        divider("-")
-        print(type(e).__name__)
-        print(e)
-        divider("-")
-        raise
+        assert summary.processed > 0, "Expected at least 1 game processed"
+        assert summary.imported > 0, "Expected at least 1 game imported"
+        assert summary.failed == 0, f"Expected 0 failed games, got {summary.failed}"
 
     finally:
         session.close()
 
 
+# Backward-compatible alias
+main = test_parser_pipeline_import
+
 if __name__ == "__main__":
-    main()
+    test_parser_pipeline_import()

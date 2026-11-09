@@ -4,6 +4,14 @@ Unit tests for leakage-free three-way game partitioning engine.
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+# Ensure backend root is on sys.path
+backend_root = Path(__file__).resolve().parents[1]
+if str(backend_root) not in sys.path:
+    sys.path.insert(0, str(backend_root))
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -113,5 +121,11 @@ def test_three_way_split_elo_subsets_preserve_disjointness(synthetic_chess_datas
         assert t_ids.isdisjoint(v_ids), f"Leakage in ELO bucket {b} between train and val!"
         assert t_ids.isdisjoint(te_ids), f"Leakage in ELO bucket {b} between train and test!"
         assert v_ids.isdisjoint(te_ids), f"Leakage in ELO bucket {b} between val and test!"
+
+
+if __name__ == "__main__":
+    import pytest
+    sys.exit(pytest.main([__file__]))
+
 
 

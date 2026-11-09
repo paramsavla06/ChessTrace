@@ -7,7 +7,11 @@ and time feature extraction end-to-end using SQLite in-memory DB.
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
+
+# Ensure backend root is on sys.path for direct execution
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import chess
 from sqlalchemy import create_engine
@@ -20,7 +24,7 @@ from app.models.game import Game
 from app.services.import_services import ImportService
 
 
-def run_pipeline_test():
+def test_full_pipeline():
     print("=" * 60)
     print("      ChessTrace Full Pipeline Integration Test      ".center(60))
     print("=" * 60)
@@ -47,15 +51,20 @@ def run_pipeline_test():
         print(f"   [OK] Skipped   : {summary.skipped}")
         print(f"   [OK] Failed    : {summary.failed}")
 
+        assert summary.processed > 0, "Expected at least 1 processed game"
+        assert summary.imported > 0, "Expected at least 1 imported game"
+
         # 3. Query imported games & test Feature Extractors
         games = session.query(Game).all()
         print(f"\n[2/3] Querying imported games ({len(games)} found)...")
+        assert len(games) > 0, "Expected at least 1 game in database"
 
         for game in games:
             print(f"\n   --------------------------------------------------")
             print(f"   Game ID {game.id}: {game.white_player.display_name} vs {game.black_player.display_name}")
             print(f"   Result: {game.result.value} | Event: {game.event} | Total Moves: {len(game.moves)}")
             print(f"   --------------------------------------------------")
+            assert len(game.moves) > 0, f"Expected moves for game {game.id}"
 
             previous_moves_white = []
             previous_moves_black = []
@@ -63,6 +72,7 @@ def run_pipeline_test():
             for move in game.moves[:4]:  # Inspect first 4 moves
                 board = chess.Board(move.fen)
                 pos_feats = extract_position_features(board)
+                assert pos_feats is not None
                 
                 prev_same_color = (
                     previous_moves_white if move.color.value == "white" else previous_moves_black
@@ -72,6 +82,7 @@ def run_pipeline_test():
                     previous_moves_same_color=prev_same_color,
                     initial_clock_seconds=180,
                 )
+                assert time_feats is not None
 
                 print(
                     f"   Move {move.move_number:>2} ({move.color.value[:1].upper()}): {move.san:<6} | "
@@ -92,5 +103,8 @@ def run_pipeline_test():
         session.close()
 
 
+# Backward-compatible alias
+run_pipeline_test = test_full_pipeline
+
 if __name__ == "__main__":
-    run_pipeline_test()
+    test_full_pipeline()
