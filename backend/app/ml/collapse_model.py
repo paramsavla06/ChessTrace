@@ -198,13 +198,9 @@ class WinCollapsePredictor:
             running_avg = 0.0
             dev = 0.0
         else:
-            think_sec = float(time_feats.think_time)
-            if think_sec > 18000.0:
-                think_sec /= 1000.0
+            think_sec = max(0.0, float(time_feats.think_time))
 
-            rem_sec = float(time_feats.time_remaining)
-            if rem_sec > 86400.0:
-                rem_sec /= 1000.0
+            rem_sec = max(0.0, float(time_feats.time_remaining))
 
             is_120s = int(time_feats.is_time_pressure_120s)
             is_60s = int(time_feats.is_time_pressure_60s)

@@ -171,7 +171,7 @@ async def stream_live_game(websocket: WebSocket, game_id: str) -> None:
                             fen=board.fen(),
                             clock_before=previous_clock,
                             clock_after=previous_clock,
-                            time_spent=1,
+                            time_spent=1000,
                         )
                         pos_feats = extract_position_features(board)
                         prev_same = prev_white_moves if active_color == MoveColor.WHITE else prev_black_moves

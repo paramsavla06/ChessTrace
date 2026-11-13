@@ -54,15 +54,12 @@ def classify_time_control(initial_clock_seconds: int | None) -> str:
 
 def _normalize_seconds(val: int | float | None) -> float | None:
     """
-    Safely convert clock timestamps to float seconds.
-    Detects if millisecond timestamps (e.g. 85000ms) or second timestamps (e.g. 85s) were supplied.
+    Convert millisecond timestamps to non-negative float seconds.
+    Safely returns None if input is None, and clamps negative values to 0.0.
     """
     if val is None:
         return None
-    f_val = float(val)
-    if f_val >= 1000.0:
-        return f_val / 1000.0
-    return f_val
+    return max(0.0, float(val) / 1000.0)
 
 
 def extract_time_features(

@@ -35,8 +35,8 @@ def test_win_collapse_predictor_and_shap():
         san="Bb5",
         uci="f1b5",
         fen="r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3",
-        time_spent=3,
-        clock_after=25,  # 25 seconds remaining (time pressure < 30s)
+        time_spent=3000,
+        clock_after=25000,  # 25 seconds remaining in ms (time pressure < 30s)
     )
 
     time_feats = extract_time_features(move, previous_moves_same_color=[])
